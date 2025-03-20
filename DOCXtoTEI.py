@@ -1,3 +1,4 @@
+#pyinstaller --onefile --windowed --add-data "CETEIcean.js;." --add-data "estilos.css;." DOCXtoTEI.py
 import json
 import sys
 import os
@@ -457,6 +458,10 @@ def convert_docx_to_tei(main_docx, comentario_docx=None, aparato_docx=None, outp
 # 5) GUI MIGLIORATA
 ####################################
 
+def show_info(message):
+    """Muestra una ventana emergente con información"""
+    messagebox.showinfo("Información", message)
+
 def main_gui():
     root = tk.Tk()
     root.title("DOCXtoTEI")
@@ -479,6 +484,11 @@ def main_gui():
     # Sección 1: Selección de archivos DOCX
     frame_seleccion = ttk.Frame(main_frame, padding="10", style="TFrame", borderwidth=2, relief="ridge")
     frame_seleccion.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
+
+    # Botón info para selección de archivos
+    btn_info_seleccion = ttk.Button(frame_seleccion, text="Ayuda", command=lambda: show_info("Seleccione los archivos DOCX que desea convertir a TEI."))
+    btn_info_seleccion.grid(row=0, column=2, sticky="e", padx=5)
+
 
     # Título de la sección
     ttk.Label(frame_seleccion, text="Selección de archivos", font=("Open Sans", 12, "bold")).grid(row=0, column=0, columnspan=3, pady=5, sticky="w")
