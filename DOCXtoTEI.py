@@ -460,8 +460,8 @@ def convert_docx_to_tei(main_docx, comentario_docx=None, aparato_docx=None, outp
 def main_gui():
     root = tk.Tk()
     root.title("DOCXtoTEI")
-    root.geometry("600x200")
-    root.configure(bg="#ACBDE9")  # Sfondo finestra
+    root.geometry("600x500")
+    root.configure(bg="#ACBDE9")
 
     # Stile ttk
     style = ttk.Style(root)
@@ -476,12 +476,19 @@ def main_gui():
     main_frame = ttk.Frame(root, padding="10 10 10 10", style="TFrame")
     main_frame.pack(fill="both", expand=True)
 
-    # ---------- RIGA 0: DOCX Principale
-    label_main = ttk.Label(main_frame, text="DOCX Principal:")
-    label_main.grid(row=0, column=0, sticky="e", pady=5)
+    # Sección 1: Selección de archivos DOCX
+    frame_seleccion = ttk.Frame(main_frame, padding="10", style="TFrame", borderwidth=2, relief="ridge")
+    frame_seleccion.grid(row=0, column=0, sticky="ew", padx=5, pady=5)
 
-    entry_main = ttk.Entry(main_frame, width=60)
-    entry_main.grid(row=0, column=1, padx=5, sticky="ew")
+    # Título de la sección
+    ttk.Label(frame_seleccion, text="Selección de archivos", font=("Open Sans", 12, "bold")).grid(row=0, column=0, columnspan=3, pady=5, sticky="w")
+
+    # ---------- RIGA 0: DOCX Principal
+    label_main = ttk.Label(frame_seleccion, text="DOCX Principal:")
+    label_main.grid(row=1, column=0, sticky="e", pady=5)
+
+    entry_main = ttk.Entry(frame_seleccion, width=60)
+    entry_main.grid(row=1, column=1, padx=5, sticky="ew")
 
     def seleziona_main():
         path = filedialog.askopenfilename(
@@ -492,92 +499,60 @@ def main_gui():
             entry_main.delete(0, tk.END)
             entry_main.insert(0, path)
 
-    btn_main = ttk.Button(main_frame, text="Explora...", command=seleziona_main)
-    btn_main.grid(row=0, column=2, padx=5)
+    btn_main = ttk.Button(frame_seleccion, text="Explora...", command=seleziona_main)
+    btn_main.grid(row=1, column=2, padx=5)
 
     # ---------- RIGA 1: DOCX Comentario
-    label_com = ttk.Label(main_frame, text="DOCX Comentario:")
-    label_com.grid(row=1, column=0, sticky="e", pady=5)
+    label_com = ttk.Label(frame_seleccion, text="DOCX Comentario:")
+    label_com.grid(row=2, column=0, sticky="e", pady=5)
 
-    entry_com = ttk.Entry(main_frame, width=60)
-    entry_com.grid(row=1, column=1, padx=5, sticky="ew")
+    entry_com = ttk.Entry(frame_seleccion, width=60)
+    entry_com.grid(row=2, column=1, padx=5, sticky="ew")
 
     def seleziona_com():
         path = filedialog.askopenfilename(
-            title="Seleziona DOCX Comentario",
-            filetypes=[("Archivo DOCX", "*.docx"), ("Tudos los archivos", "*.*")]
+            title="Seleccione DOCX Comentario",
+            filetypes=[("Archivo DOCX", "*.docx"), ("Todos los archivos", "*.*")]
         )
         if path:
             entry_com.delete(0, tk.END)
             entry_com.insert(0, path)
 
-    btn_com = ttk.Button(main_frame, text="Explora...", command=seleziona_com)
-    btn_com.grid(row=1, column=2, padx=5)
+    btn_com = ttk.Button(frame_seleccion, text="Explora...", command=seleziona_com)
+    btn_com.grid(row=2, column=2, padx=5)
 
     # ---------- RIGA 2: DOCX Aparato
-    label_apa = ttk.Label(main_frame, text="DOCX Aparato:")
-    label_apa.grid(row=2, column=0, sticky="e", pady=5)
+    label_apa = ttk.Label(frame_seleccion, text="DOCX Aparato:")
+    label_apa.grid(row=3, column=0, sticky="e", pady=5)
 
-    entry_apa = ttk.Entry(main_frame, width=60)
-    entry_apa.grid(row=2, column=1, padx=5, sticky="ew")
+    entry_apa = ttk.Entry(frame_seleccion, width=60)
+    entry_apa.grid(row=3, column=1, padx=5, sticky="ew")
 
     def seleziona_apa():
         path = filedialog.askopenfilename(
-            title="Seleziona DOCX Aparato",
+            title="Seleccione DOCX Aparato",
             filetypes=[("Archivo DOCX", "*.docx"), ("Todos los archivos", "*.*")]
         )
         if path:
             entry_apa.delete(0, tk.END)
             entry_apa.insert(0, path)
 
-    btn_apa = ttk.Button(main_frame, text="Explora...", command=seleziona_apa)
-    btn_apa.grid(row=2, column=2, padx=5)
+    btn_apa = ttk.Button(frame_seleccion, text="Explora...", command=seleziona_apa)
+    btn_apa.grid(row=3, column=2, padx=5)
 
-    # ---------- RIGA 3: Output
-    label_out = ttk.Label(main_frame, text="Output XML:")
-    label_out.grid(row=3, column=0, sticky="e", pady=5)
+    # Hace que la columna central (entries) sea expandible
+    frame_seleccion.columnconfigure(1, weight=1)
 
-    entry_out = ttk.Entry(main_frame, width=60)
-    entry_out.grid(row=3, column=1, padx=5, sticky="ew")
 
-    def seleziona_out():
-        path = filedialog.asksaveasfilename(
-            defaultextension=".xml",
-            filetypes=[("Archivo XML", "*.xml"), ("Todos los archivos", "*.*")]
-        )
-        if path:
-            entry_out.delete(0, tk.END)
-            entry_out.insert(0, path)
+    # Sección 2: Validación y vista previa
+    frame_output = ttk.Frame(main_frame, padding="10", style="TFrame", borderwidth=2, relief="ridge")
+    frame_output.grid(row=1, column=0, sticky="ew", padx=5, pady=5)
 
-    btn_out = ttk.Button(main_frame, text="Guardar como...", command=seleziona_out)
-    btn_out.grid(row=3, column=2, padx=5)
+    # Título de la sección
+    ttk.Label(frame_output, text="Validación y vista previa", font=("Open Sans", 12, "bold")).grid(row=0, column=0, columnspan=3, pady=5, sticky="w")
 
-    # ---------- Bottone Converti
-    def avvia_conversione():
-        main_file = entry_main.get()
-        com_file = entry_com.get()
-        apa_file = entry_apa.get()
-        out_file = entry_out.get()
 
-        if not main_file:
-            messagebox.showerror("Error", "Seleccione al menos el DOCX Principal!")
-            return
-
-        try:
-            convert_docx_to_tei(
-                main_docx=main_file,
-                comentario_docx=com_file if com_file else None,
-                aparato_docx=apa_file if apa_file else None,
-                output_file=out_file if out_file else None,
-                save=True
-            )
-            messagebox.showinfo(
-                "Operación completada",
-                f"Archivo XML guardado con éxito:\n{out_file if out_file else 'default name'}"
-            )
-        except Exception as e:
-            messagebox.showerror("Error", f"Se ha producido un error:\n{e}")
-
+    # VISTA PREVIA XML
     def vista_previa():
         main_file = entry_main.get()
         com_file = entry_com.get()
@@ -610,7 +585,8 @@ def main_gui():
 
         except Exception as e:
             messagebox.showerror("Error", f"Se ha producido un error:\n{e}")
-
+    
+    # VISTA PREVIA EDICIÓN DIGITAL
     def vista_previa_edicion_digital():
         main_file = entry_main.get()
         com_file = entry_com.get()
@@ -632,32 +608,32 @@ def main_gui():
 
             # Construir la plantilla HTML con el contenido inline, usando backticks para evitar problemas de escape
             html_template = f"""<!DOCTYPE html>
-    <html lang="es">
-    <head>
-        <meta charset="UTF-8">
-        <title>Edición Digital</title>
-        <style>
-        {ESTILOS_CSS}
-        </style>
-        <script>
-        {CETEI_JS}
-        </script>
-    </head>
-    <body>
-        <div id="tei"></div>
-        <script>
-            document.addEventListener("DOMContentLoaded", function() {{
-                var teiContent = `{tei_content}`;
-                var ceteiInstance = new CETEI();
-                var htmlNode = ceteiInstance.makeHTML5(teiContent);
-                var container = document.getElementById("tei");
-                container.innerHTML = "";
-                container.appendChild(htmlNode);
-            }});
-        </script>
-    </body>
-    </html>
-    """
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>Edición Digital</title>
+    <style>
+    {ESTILOS_CSS}
+    </style>
+    <script>
+    {CETEI_JS}
+    </script>
+</head>
+<body>
+    <div id="tei"></div>
+    <script>
+        document.addEventListener("DOMContentLoaded", function() {{
+            var teiContent = `{tei_content}`;
+            var ceteiInstance = new CETEI();
+            var htmlNode = ceteiInstance.makeHTML5(teiContent);
+            var container = document.getElementById("tei");
+            container.innerHTML = "";
+            container.appendChild(htmlNode);
+        }});
+    </script>
+</body>
+</html>
+"""
             with tempfile.NamedTemporaryFile("w", delete=False, suffix=".html", encoding="utf-8") as tmp_file:
                 tmp_file.write(html_template)
                 tmp_filename = tmp_file.name
@@ -667,17 +643,85 @@ def main_gui():
         except Exception as e:
             messagebox.showerror("Error", f"Se ha producido un error:\n{e}")
 
+    # Botón para validar el marcado
+    btn_validar = ttk.Button(frame_output, text="Validar marcado", command=lambda: messagebox.showinfo("Validación", "Función de validación aún no implementada"))
+    btn_validar.grid(row=1, column=0, rowspan=2, padx=5, pady=10, sticky="nsew")  # Ocupa dos filas para alinearse con los otros botones
 
-    btn_converti = ttk.Button(main_frame, text="Convertir a TEI y guardar", command=avvia_conversione)
-    btn_vista_previa = ttk.Button(main_frame, text="Vista previa (XML)", command=vista_previa)
-    btn_vista_previa_edicion = ttk.Button(main_frame, text="Vista previa (edición digital)", command=vista_previa_edicion_digital)
+    # Botón de vista previa XML
+    btn_vista_previa = ttk.Button(frame_output, text="Vista previa (XML)", command=vista_previa)
+    btn_vista_previa.grid(row=1, column=1, padx=5, pady=5, sticky="ew")
 
-    btn_converti.grid(row=4, column=0, padx=5, pady=20)
-    btn_vista_previa.grid(row=4, column=1, padx=5, pady=20)
-    btn_vista_previa_edicion.grid(row=4, column=2, padx=5, pady=20)
+    # Botón de vista previa Edición Digital
+    btn_vista_previa_edicion = ttk.Button(frame_output, text="Vista previa (edición digital)", command=vista_previa_edicion_digital)
+    btn_vista_previa_edicion.grid(row=2, column=1, padx=5, pady=5, sticky="ew")
 
-    # Rende la colonna 1 espandibile
-    main_frame.columnconfigure(1, weight=1)
+    # Ajustar las columnas y filas para que los botones se distribuyan correctamente
+    frame_output.columnconfigure(0, weight=1) 
+    frame_output.columnconfigure(1, weight=2) 
+    frame_output.rowconfigure(1, weight=1) 
+    frame_output.rowconfigure(2, weight=1)
+
+    # Sección 3: Configuración del output y guardar
+    frame_conversion = ttk.Frame(main_frame, padding="10", style="TFrame", borderwidth=2, relief="ridge")
+    frame_conversion.grid(row=2, column=0, sticky="ew", padx=5, pady=5)
+
+    # Título de la sección
+    ttk.Label(frame_conversion, text="Configuración del output", font=("Open Sans", 12, "bold")).grid(row=0, column=0, columnspan=3, pady=5, sticky="w")
+
+    # Campo para seleccionar el archivo de salida
+    label_out = ttk.Label(frame_conversion, text="Output XML:")
+    label_out.grid(row=1, column=0, sticky="e", pady=5)
+
+    entry_out = ttk.Entry(frame_conversion, width=60)
+    entry_out.grid(row=1, column=1, padx=5, sticky="ew")
+
+    def seleziona_out():
+        path = filedialog.asksaveasfilename(
+            defaultextension=".xml",
+            filetypes=[("Archivo XML", "*.xml"), ("Todos los archivos", "*.*")]
+        )
+        if path:
+            entry_out.delete(0, tk.END)
+            entry_out.insert(0, path)
+
+    btn_out = ttk.Button(frame_conversion, text="Guardar como...", command=seleziona_out)
+    btn_out.grid(row=1, column=2, padx=5)
+
+    # Botón Convertir
+    def avvia_conversione():
+        main_file = entry_main.get()
+        com_file = entry_com.get()
+        apa_file = entry_apa.get()
+        out_file = entry_out.get()
+
+        if not main_file:
+            messagebox.showerror("Error", "Seleccione al menos el DOCX Principal!")
+            return
+
+        try:
+            convert_docx_to_tei(
+                main_docx=main_file,
+                comentario_docx=com_file if com_file else None,
+                aparato_docx=apa_file if apa_file else None,
+                output_file=out_file if out_file else None,
+                save=True
+            )
+            messagebox.showinfo(
+                "Operación completada",
+                f"Archivo XML guardado con éxito:\n{out_file if out_file else 'default name'}"
+            )
+        except Exception as e:
+            messagebox.showerror("Error", f"Se ha producido un error:\n{e}")
+
+    btn_converti = ttk.Button(frame_conversion, text="Convertir a TEI y guardar", command=avvia_conversione)
+    btn_converti.grid(row=2, column=0, columnspan=3, padx=5, pady=20, sticky="ew")
+
+    # Ajuste para expandir el campo de texto correctamente
+    frame_conversion.columnconfigure(1, weight=1)
+
+
+    # Hace que la columna 0 se expanda
+    main_frame.columnconfigure(0, weight=1)
 
     root.mainloop()
 
