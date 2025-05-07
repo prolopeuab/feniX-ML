@@ -1,14 +1,15 @@
 import os
 import re
 import unicodedata
+import tkinter as tk
+import tkinter.ttk as ttk
+from tkinter import filedialog, messagebox, font
+from ttkthemes import ThemedTk
+from docx import Document
+from difflib import get_close_matches
 import zipfile
 from lxml import etree
-from docx import Document
 from docx.oxml.ns import qn
-from difflib import get_close_matches
-from typing import Optional
-
-### PROCESAMIENTO DE DOCX A TEI ###
 
 def get_intro_footnotes(docx_path):
     """
@@ -53,17 +54,17 @@ def chiudi_blocchi_correnti(tei, stato):
         tei.append('        </sp>')
         stato["in_sp"] = False
     if stato.get("in_cast_list"):
-        tei.append('          </castList>')
-        tei.append('        </div>')
+        tei.append('        </castList>')
+        tei.append('      </div>')
         stato["in_cast_list"] = False
     if stato.get("in_dedicatoria"):
-        tei.append('        </div>')
+        tei.append('      </div>')
         stato["in_dedicatoria"] = False
     if stato.get("in_act"):
-        tei.append('        </div>')
+        tei.append('      </div>')
         stato["in_act"] = False
-
-
+comentario_notes = {}
+aparato_notes = {}
 
 #############################
 # 1) FUNZIONI DI SUPPORTO
@@ -126,8 +127,6 @@ def find_who_id(speaker, personaggi):
 
     return ""
 
-### METADATOS Y FRONT-MATTER ###
-
 def parse_metadata_docx(path):
     """Estrae metadati da un file .docx strutturato in tabelle e costruisce un teiHeader TEI/XML completo."""
     doc = Document(path)
@@ -175,7 +174,7 @@ def parse_metadata_docx(path):
     # Costruzione teiHeader
     tei = ['<teiHeader>', '  <fileDesc>', '    <titleStmt>']
 
-    tei.append(f'      <title>{main_meta.get("Título comedia", "")}</title>')
+    tei.append(f'      <title>{main_meta.get("Titulo comedia", "")}</title>')
     tei.append(f'      <author><name>{main_meta.get("Autor", "")}</name></author>')
 
     if 'Editor' in main_meta:
@@ -347,32 +346,34 @@ def process_table_to_tei(table):
 # 2) LETTURA NOTE (COMENTARIO/APARATO)
 #############################
 
-def extract_notes_with_italics(docx_path: str) -> dict:
-    """
-    Extrae notas de comentario o aparato de un DOCX.
-    Retorna un dict donde las claves pueden ser int (versos) o str (palabras)
-    y los valores el texto de la nota.
-    """
-    notes: dict = {}
+def extract_notes_with_italics(docx_path):
+    notes = {}
     if not docx_path or not os.path.exists(docx_path):
+        print(f"❌ Il file note '{docx_path}' non esiste o non è stato selezionato.")
         return notes
-
+    print(f"📂 Estrazione note da: {docx_path}")
     doc = Document(docx_path)
+        
     for para in doc.paragraphs:
         text = extract_text_with_italics(para).strip()
 
-        # Notas tipo verso: "1: contenido"
+        print(f"   ➜ Paragrafo note: '{text[:50]}'")
+
         match_verse = re.match(r'^(\d+):\s*(.*)', text)
-        # Notas tipo @palabra@: "@palabra@: contenido"
-        match_single = re.match(r'^@([^@]+?):\s*(.*)', text)
+        match_single_word = re.match(r'^@([^@]+?):\s*(.*)', text)
 
         if match_verse:
-            verse_num = int(match_verse.group(1))
-            notes[verse_num] = match_verse.group(2).strip()
-        elif match_single:
-            key = match_single.group(1).strip()
-            if key not in notes:
-                notes[key] = match_single.group(2).strip()
+            verse_number = int(match_verse.group(1))
+            note_content = match_verse.group(2).strip()
+            notes[verse_number] = note_content
+            print(f"✔️ Nota VERSO {verse_number}: {note_content}")
+
+        elif match_single_word:
+            word = match_single_word.group(1).strip()
+            note_content = match_single_word.group(2).strip()
+            if word not in notes:
+                notes[word] = note_content
+                print(f"✔️ Nota PAROLA '{word}': {note_content}")
 
     return notes
 
@@ -381,242 +382,198 @@ def extract_notes_with_italics(docx_path: str) -> dict:
 # 4) PROCESSAMENTO DELLE ANNOTAZIONI @
 #############################
 
-
 def process_annotations_with_ids(text, comentario_notes, aparato_notes, annotation_counter, section):
-    """
-    Sustituye marcadores @palabra@ en el texto por notas TEI con xml:ids únicos.
-    - comentario_notes y aparato_notes son dicts con claves normalizadas.
-    - annotation_counter es un dict que lleva el conteo de repeticiones por sección.
-    - section es el nombre de la sección (p.ej. 'p', 'speaker', etc.).
-    """
     if not text:
+        print(f"❌ [DEBUG] Il testo è None nella sezione '{section}'")
         return ""
 
-    # Aseguramos dicts válidos
-    comentario_notes = comentario_notes or {}
-    aparato_notes    = aparato_notes    or {}
+    print(f"🔍 [DEBUG] Analizzando testo in sezione '{section}': {text[:100]}...")
 
-    # Función de normalización para claves
+    matches = re.findall(r'@(\w+)', text)  # Cerca solo @parola
+
+    if matches is None:
+        print("⚠️ [DEBUG] Attenzione: `matches` è None")
+        return text
+
+    print(f"🟢 [DEBUG] Annotazioni trovate in '{section}': {matches}")
+
+    comentario_notes = comentario_notes or {}
+    aparato_notes = aparato_notes or {}
+
     def normalize_word(word):
         if isinstance(word, int):
             return word
-        # Quitamos tags <hi> y descomponemos acentos
-        plain = re.sub(r'<hi rend="italic">(.*?)</hi>', r'\1', word)
-        normalized = unicodedata.normalize('NFKD', plain)
-        normalized = normalized.encode('ASCII', 'ignore').decode('utf-8').lower().strip()
-        return normalized
-
-    # Normalizamos claves de las notas
-    comentario_notes_norm = {
-        normalize_word(k): v
-        for k, v in comentario_notes.items()
-        if isinstance(k, str)
-    }
-    aparato_notes_norm = {
-        normalize_word(k): v
-        for k, v in aparato_notes.items()
-        if isinstance(k, str)
-    }
-
-    # Unificamos todas las notas en un solo dict
-    all_notes = {**comentario_notes_norm, **aparato_notes_norm}
+        word = re.sub(r'<hi rend="italic">(.*?)</hi>', r'\1', word)
+        word = unicodedata.normalize('NFKD', word).encode('ASCII', 'ignore').decode('utf-8').lower()
+        return word.strip()
 
     new_text = text.strip()
-    # Buscamos todos los marcadores '@palabra'
-    matches = re.findall(r'@(\w+)', text)
+
+    comentario_notes_normalized = {normalize_word(k): v for k, v in comentario_notes.items() if isinstance(k, str)}
+    aparato_notes_normalized = {normalize_word(k): v for k, v in aparato_notes.items() if isinstance(k, str)}
+
+    all_notes = {**comentario_notes_normalized, **aparato_notes_normalized}
 
     for phrase in matches:
         if not phrase:
             continue
+
         phrase_to_replace = f"@{phrase}"
-        key = normalize_word(phrase)
+        normalized_key = normalize_word(phrase.strip())
 
-        if key in all_notes:
-            # Gestionamos el contador por sección
-            section_counters = annotation_counter.setdefault(section, {})
-            count = section_counters.get(key, 0) + 1
-            section_counters[key] = count
+        print(f"🔍 [DEBUG] Controllo annotazione: '{phrase_to_replace}', Normalized: '{normalized_key}'")
 
-            # Creamos xml:id válido
-            xml_id = f"{key}_{section}_{count}"
+        note = ""
+
+        if normalized_key in all_notes:
+            annotation_counter_section = annotation_counter.get(section, {})
+            annotation_counter_section[normalized_key] = annotation_counter_section.get(normalized_key, 0) + 1
+
+            xml_id = f"{normalized_key}_{section}_{annotation_counter_section[normalized_key]}"
             xml_id = re.sub(r'\s+', '_', xml_id)
             xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id)
             xml_id = xml_id.lower()
 
-            # Construimos los posibles <note>
-            note_str = ""
-            if key in comentario_notes_norm:
-                note_str += f'<note subtype="comentario" xml:id="{xml_id}">{comentario_notes_norm[key]}</note>'
-            if key in aparato_notes_norm:
-                note_str += f'<note subtype="aparato"     xml:id="{xml_id}">{aparato_notes_norm[key]}</note>'
+            note_comentario = comentario_notes_normalized.get(normalized_key, "")
+            note_aparato = aparato_notes_normalized.get(normalized_key, "")
 
-            # Sustituimos solo la primera ocurrencia
-            new_text = new_text.replace(phrase_to_replace, f"{phrase}{note_str}", 1)
+            if note_comentario:
+                note += f'<note subtype="comentario" xml:id="{xml_id}">{note_comentario}</note>'
+            if note_aparato:
+                note += f'<note subtype="aparato" xml:id="{xml_id}">{note_aparato}</note>'
 
-    # Reagrupamos cursivas consecutivas
+            if new_text and phrase_to_replace in new_text:
+                print(f"✅ [DEBUG] Sostituzione in corso per '{phrase_to_replace}'...")
+                new_text = new_text.replace(phrase_to_replace, f"{phrase}{note}", 1)
+                print(f"✔️ [DEBUG] Sostituzione completata per '{phrase_to_replace}' → '{phrase}{note}'")
+            else:
+                print(f"⚠️ [DEBUG] '{phrase_to_replace}' NON trovato nel testo!")
+
+        else:
+            print(f"❌ [DEBUG] Nessuna nota trovata per '{normalized_key}'!")
+
+        print(f"🔄 [DEBUG] Tentativo di sostituzione: '{phrase_to_replace}' con '<note>{note}</note>'")
+
     new_text = merge_italic_text(new_text)
-    return new_text
 
+    return new_text if new_text else ""
 
 #############################
 # 5) FUNZIONE PRINCIPALE
 #############################
 
-def convert_docx_to_tei(
-    main_docx: str,
-    comentario_docx: Optional[str] = None,
-    aparato_docx: Optional[str] = None,
-    metadata_docx: Optional[str] = None,  
-    tei_header: Optional[str] = None,
-    output_file: Optional[str] = None,
-    save: bool = True
-) -> Optional[str]:
-    """
-    Convierte uno o más DOCX a un XML-TEI completo.
-    - Si save=False: devuelve el XML como cadena.
-    - Si save=True: escribe en output_file (o genera uno por defecto) y retorna None.
-    """
-    #Chequeo de existencia del principal
-    if not main_docx.lower().endswith(".docx"):
-        raise ValueError(f"Se esperaba un .docx, pero se obtuvo: {main_docx}")
+def convert_docx_to_tei(main_docx, comentario_docx=None, aparato_docx=None, output_file=None, tei_header=None):
     if not os.path.exists(main_docx):
-        raise FileNotFoundError(f"No existe el archivo principal: {main_docx}")
-
-    # Generación del header TEI a partir de metadata_docx si se proporciona
-    if metadata_docx:
-        if not os.path.exists(metadata_docx):
-            raise FileNotFoundError(f"No existe el archivo de metadatos: {metadata_docx}")
-        try:
-            tei_header = parse_metadata_docx(metadata_docx)
-        except Exception as e:
-            raise RuntimeError(f"No se pudo parsear metadata DOCX '{metadata_docx}': {e}")
-    elif not tei_header:
-        # Cabecera mínima de respaldo
-        tei_header_respaldo = "<teiHeader>…</teiHeader>"
-
-    header = tei_header if tei_header else tei_header_respaldo
-
+        raise FileNotFoundError(f"Il file principale '{main_docx}' non esiste!")
     
-
-    # Carga del DOCX principal
+    tei = []
+    
+    if tei_header:
+        tei.append(tei_header)
+    else:
+        tei.append("<teiHeader>...</teiHeader>")  # fallback
+    
+    tei.append("<text>")
+    
     doc = Document(main_docx)
+    print(f"📂 Leggo il documento principale: {main_docx}")
 
-    # --- SEPARACIÓN FRONT/BODY BASADA EN 'Titulo_comedia' ---
+    # --- SEPARAZIONE PARAGRAFI FRONT/BODY BASATA SULLO STILE 'Titulo_comedia' ---
 
-    # 1) Busca la posición del primer párrafo con style 'Titulo_comedia'
-    title_idx = next(
-        (i for i, p in enumerate(doc.paragraphs)
-        if p.style and p.style.name == "Titulo_comedia"),
-        None
-    )
-    if title_idx is None:
-        raise RuntimeError("No se encontró ningún párrafo con estilo 'Titulo_comedia' en el documento")
+    front_paragraphs = []
+    body_paragraphs = []
+    inside_body = False
 
-    # 2) Divide la lista de párrafos en front y body
-    front_paragraphs = list(doc.paragraphs[:title_idx])
-    body_paragraphs  = list(doc.paragraphs[title_idx:])
+    for para in doc.paragraphs:
+        text = extract_text_with_italics(para).strip()
+        style = para.style.name if para.style else "Normal"
 
-
-
-    # --- Extracción del título usando title_idx de la separación front/body ---
-    if title_idx is None:
-        # Ya habíamos detectado esto antes; si quisieras recuperar aquí:
-        raise RuntimeError("No se encontró ningún párrafo con estilo 'Titulo_comedia' para extraer el título.")
-
-    raw_title = doc.paragraphs[title_idx].text.strip()
-    # Quitar cualquier '@' u otro carácter problemático
-    clean_title = re.sub(r'@', '', raw_title)
-    # Generar la clave/slug a partir del título limpio
-    title_key   = generate_filename(clean_title)
+        if not inside_body:
+            if style == 'Titulo_comedia':
+                inside_body = True
+                body_paragraphs.append(para)  # Il paragrafo del titolo va nel body
+            else:
+                front_paragraphs.append(para)
+        else:
+            body_paragraphs.append(para)
 
 
-    # --- Determinación y validación de rutas de comentario y aparato ---
-    comentario_notes = {}
-    if comentario_docx:
-        if not comentario_docx.lower().endswith(".docx"):
-            raise ValueError(f"El archivo de comentario debe ser .docx: {comentario_docx}")
-        if not os.path.exists(comentario_docx):
-            raise FileNotFoundError(f"No existe el archivo de comentario: {comentario_docx}")
-        comentario_notes = extract_notes_with_italics(comentario_docx)
+    # Estrazione del titolo
+    title = "Untitled"
+    for para in doc.paragraphs:
+        if para.style and para.style.name == "Titulo_comedia":
+            title = para.text.strip()
+            break
 
-    aparato_notes = {}
-    if aparato_docx:
-        if not aparato_docx.lower().endswith(".docx"):
-            raise ValueError(f"El archivo de aparato debe ser .docx: {aparato_docx}")
-        if not os.path.exists(aparato_docx):
-            raise FileNotFoundError(f"No existe el archivo de aparato: {aparato_docx}")
-        aparato_notes = extract_notes_with_italics(aparato_docx)
+    clean_title = re.sub(r'@', '', title)
+    title_key = generate_filename(title)
 
+    # Se l'utente ha fornito i file di commento e apparato, usali direttamente;
+    # altrimenti, usa quelli ricostruiti.
+    if comentario_docx and os.path.exists(comentario_docx):
+        comentario_file = comentario_docx
+    else:
+        comentario_file = f'comentario_{title_key}.docx'
+
+    if aparato_docx and os.path.exists(aparato_docx):
+        aparato_file = aparato_docx
+    else:
+        aparato_file = f'aparato_{title_key}.docx'
+
+    print(f"📝 File comentario: {comentario_file} → {os.path.exists(comentario_file)}")
+    print(f"📝 File aparato: {aparato_file} → {os.path.exists(aparato_file)}")
+
+    comentario_notes = extract_notes_with_italics(comentario_file) if os.path.exists(comentario_file) else {}
+    aparato_notes = extract_notes_with_italics(aparato_file) if os.path.exists(aparato_file) else {}
+
+    print("NOTES COMMENTARIO:", comentario_notes)
+    print("NOTES APARATO:", aparato_notes)
+
+    # ... (il resto della funzione per generare l'XML TEI)
     
-    # Contadores y estado
     annotation_counter = {}
-    stato = {
-        "in_sp": False,
-        "in_cast_list": False,
-        "in_dedicatoria": False,
-        "in_act": False
-    }
+    stato = {"in_sp": False, "in_cast_list": False, "in_dedicatoria": False, "in_act": False}
     personaggi = {}
     act_counter = 0
     verse_counter = 1
-    current_milestone = None   # ← inicializado aquí
-
-    # Título procesado con el mismo contador de anotaciones
-    processed_title = process_annotations_with_ids(
-        clean_title,
-        comentario_notes,
-        aparato_notes,
-        annotation_counter,
-        "head"
-    )
-
-    # Notas introductorias
-    footnotes_intro = get_intro_footnotes(main_docx)
-
-    # Para el bucle de Personaje
+    processed_title = process_annotations_with_ids(title, comentario_notes, aparato_notes, {}, "head")
+    footnotes_intro = get_intro_footnotes(main_docx)  # Usa il percorso del docx principale
     ultimo_speaker_id = None
 
-
-    # --- Construcción de <front> y apertura de <body> ---
+    # Intestazione TEI
     tei = [
-        '<?xml version="1.0" encoding="UTF-8"?>',  # línea XML
-        '<?xml-model href="http://www.tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng" '
-        'schematypens="http://relaxng.org/ns/structure/1.0"?>',
-        '<TEI xmlns="http://www.tei-c.org/ns/1.0">',
-        header,                       # ya generado arriba
-        '  <text>',
-        '    <front>',
-        '      <div type="Introducción">'
+    '<?xml-model href="http://www.tei-c.org/release/xml/tei/custom/schema/relaxng/tei_all.rng" schematypens="http://relaxng.org/ns/structure/1.0"?>',
+    '<TEI xmlns="http://www.tei-c.org/ns/1.0">',
+    tei_header,
+    '  <text>',
+    '    <front>',
+    '      <div type="Introducción">'
     ]
 
-    # Inserta el contenido de <front>, incluyendo notas introductorias
     tei.append(process_front_paragraphs(front_paragraphs, footnotes_intro))
 
-    # Cerramos el front y abrimos el body con el título principal
     tei.extend([
-        '      </div>',    # cierra <div type="Introducción">
+        '      </div>',  # chiude Introducción
         '    </front>',
         '    <body>',
         '      <div type="Texto" subtype="TEXTO">',
         f'        <head type="mainTitle">{processed_title}</head>',
     ])
 
-
     # Scansione paragrafi
     for para in body_paragraphs:
         text = extract_text_with_italics(para).strip()
         style = para.style.name if para.style else "Normal"
 
-        # 1) Detección de estrofas marcadas con $nombreMilestone
-        milestone_match = re.match(r'^\$(\w+)', text)
-        if milestone_match:
-            current_milestone = milestone_match.group(1)
-            continue  # saltamos el resto: sólo guardamos el tipo de estrofa
+        # Rilevamento strofe $nomeStrofa -> milestone
+        lg_milestone = re.match(r'^\$(\w+)', text)
+        if lg_milestone:
+            current_milestone = lg_milestone.group(1)
+            continue
 
-        # 2) Antes de abrir un nuevo bloque estilístico, cerramos los que estén abiertos
+        # Chiudi blocchi prima di aprirne altri
         if style in ["Epigr_Dramatis", "Acto", "Epigr_Dedic"]:
             chiudi_blocchi_correnti(tei, stato)
-
 
         if style == "Epigr_Dedic":
             tei.append('        <div type="dedicatoria">')
@@ -628,7 +585,6 @@ def convert_docx_to_tei(
             tei.append('          <castList>')
             tei.append(f'            <head>{text}</head>')
             stato["in_cast_list"] = True
-
 
         elif style == "Dramatis_lista":
             role_name = text
@@ -706,6 +662,8 @@ def convert_docx_to_tei(
 
             stato["in_sp"] = True
 
+        elif style == "Titulo_comedia":
+            processed_text = process_annotations_with_ids(text, comentario_notes, aparato_notes, annotation_counter, "head")
 
     # Chiusura finale di tutti i blocchi ancora aperti
     chiudi_blocchi_correnti(tei, stato)
@@ -717,186 +675,227 @@ def convert_docx_to_tei(
     tei.append('</TEI>')
 
 
-
-
-    # Serializamos el TEI a string
-    tei = [fragment for fragment in tei if isinstance(fragment, str)]
-    tei_str = "\n".join(tei)
-
-    # Si no queremos guardar en disco, devolvemos el string
-    if not save:
-        return tei_str
-
-    # Si llegamos aquí, save == True: escribimos el fichero
+    # Se l'utente non passa output_file, generiamo un nome
     if not output_file:
-        # Generamos nombre por defecto si hace falta
-        output_file = f"{title_key}.xml"
-
+        output_file = generate_filename(title) + ".xml"
 
     with open(output_file, 'w', encoding='utf-8') as f:
-        f.write(tei_str)
-    # Devolvemos None para indicar que se escribió en disco
-    return None
+        f.write("\n".join(tei))
+    print(f"✅ File XML salvato come: {output_file}")
 
+def analyze_main_text(main_docx):
+    """Analizza il file principale e cerca paragrafi senza stile"""
+    print(f"📂 Analizzando file: {main_docx}")  # DEBUG: Assicuriamoci che la funzione venga chiamata
+    
+    main_doc = Document(main_docx)
+    unstyled_paragraphs = []
 
-### VALIDACIÓN Y ANÁLISIS ###
-
-def analyze_main_text(main_docx) -> list[str]:
-    """
-    Analiza el archivo principal y devuelve avisos de párrafos sin estilo
-    solo en el cuerpo de la obra (tras Titulo_comedia), ignorando front matter
-    y milestones ($.).
-    """
-    warnings: list[str] = []
-    unstyled_paragraphs: list[str] = []
-
-    doc = Document(main_docx)
-    found_body = False
-
-    for para in doc.paragraphs:
-        style = para.style.name if para.style else ""
+    for para in main_doc.paragraphs:
         text = para.text.strip()
+        style = para.style.name if para.style else "None"
 
-        # 1) Buscamos el inicio del body
-        if not found_body:
-            if style == "Titulo_comedia":
-                found_body = True
-            continue
+        print(f'[DEBUG] Testo: "{text[:50]}" | Stile: {style}')  # Mostra i primi 50 caratteri e lo stile
 
-        # 2) Ignoramos párrafos vacíos
+        # Ignora paragrafi vuoti
         if not text:
-            continue
+            continue  
 
-        # 3) Solo revisamos estilos 'Normal' o None
-        if style in ["Normal", "", None]:
-            # Ignora cualquier milestone que empiece con '$'
-            if re.match(r'^\$\S+', text):
-                continue
-            # Ignora líneas que solo contengan puntuación
-            if re.match(r'^[\.:!?\(\)"\']+$', text):
-                continue
+        # Se il testo non ha stile e non è un milestone, lo segnaliamo
+        if style in ["Normal", "None"]:
+            if re.match(r'^\$\w+', text):  # Ignora milestone ($strofa)
+                continue  
+            if re.match(r'^[.,;:!?()"\']+$', text):  # Ignora solo punteggiatura
+                continue  
+
             unstyled_paragraphs.append(text)
 
-    # 4) Tras recorrer todos las líneas, añadimos el warning si hay alguno
     if unstyled_paragraphs:
-        count = len(unstyled_paragraphs)
-        mensaje = (
-            f"⚠️ Se {'ha encontrado' if count == 1 else 'han encontrado'} "
-            f"{count} {'línea' if count == 1 else 'líneas'} sin estilo "
-            f"en el cuerpo del texto crítico: {main_docx}"
+        messagebox.showwarning(
+            "¡Cuidado! (Texto Crítico)",
+            f"¡He encontrado {len(unstyled_paragraphs)} párrafos sin estilos en el texto crítico!\n\nRevisa el DOCX."
         )
-        warnings.append(mensaje)
 
-    return warnings
+def analyze_notes(doc_path, note_type):
+    """Analizza il file delle note (di apparato o di commento) e verifica problemi di formattazione"""
+    doc = Document(doc_path)
+    incorrect_notes = []
 
-
-
-
-def analyze_notes(
-    notes: dict, 
-    note_type: str
-) -> list[str]:
-    """
-    Analiza el dict de notas (aparato o comentario) y devuelve
-    una lista de strings con posibles notas mal formateadas.
-    """
-    warnings: list[str] = []
-
-    for key, content in notes.items():
-        # content es el texto de la nota
-        # key puede ser int (verso) o str (palabra)
-        text = str(content).strip()
+    for para in doc.paragraphs:
+        text = para.text.strip()
+        
+        # Ignora paragrafi vuoti
         if not text:
             continue
-        # Comprobamos formato: versos "1:..." los quita extract_notes y aquí sólo miramos @palabra@
-        if isinstance(key, str):
-            # en extract_notes mantienes solo claves que cumplían @clave@.: no hay invalidas
-            continue
-        elif isinstance(key, int):
-            # en extract_notes mantienes los versos parseados; no hay invalidos
-            continue
-        else:
-            warnings.append(
-                f"❌ Nota {note_type} con clave inesperada ({key}): «{text[:60]}»"
-            )
 
-    return warnings
+        # Controlliamo se il paragrafo inizia con un numero (es. 1:) o con @parola:
+        if not re.match(r'^(\d+:\s+.+|@[^@]+@:\s+.+|@\S+:\s+.+)', text):
+            incorrect_notes.append(text)
 
+    if incorrect_notes:
+        messagebox.showwarning(
+            f"¡Cuidado! (Notas de {note_type})",
+            f"¡Se han encontrado {len(incorrect_notes)} posibles notas sin formato correcto en las notas de {note_type}!\n\nRevisa el DOCX."
+        )
 
 
 from docx import Document
 
-def validate_documents(main_docx, aparato_docx=None, comentario_docx=None) -> list[str]:
-    """
-    Ejecuta las comprobaciones sobre los DOCX y devuelve una lista
-    de strings con los avisos encontrados (vacía si no hay warnings).
-    """
-    warnings: list[str] = []
-
-    # 1) Comprueba existencia del principal
+def validate_documents(main_docx, aparato_docx=None, comentario_docx=None):
+    """Esegue le analisi su tutti i documenti DOCX e avvisa l'utente di eventuali errori."""
     if not os.path.exists(main_docx):
-        warnings.append(f"❌ No existe el archivo principal: {main_docx}")
-        return warnings
+        messagebox.showerror("Error", f"El archivo DOCX principal no existe:\n{main_docx}")
+        return
 
-    # 2) Validación de estilos en el body
-    STILI_VALIDI = {
-        "Titulo_comedia", "Acto", "Prosa", "Verso", "Partido_incial",
-        "Partido_medio", "Partido_final", "Personaje", "Acot",
-        "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista"
-    }
-    SKIP_STYLES = {"Cita", "Heading 1", "Heading 2", "Heading 3"}
     doc = Document(main_docx)
-    found_body = False
+    segnalazioni = []
+    STILI_VALIDI = {
+        "Titulo_comedia", "Acto", "Prosa", "Verso", "Partido_incial", "Partido_medio",
+        "Partido_final", "Personaje", "Acot", "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista"
+    }
 
+    found_body = False
     for para in doc.paragraphs:
         style = para.style.name if para.style else ""
-        text  = para.text.strip()
 
-        # 2.1) Esperar hasta el inicio de cuerpo
         if not found_body:
-            if style in ("Titulo_comedia", "Acto"):
+            if style == "Titulo_comedia":
                 found_body = True
-            continue
+            continue  # Ignora l'introduzione
 
-        # 2.2) Filtros para no validar ciertos párrafos
-        if not text:
-            continue
-        if re.match(r'^\$\S+', text):             # milestones "$redondilla", etc.
-            continue
-        if re.match(r'^[\.:!?\(\)"\']+$', text): # solo puntuación
-            continue
-        if text.startswith("*"):                 # front-matter con asterisco
-            continue
-        if style in SKIP_STYLES:                 # citas o encabezados
-            continue
-        # párrafos dentro de tablas (sinopsis, metadatos, etc.)
-        if para._element.xpath("ancestor::w:tbl"):
-            continue
-
-        # 2.3) Validar estilo permitido
         if style not in STILI_VALIDI:
-            snippet = text[:60]
-            warnings.append(f"❌ Estilo no válido: {style or 'None'} — Texto: {snippet}")
+            segnalazioni.append(f"❌ Stile non valido: {style} — Testo: {para.text.strip()[:60]}")
 
-    # 3) Análisis avanzado del texto principal (detección de "Normal")
-    warnings.extend(analyze_main_text(main_docx))
+    # Analisi avanzata
+    analyze_main_text(main_docx)
 
-    # 4) Notas de aparato
     if aparato_docx:
         if not os.path.exists(aparato_docx):
-            warnings.append(f"❌ No existe el archivo de notas de aparato: {aparato_docx}")
+            messagebox.showerror("Error", f"El archivo de notas de aparato no existe:\n{aparato_docx}")
         else:
-            aparato_notes = extract_notes_with_italics(aparato_docx)
-            warnings.extend(analyze_notes(aparato_notes, "aparato"))
+            analyze_notes(aparato_docx, "Aparato")
 
-    # 5) Notas de comentario
     if comentario_docx:
         if not os.path.exists(comentario_docx):
-            warnings.append(f"❌ No existe el archivo de notas de comentario: {comentario_docx}")
+            messagebox.showerror("Error", f"El archivo de notas de comentario no existe:\n{comentario_docx}")
         else:
-            comentario_notes = extract_notes_with_italics(comentario_docx)
-            warnings.extend(analyze_notes(comentario_notes, "comentario"))
+            analyze_notes(comentario_docx, "Comentario")
 
-    return warnings
+    if segnalazioni:
+        raise Exception("\n".join(segnalazioni))
 
+def avvia_validazione():
+    """Esegue la validazione dei documenti senza avviare la conversione."""
+    main_docx = entry_main.get().strip()
 
+    aparato_docx = entry_apa.get().strip() if entry_apa.get().strip() else None
+    comentario_docx = entry_com.get().strip() if entry_com.get().strip() else None
+
+    if not main_docx:
+        messagebox.showerror("Error", "Seleccionar al menos el archivo DOCX principal.")
+        return
+
+    try:
+        validate_documents(main_docx, aparato_docx, comentario_docx)
+        messagebox.showinfo("Validación completada", "La validación de los archivos se ha completado correctamente.")
+    except Exception as e:
+        messagebox.showerror("Error", f"Se ha verificado un error en la validación:\n{e}")
+    
+def avvia_conversione():
+    main_file = entry_main.get().strip()
+    com_file = entry_com.get().strip()
+    apa_file = entry_apa.get().strip()
+    out_file = entry_out.get().strip()
+    metadata_path = entry_meta.get().strip()
+
+    if metadata_path:
+        tei_header = parse_metadata_docx(metadata_path)
+    else:
+        tei_header = "<teiHeader>...</teiHeader>"  # fallback
+
+    if not main_file:
+        messagebox.showerror("Error", "Seleccione al menos el DOCX Principal!")
+        return
+
+    try:
+        # Se non è stato fornito un nome, usiamo le prime tre parole del titolo
+        if not out_file:
+            doc = Document(main_file)
+            title = "Untitled"
+            for para in doc.paragraphs:
+                if para.style and para.style.name == "Titulo_comedia":
+                    title = para.text.strip()
+                    break
+            out_file = generate_filename(title) + ".xml"
+
+        convert_docx_to_tei(
+            main_docx=main_file,
+            comentario_docx=com_file if com_file else None,
+            aparato_docx=apa_file if apa_file else None,
+            output_file=out_file,
+            tei_header=tei_header
+        )
+        messagebox.showinfo(
+            "Operación completada",
+            f"Archivo XML guardado con éxito:\n{out_file}"
+        )
+    except Exception as e:
+        messagebox.showerror("Error", f"Se ha producido un error:\n{e}")
+
+def main_gui():
+    global entry_main, entry_com, entry_apa, entry_out, entry_meta
+
+    root = tk.Tk()
+    root.title("DOCXtoTEI")
+    root.configure(bg="#ACBDE9")
+    root.geometry("700x450")
+
+    style = ttk.Style()
+    style.theme_use("vista")
+    style.configure(".", font=("Open Sans MS", 10))
+    style.configure("TFrame", background="#ACBDE9")
+    style.configure("TLabel", background="#ACBDE9")
+    style.configure("TButton", font=("Open Sans MS", 10))
+
+    main_frame = ttk.Frame(root, padding="10 10 10 10", style="TFrame")
+    main_frame.pack(fill="both", expand=True)
+
+    ttk.Label(main_frame, text="Archivo DOCX Principal:").grid(row=0, column=0, sticky="e", pady=5)
+    entry_main = ttk.Entry(main_frame, width=50)
+    entry_main.grid(row=0, column=1, padx=5, sticky="ew")
+    btn_main = ttk.Button(main_frame, text="Seleccionar", command=lambda: entry_main.insert(0, filedialog.askopenfilename()))
+    btn_main.grid(row=0, column=2, padx=5)
+
+    ttk.Label(main_frame, text="Notas de Comentario:").grid(row=1, column=0, sticky="e", pady=5)
+    entry_com = ttk.Entry(main_frame, width=50)
+    entry_com.grid(row=1, column=1, padx=5, sticky="ew")
+    btn_com = ttk.Button(main_frame, text="Seleccionar", command=lambda: entry_com.insert(0, filedialog.askopenfilename()))
+    btn_com.grid(row=1, column=2, padx=5)
+
+    ttk.Label(main_frame, text="Notas de Aparato:").grid(row=2, column=0, sticky="e", pady=5)
+    entry_apa = ttk.Entry(main_frame, width=50)
+    entry_apa.grid(row=2, column=1, padx=5, sticky="ew")
+    btn_apa = ttk.Button(main_frame, text="Seleccionar", command=lambda: entry_apa.insert(0, filedialog.askopenfilename()))
+    btn_apa.grid(row=2, column=2, padx=5)
+
+    ttk.Label(main_frame, text="Archivo de Metadatos:").grid(row=3, column=0, sticky="e", pady=5)
+    entry_meta = ttk.Entry(main_frame, width=50)
+    entry_meta.grid(row=3, column=1, padx=5, sticky="ew")
+    btn_meta = ttk.Button(main_frame, text="Seleccionar", command=lambda: entry_meta.insert(0, filedialog.askopenfilename()))
+    btn_meta.grid(row=3, column=2, padx=5)
+
+    ttk.Label(main_frame, text="Nombre de archivo XML (opcional):").grid(row=4, column=0, sticky="e", pady=5)
+    entry_out = ttk.Entry(main_frame, width=50)
+    entry_out.grid(row=4, column=1, padx=5, sticky="ew")
+
+    btn_validar = ttk.Button(main_frame, text="Validar Documentos", command=avvia_validazione)
+    btn_validar.grid(row=5, column=1, pady=5)
+
+    btn_convertir = ttk.Button(main_frame, text="Convertir a TEI", command=avvia_conversione)
+    btn_convertir.grid(row=6, column=1, pady=10)
+
+    main_frame.columnconfigure(1, weight=1)
+
+    root.mainloop()
+
+if __name__ == "__main__":
+    main_gui()

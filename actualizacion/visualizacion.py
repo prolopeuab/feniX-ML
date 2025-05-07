@@ -24,7 +24,7 @@ def load_resource(filename):
 CETEI_JS    = load_resource("resources/CETEIcean.js")
 ESTILOS_CSS = load_resource("resources/estilos.css")
 
-def vista_previa_xml(entry_main, entry_com, entry_apa, root):
+def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root):
     main_file = entry_main.get()
     com_file  = entry_com.get()
     apa_file  = entry_apa.get()
@@ -38,9 +38,11 @@ def vista_previa_xml(entry_main, entry_com, entry_apa, root):
             main_docx=main_file,
             comentario_docx=com_file if com_file else None,
             aparato_docx=apa_file  if apa_file else None,
+            metadata_docx=entry_meta.get() or None,
             output_file=None,
             save=False
         )
+
 
         preview_window = tk.Toplevel(root)
         preview_window.title("Vista previa del XML")
@@ -54,7 +56,7 @@ def vista_previa_xml(entry_main, entry_com, entry_apa, root):
     except Exception as e:
         messagebox.showerror("Error", f"Se ha producido un error:\n{e}")
 
-def vista_previa_html(entry_main, entry_com, entry_apa):
+def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta):
     main_file = entry_main.get()
     com_file  = entry_com.get()
     apa_file  = entry_apa.get()
@@ -68,6 +70,7 @@ def vista_previa_html(entry_main, entry_com, entry_apa):
             main_docx=main_file,
             comentario_docx=com_file if com_file else None,
             aparato_docx=apa_file  if apa_file else None,
+            metadata_docx=entry_meta.get() or None,
             output_file=None,
             save=False
         )
