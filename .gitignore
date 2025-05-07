@@ -1,0 +1,27 @@
+# Archivos de Python
+__pycache__/
+*.py[cod]
+*.so
+
+# Entorno virtual
+.venv/
+
+# Archivos de compilación
+build/
+dist/
+*.spec
+
+# Ejecutables
+*.exe
+*.dll
+
+# Archivos temporales
+*.log
+*.tmp
+
+# Archivos del sistema
+.DS_Store
+Thumbs.db
+
+# VSCode
+.vscode/
