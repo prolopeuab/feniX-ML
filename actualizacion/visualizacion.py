@@ -1,3 +1,13 @@
+# ==========================================
+# feniX-ML: Visualización y previsualización de TEI/XML
+# Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde
+# Grupo de investigación PROLOPE, Universitat Autònoma de Barcelona
+# Descripción: Utilidades para mostrar y previsualizar el resultado de la conversión
+#              de textos teatrales DOCX a TEI/XML, tanto en formato XML como HTML.
+# Este script debe utilizarse junto a tei_backend.py, gui.py y main.py.
+# ==========================================
+
+# ==== IMPORTACIONES ====
 import os
 import sys
 import tempfile
@@ -6,6 +16,7 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext
 from tei_backend import convert_docx_to_tei
 
+# ==== UTILIDADES DE RECURSOS ====
 def resource_path(relative_path):
     """Obtiene la ruta absoluta del recurso, compatible con PyInstaller."""
     try:
@@ -20,17 +31,21 @@ def load_resource(filename):
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-# Carga los JS y CSS embebidos
+# ==== CARGA DE RECURSOS ESTÁTICOS (JS y CSS) ====
 CETEI_JS    = load_resource("resources/CETEIcean.js")
 ESTILOS_CSS = load_resource("resources/estilos.css")
 
+# ==== VISTAS DE PREVISUALIZACIÓN ====
 def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root):
+    """
+    Muestra una ventana con la previsualización del XML TEI generado.
+    """
     main_file = entry_main.get()
     com_file  = entry_com.get()
     apa_file  = entry_apa.get()
 
     if not main_file:
-        messagebox.showerror("Error", "Seleccione al menos el DOCX Principal!")
+        messagebox.showerror("Error", "Seleccione al menos el DOCX que contiene el prólogo y la comedia.")
         return
 
     try:
@@ -57,6 +72,9 @@ def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root):
         messagebox.showerror("Error", f"Se ha producido un error:\n{e}")
 
 def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta):
+    """
+    Genera un archivo HTML temporal para previsualizar el TEI renderizado con CETEIcean.
+    """
     main_file = entry_main.get()
     com_file  = entry_com.get()
     apa_file  = entry_apa.get()
@@ -75,6 +93,8 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta):
             save=False
         )
 
+        ESTILOS_CSS = load_resource("resources/estilos.css")
+        CETEI_JS    = load_resource("resources/CETEIcean.js")
         html_template = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -83,22 +103,25 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta):
     <style>
     {ESTILOS_CSS}
     </style>
-    <script>
-    {CETEI_JS}
-    </script>
 </head>
 <body>
     <div id="tei"></div>
+
     <script>
-        document.addEventListener("DOMContentLoaded", function() {{
-            var ceteiInstance = new CETEI();
-            var htmlNode = ceteiInstance.makeHTML5(`{tei_content}`);
-            document.getElementById("tei").appendChild(htmlNode);
-        }});
+    {CETEI_JS}
+    </script>
+
+    <script>
+    document.addEventListener("DOMContentLoaded", function() {{
+        const ceteiInstance = new CETEI();
+        const htmlNode = ceteiInstance.makeHTML5(`{tei_content}`);
+        document.getElementById("tei").appendChild(htmlNode);
+    }});
     </script>
 </body>
 </html>
 """
+
 
         tmp_file = tempfile.NamedTemporaryFile("w", delete=False, suffix=".html", encoding="utf-8")
         tmp_file.write(html_template)

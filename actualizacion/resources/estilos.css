@@ -1,23 +1,30 @@
-/* Fuente general y cuerpo del documento */
+/* ==========================================
+   feniX-ML: Estilos para visualización TEI/XML
+   Grupo PROLOPE · UAB · 2025
+   Descripción: Hoja de estilos para la edición digital y visualización
+   de textos teatrales convertidos de DOCX a TEI/XML.
+   ========================================== */
+
+/* === ESTILO GENERAL DEL DOCUMENTO === */
 body {
     font-family: Cambria, Cochin, Georgia, Times, 'Times New Roman', serif;
     font-size: 100%;
-    background: #fdfaf0; /* fondo tipo pergamino */
+    background: #fdfaf0;
     color: #333;
-    margin: 0; /* Elimina el margen predeterminado */
-    padding: 0; /* Elimina el padding predeterminado */
+    margin: 0;
+    padding: 0;
     display: flex;
     justify-content: center;
 }
 
 #tei {
-    width: 80%; /* Ajusta el ancho según sea necesario */
-    max-width: 1200px; /* Ancho máximo para pantallas grandes */
-    margin: 20px; /* Margen alrededor del contenedor */
-    padding: 20px; /* Padding dentro del contenedor */
+    width: 80%;
+    max-width: 1200px;
+    margin: 20px;
+    padding: 20px;
 }
 
-/* Estilos para los elementos de la transformación TEI */
+/* === BLOQUES Y PÁRRAFOS TEI === */
 tei-div {
     display: block;
     margin-top: 0.5em;
@@ -31,53 +38,45 @@ tei-p {
     font-size: 1.1em;
 }
 
+/* === CURSIVAS === */
 tei-hi[rend="italic"] {
     font-style: italic;
 }
 
-/* Elementos que no se muestran */
+/* === ELEMENTOS OCULTOS === */
 tei-standoff {
     display: none;
 }
 
-
-/* Encabezado principal */
+/* === ENCABEZADOS === */
 tei-head {
     font-size: 200%;
     text-align: center;
     margin-bottom: 0.5em;
 }
-
-/* Cuando el encabezado está en una portada */
 tei-div[type="cover"] tei-head {
     font-size: 300%;
 }
 
-/* Listas y elementos de lista */
+/* === LISTAS Y ELEMENTOS DE LISTA === */
 tei-list {
     display: block;
 }
-
 tei-item {
     display: block;
     margin-left: 1em;
 }
-
 tei-item::before {
     content: "→";
-    margin-right: 5px; /* Espacio entre el guion y el texto */
+    margin-right: 5px;
 }
 
-/* Texto literario centrado (por ejemplo, inscripciones o epígrafes) */
+/* === TEXTO CENTRADO === */
 tei-text[type="literary-text"] {
     text-align: center;
 }
 
-/* Cast list: se muestran los personajes */
-tei-castItem {
-    display: list-item;
-}
-
+/* === LISTA DE PERSONAJES === */
 tei-castList {
     display: block;
     list-style-type: none;
@@ -85,56 +84,57 @@ tei-castList {
     margin-bottom: 1em;
     margin-left: 2em;
 }
+tei-castItem {
+    display: list-item;
+}
 
+/* === VERSOS Y ESTROFAS === */
 tei-lg,
 tei-l {
     display: block;
     font-size: 1.1em;
     line-height: 1.2em;
 }
-
 tei-l::before {
-  content: attr(n) " ";
-  display: inline-block;
-  width: 2em; 
-  text-align: right;
-  margin-right: 1em;
-  font-weight: normal;
-  font-size: 0.7em;
-  color: #333;
-}
 
+    content: attr(n) " ";
+    display: inline-block;
+    width: 2em;
+    text-align: right;
+    margin-right: 1em;
+    font-weight: normal;
+    font-size: 0.7em;
+    color: #333;
+}
 tei-l[part="M"] {
     text-indent: 75px;
 }
 tei-l[part="F"] {
     text-indent: 150px;
 }
+tei-l {
+    position: relative;
+    padding-left: 200px;
+}
 
-/* Bloques de diálogo */
+/* === BLOQUES DE DIÁLOGO === */
 tei-sp {
     display: block;
     margin-bottom: 1em;
     text-align: left;
 }
 
-/* Nombres de personajes (speaker) */
+/* === NOMBRES DE PERSONAJES (SPEAKER) === */
 tei-speaker {
     font-weight: bold;
-    float: left; 
-    width: 150px; 
+    float: left;
+    width: 150px;
     margin-right: 20px;
     font-size: 1.1em;
-    text-transform: uppercase; 
+    text-transform: uppercase;
 }
 
-/* Versos: se aplican a tei-l para simular indentación de estrofas */
-tei-l {
-    position: relative;
-    padding-left: 200px;
-}
-
-/* Acotaciones o indicaciones escénicas */
+/* === ACOTACIONES ESCÉNICAS === */
 tei-stage {
     display: block;
     font-style: italic;
@@ -146,58 +146,55 @@ tei-stage {
     border-left: 3px solid #ccc;
 }
 
-/* No se muestran las footnotes */
+/* === NOTAS Y FOOTNOTES === */
 tei-div[type="footnotes"] {
     display: none;
 }
 
-/* Paneles especiales, editor o colophon */
+/* === BLOQUES ESPECIALES: EDITOR Y COLOPHON === */
 tei-div[type="editor"],
 tei-div[type="colophon"] {
-    background-color: #f2f2f2; 
-    border-radius: 10px; 
-    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5); 
-    padding: 20px; 
+    background-color: #f2f2f2;
+    border-radius: 10px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.5);
+    padding: 20px;
     margin: 20px;
 }
 
-/* Citas o bloques de texto en formato de quote */
+/* === CITAS Y QUOTES === */
 tei-quote {
     font-style: italic;
     text-align: center;
 }
 
-/* Milestones (por ejemplo, separación de estrofas) */
+/* === MILESTONES (SEPARADORES DE ESTROFAS) === */
 tei-milestone[unit="stanza"]::after {
     content: "";
     display: none;
 }
-
 tei-milestone[unit="stanza"].show-line::after {
-    display: block; 
+    display: block;
     border-bottom: 1px dotted #999;
     width: 75%;
     margin-top: 10px;
     margin-bottom: 10px;
 }
 
-/* Opcionales: estilos para panel lateral de opciones o notas */
+/* === PANEL LATERAL Y NOTAS === */
 .container {
     position: relative;
 }
-
 #col-opciones {
     position: fixed;
     top: 0;
     right: 0;
-    height: 100vh; /* Altura completa de la ventana */
-    width: 25%; /* Ajusta el ancho según sea necesario */
-    border-left: 2px solid #ccc; /* Línea de separación */
+    height: 100vh;
+    width: 25%;
+    border-left: 2px solid #ccc;
     padding: 1rem;
     background-color: #f9f9f9;
     overflow-y: auto;
 }
-
 #noteContent {
     background-color: #ffffff;
     font-size: 90%;
@@ -206,12 +203,10 @@ tei-milestone[unit="stanza"].show-line::after {
     border-radius: 8px;
     min-height: 200px;
 }
-
 #panelNotas h4 {
     font-weight: bold;
     margin-bottom: 1rem;
 }
-
 .fixed-button {
     display: block;
     width: 100%;
@@ -225,79 +220,390 @@ tei-milestone[unit="stanza"].show-line::after {
     border-radius: 5px;
     text-align: center;
 }
-
 .fixed-button:hover {
     background-color: #0056b3;
 }
 
-/* Estilos para las llamadas de nota en superíndice */
+/* === LLAMADAS DE NOTA EN SUPERÍNDICE === */
 .note-comentario {
-  color: #d9534f; /* rojo para comentarios */
-  font-size: 0.8em;
-  font-weight: bold;
-  cursor: pointer;
+    color: #d9534f;
+    font-size: 0.8em;
+    font-weight: bold;
+    cursor: pointer;
 }
 .note-aparato {
-  color: #3a86eb; /* azul para aparato */
-  font-size: 0.8em;
-  font-weight: bold;
-  cursor: pointer;
+    color: #3a86eb;
+    font-size: 0.8em;
+    font-weight: bold;
+    cursor: pointer;
 }
 .note-default {
-  color: #73d333;
-  font-size: 0.8em;
-  cursor: pointer;
+    color: #73d333;
+    font-size: 0.8em;
+    cursor: pointer;
 }
 
-/* Estilos para la ventana modal */
+/* === VENTANA MODAL PARA NOTAS === */
 .modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.5);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 10000;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
 }
-
 .modal-window {
-  background: #fff;
-  border-radius: 8px;
-  padding: 20px;
-  max-width: 500px;
-  width: 90%;
-  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
-  position: relative;
+    background: #fff;
+    border-radius: 8px;
+    padding: 20px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+    position: relative;
 }
-
 .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  border-bottom: 1px solid #ddd;
-  padding-bottom: 10px;
-  margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #ddd;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
 }
-
 .modal-title {
-  font-size: 18px;
-  font-weight: bold;
+    font-size: 18px;
+    font-weight: bold;
 }
-
 .modal-close {
-  font-size: 24px;
-  font-weight: bold;
-  color: #aaa;
-  cursor: pointer;
+    font-size: 24px;
+    font-weight: bold;
+    color: #aaa;
+    cursor: pointer;
 }
-
 .modal-close:hover {
-  color: #000;
+    color: #000;
+}
+.modal-content {
+    line-height: 1.5em;
 }
 
-.modal-content {
-  line-height: 1.5em;
+/* === TABLAS TEI === */
+tei-table {
+    display: table;
+    width: 100%;
+    border-collapse: collapse;
+    margin: 1em 0;
+}
+tei-row {
+    display: table-row;
+}
+tei-cell {
+    display: table-cell;
+    border: 1px solid #ccc;
+    padding: 0.5em;
+    vertical-align: top;
+    font-size: 1em;
+}
+/* Cabecera de tabla */
+tei-row:first-of-type > tei-cell {
+    font-weight: bold;
+    background-color: #ddd;
+    border-bottom: 2px solid #999;
+    text-align: center;
+}
+/* Encabezados de acto y filas de resumen */
+tei-cell[cols="3"],
+tei-row:has(> tei-cell[data-empty]) + tei-row > tei-cell {
+    font-weight: bold;
+    font-style: italic;
+    background-color: #f0ece2;
+    text-align: center;
+    padding: 0.75em;
+    font-size: 1.1em;
+    text-transform: uppercase;
+}
+/* Primera columna (números de verso) */
+tei-row:not(:first-of-type) > tei-cell:first-child {
+    font-style: italic;
+    color: #555;
+    text-align: right;
+}
+/* Filas “Total” */
+tei-row:has(> tei-cell[data-empty]) > tei-cell {
+    font-weight: bold;
+    background-color: #ececec;
+    border-bottom: 2px solid #999;
+    text-transform: uppercase;
+}
+/* Última fila “Total” (global, 100 %) */
+tei-row:last-of-type > tei-cell {
+    font-weight: bold;
+    background-color: #ececec;
+    border-bottom: 2px solid #999;
+    text-transform: uppercase;
+}
+
+
+/* === TEI HEADER (cabecera del documento TEI) === */
+tei-teiheader,
+teiHeader {
+    display: block;
+    margin: 2em auto;
+    padding: 1em;
+    max-width: 800px;
+    font-family: "Georgia", serif;
+    line-height: 1.4;
+    color: #333;
+    background: #fafaff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(100,100,150,0.07);
+}
+
+/* ===== 1) TitleStmt ===== */
+tei-titlestmt,
+titleStmt {
+    display: block;
+    background: #f5f5ff;
+    border-left: 4px solid #6a6aff;
+    padding: 0.8em 1em;
+    margin-bottom: 1em;
+}
+tei-titlestmt::before,
+titleStmt::before {
+    content: "tei:titleStmt";
+    font-family: monospace;
+    font-size: 0.9em;
+    color: #6a6aff;
+    display: block;
+    margin-bottom: 0.5em;
+}
+/* Título principal */
+tei-titlestmt > tei-title,
+titleStmt > title {
+    font-size: 2em;
+    font-weight: bold;
+    margin-bottom: 0.3em;
+}
+/* Autor/editor inline */
+tei-titlestmt > tei-author,
+tei-titlestmt > tei-editor,
+titleStmt > author,
+titleStmt > editor {
+    display: block;
+    margin: 0.3em 0;
+}
+tei-titlestmt > tei-author::before,
+titleStmt > author::before { content: "→ author: "; font-weight: bold;}
+tei-titlestmt > tei-editor::before,
+titleStmt > editor::before { content: "→ editor: "; font-weight: bold;}
+
+/* === Lista de responsabilidades (respStmt) === */
+tei-respstmt,
+respStmt {
+    display: block;
+    margin: 0.5em 0 0.5em 1em;
+    padding-left: 0.5em;
+    border-left: 2px dashed #aaa;
+}
+
+/* Bullet general para respStmt */
+tei-respstmt::before,
+respStmt::before {
+    content: "tei:respStmt";
+    font-family: monospace;
+    color: #555;
+    font-size: 0.9em;
+    display: block;
+    margin-bottom: 0.3em;
+}
+
+/* Bullet para cada responsabilidad */
+tei-respstmt > tei-resp::before,
+respStmt > resp::before {
+    content: "• ";
+    font-weight: bold;
+}
+
+/* Nombres de persona con bullet e indentación adicional */
+tei-respstmt > tei-persname,
+respStmt > persName {
+    display: block;
+    margin-left: 2em; /* Más indentado que respStmt */
+    position: relative;
+}
+tei-respstmt > tei-persname::before,
+respStmt > persName::before {
+    content: "◦ "; /* Bullet más pequeño o diferente */
+    color: #888;
+    position: absolute;
+    left: -1.2em; /* Ajusta según el margen */
+}
+
+/* ===== 2) EditionStmt ===== */
+tei-editionstmt,
+editionStmt {
+    display: block;
+    background: #fff6e5;
+    border-left: 4px solid #ffb74d;
+    padding: 0.6em 1em;
+    margin-bottom: 1em;
+}
+tei-editionstmt::before,
+editionStmt::before {
+    content: "tei:editionStmt";
+    font-family: monospace;
+    color: #ff8c00;
+    font-size: 0.9em;
+    display: block;
+    margin-bottom: 0.4em;
+}
+tei-edition,
+edition {
+    font-style: italic;
+}
+tei-edition::before,
+edition::before {
+    content: "edition: ";
+    font-weight: bold;
+}
+
+/* ===== 3) PublicationStmt ===== */
+tei-publicationstmt,
+publicationStmt {
+    display: block;
+    background: #e5f5e5;
+    border-left: 4px solid #4caf50;
+    padding: 0.6em 1em;
+    margin-bottom: 1em;
+}
+tei-publicationstmt::before,
+publicationStmt::before {
+    content: "tei:publicationStmt";
+    font-family: monospace;
+    color: #388e3c;
+    font-size: 0.9em;
+    display: block;
+    margin-bottom: 0.4em;
+}
+tei-publicationstmt > *,
+publicationStmt > * {
+    display: inline-block;
+    margin-right: 1em;
+}
+tei-publicationstmt > tei-publisher::before,
+publicationStmt > publisher::before { content: "publisher: "; font-weight: bold;}
+tei-publicationstmt > tei-pubplace::before,
+publicationStmt > pubPlace::before { content: "place: "; font-weight: bold;}
+tei-publicationstmt > tei-date::before,
+publicationStmt > date::before      { content: "date: ";   font-weight: bold;}
+
+/* ===== 4) SeriesStmt ===== */
+tei-seriesstmt,
+seriesStmt {
+    display: block;
+    background: #f0e5ff;
+    border-left: 4px solid #9c27b0;
+    padding: 0.6em 1em;
+    margin-bottom: 1em;
+}
+tei-seriesstmt::before,
+seriesStmt::before {
+    content: "tei:seriesStmt";
+    font-family: monospace;
+    color: #7b1fa2;
+    font-size: 0.9em;
+    display: block;
+    margin-bottom: 0.4em;
+}
+tei-seriesstmt > tei-title,
+seriesStmt > title {
+    font-size: 1.3em;
+    font-weight: bold;
+}
+tei-seriesstmt > tei-idno,
+seriesStmt > idno {
+    display: block;
+    margin-top: 0.3em;
+    font-size: 0.9em;
+    color: #555;
+}
+tei-seriesstmt > tei-idno::before,
+seriesStmt > idno::before {
+    content: "idno: ";
+    font-weight: bold;
+}
+
+/* ===== 5) SourceDesc & Witnesses ===== */
+tei-sourcedesc,
+sourceDesc {
+    display: block;
+    background: #f5f5f5;
+    border-left: 4px solid #607d8b;
+    padding: 1.2em 2em 1.2em 2em;
+    margin-bottom: 2em;
+    margin-top: 1em;
+    box-shadow: 0 2px 8px rgba(96,125,139,0.07);
+}
+
+tei-sourcedesc::before,
+sourceDesc::before {
+    content: "tei:sourceDesc";
+    font-family: monospace;
+    color: #455a64;
+    font-size: 0.95em;
+    display: block;
+    margin-bottom: 0.8em;
+    letter-spacing: 0.05em;
+}
+
+tei-listwit,
+listWit {
+    margin-left: 1.5em;
+    margin-bottom: 1em;
+    padding-left: 0.5em;
+    border-left: 2px dotted #b0bec5;
+}
+
+tei-witness,
+witness {
+    display: flex;
+    align-items: flex-start;
+    margin: 0.5em 0;
+    padding: 0.5em 0.5em 0.5em 0;
+    border-bottom: 1px dashed #cfd8dc;
+    font-size: 1em;
+}
+
+tei-witness:last-child,
+witness:last-child {
+    border-bottom: none;
+}
+
+tei-witness::before,
+witness::before {
+    content: attr(xml\\:id) ":;
+    font-weight: bold;
+    font-family: monospace;
+    color: #37474f;
+    margin-right: 0.7em;
+    min-width: 3.5em;
+    display: inline-block;
+}
+
+tei-label,
+label {
+    font-style: italic;
+    color: #607d8b;
+    margin-left: 0.3em;
+    font-size: 0.98em;
+}
+
+/* Opcional: resalta el testimonio activo o principal */
+tei-witness[corresp],
+witness[corresp] {
+    background: #e3f2fd;
+    border-left: 3px solid #1976d2;
 }

@@ -64,9 +64,9 @@ var CETEI = function() {
                     return sup;
                 }]
             ],                                                                 
-            teiHeader: function(e) {
-                this.hideContent(e, !1)
-            },
+            //teiHeader: function(e) {
+            //    this.hideContent(e, !1)
+            //},
             title: [["tei-titlestmt>tei-title", function(e) {
                 const t = e.ownerDocument;
                 let i = t.createElement("title");
@@ -631,4 +631,4 @@ function showNoteModal(content, noteType) {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 }
-
+  

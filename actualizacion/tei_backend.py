@@ -1,3 +1,12 @@
+# ==========================================
+# feniX-ML: Marcado automático de DOCX a TEI/XML
+# Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde
+# Grupo de investigación PROLOPE, Universitat Autònoma de Barcelona
+# Descripción: Funciones para convertir textos teatrales en formato DOCX a TEI/XML, incluyendo manejo de notas, metadatos y validaciones.
+# Este script debe utilizarse junto a visualizacion.py, gui.py y main.py.
+# ==========================================
+
+# ==== IMPORTACIONES ====
 import os
 import re
 import unicodedata
@@ -8,12 +17,14 @@ from docx.oxml.ns import qn
 from difflib import get_close_matches
 from typing import Optional
 
-### PROCESAMIENTO DE DOCX A TEI ###
 
-def get_intro_footnotes(docx_path):
+# ==== EXTRACCIÓN Y PROCESAMIENTO DE NOTAS EN EL PRÓLOGO ====
+# Funciones para extraer y procesar notas a pie de página del prólogo o introducción.
+
+def extract_intro_footnotes(docx_path):
     """
-    Estrae tutte le note a piè di pagina da un file DOCX.
-    Ritorna un dizionario {id: testo_nota}.
+    Extrae todas las notas a pie de página de un archivo DOCX.
+    Devuelve un diccionario {id: note_text}.
     """
     ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
     footnote_dict = {}
@@ -32,6 +43,9 @@ def get_intro_footnotes(docx_path):
     return footnote_dict
 
 def extract_text_with_intro_notes(para, footnotes_intro):
+    """
+    Extrae el texto de un párrafo, insertando las notas en el lugar correspondiente.
+    """
     text = ""
     for run in para.runs:
         run_element = run._element
@@ -48,29 +62,32 @@ def extract_text_with_intro_notes(para, footnotes_intro):
                 text += run.text
     return text.strip()
 
-def chiudi_blocchi_correnti(tei, stato):
-    if stato.get("in_sp"):
+# ==== MANEJO DE BLOQUES ESTRUCTURALES TEI ====
+def close_current_blocks(tei, state):
+    """
+    Cierra los bloques abiertos en el estado actual del documento TEI.
+    """
+    # Cierra los bloques abiertos en el estado actual
+    if state.get("in_sp"):
         tei.append('        </sp>')
-        stato["in_sp"] = False
-    if stato.get("in_cast_list"):
+        state["in_sp"] = False
+    if state.get("in_cast_list"):
         tei.append('          </castList>')
         tei.append('        </div>')
-        stato["in_cast_list"] = False
-    if stato.get("in_dedicatoria"):
+        state["in_cast_list"] = False
+    if state.get("in_dedicatoria"):
         tei.append('        </div>')
-        stato["in_dedicatoria"] = False
-    if stato.get("in_act"):
+        state["in_dedicatoria"] = False
+    if state.get("in_act"):
         tei.append('        </div>')
-        stato["in_act"] = False
+        state["in_act"] = False
 
-
-
-#############################
-# 1) FUNZIONI DI SUPPORTO
-#############################
-
+# ==== FUNCIONES DE SOPORTE PARA TEXTO ====
 def extract_text_with_italics(para):
-    """Estrae il testo da un paragrafo mantenendo il corsivo."""
+    """
+    Extrae el texto de un párrafo, preservando las cursivas.
+    """
+    # Recorre los runs del párrafo y envuelve en <hi rend="italic"> si es cursiva
     text = ""
     for run in para.runs:
         if run.italic:
@@ -81,62 +98,64 @@ def extract_text_with_italics(para):
 
 def merge_italic_text(text):
     """
-    Unisce le sequenze consecutive di tag <hi rend="italic">...</hi>
-    in un unico tag.
+    Fusiona secuencias consecutivas de etiquetas <hi rend="italic">...</hi> en una sola.
     """
-    # Cerca una o più occorrenze consecutive di <hi rend="italic">...</hi>
+    # Busca una o más ocurrencias consecutivas de <hi rend="italic">...</hi>
     pattern = re.compile(r'((?:<hi rend="italic">.*?</hi>\s*)+)', re.DOTALL)
     def replacer(match):
         segment = match.group(1)
-        # Estrae tutto il contenuto interno dai tag
+        # Extrae todo el contenido interno de los tags
         inner_texts = re.findall(r'<hi rend="italic">(.*?)</hi>', segment, re.DOTALL)
-        # Unisce tutto in un'unica stringa (senza spazi aggiuntivi)
+        # Une todo en una sola cadena (sin espacios adicionales)
         merged = ''.join(inner_texts).strip()
         return f'<hi rend="italic">{merged}</hi>'
     return pattern.sub(replacer, text)
 
 def generate_filename(title):
     """
-    Genera un nome file basato sulle prime tre parole del titolo
-    e rimuovendo spazi, virgole e punti.
+    Genera un nombre de archivo a partir de las primeras tres palabras del título.
     """
+    # Toma las primeras tres palabras del título y elimina espacios, comas y puntos
     words = title.split()[:3]
     filename = '_'.join(words).replace(' ', '_').replace(',', '').replace('.', '')
     return filename
 
-def find_who_id(speaker, personaggi):
+def find_who_id(speaker, characters):
     """
-    Trova il ruolo corretto (xml:id) nel cast list con match flessibile.
+    Busca el xml:id correcto de un personaje en la lista de personajes, usando coincidencia flexible.
     """
+    # Limpia el nombre del personaje para facilitar la comparación
     speaker_cleaned = re.sub(r'[\s\[\]]+', '_', speaker).strip()
 
-    # Match esatto
-    if speaker.strip() in personaggi:
-        return personaggi[speaker.strip()]
+    # Coincidencia exacta
+    if speaker.strip() in characters:
+        return characters[speaker.strip()]
 
-    # Match parziale
-    for name, role_id in personaggi.items():
+    # Coincidencia parcial
+    for name, role_id in characters.items():
         if speaker.strip() in name or speaker_cleaned in role_id:
             return role_id
 
-    # Fuzzy matching come ultima risorsa
-    close_matches = get_close_matches(speaker.strip(), personaggi.keys(), n=1, cutoff=0.8)
+    # Coincidencia difusa (fuzzy matching) como último recurso
+    close_matches = get_close_matches(speaker.strip(), characters.keys(), n=1, cutoff=0.8)
     if close_matches:
-        return personaggi[close_matches[0]]
+        return characters[close_matches[0]]
 
     return ""
 
-### METADATOS Y FRONT-MATTER ###
 
+# ==== PROCESAMIENTO DE METADATOS Y FRONT-MATTER ====
 def parse_metadata_docx(path):
-    """Estrae metadati da un file .docx strutturato in tabelle e costruisce un teiHeader TEI/XML completo."""
+    """
+    Extrae metadatos de un archivo .docx estructurado en tablas y construye un teiHeader TEI/XML completo.
+    """
     doc = Document(path)
     tables = doc.tables
 
     if len(tables) < 3:
-        raise ValueError("❌ Il documento dei metadati deve contenere almeno 3 tabelle.")
+        raise ValueError("❌ El documento de metadatos debe contener al menos 3 tablas.")
 
-    # Tabella 1: Metadati principali
+    # Tabla 1: Metadatos principales
     main_meta = {}
     for row in tables[0].rows:
         if len(row.cells) >= 2:
@@ -144,7 +163,7 @@ def parse_metadata_docx(path):
             value = row.cells[1].text.strip()
             main_meta[key] = value
 
-    # Tabella 2: sourceDesc
+    # Tabla 2: sourceDesc
     source_meta = {}
     for row in tables[1].rows:
         if len(row.cells) >= 2:
@@ -152,15 +171,15 @@ def parse_metadata_docx(path):
             value = row.cells[1].text.strip()
             source_meta[key] = value
 
-    # Tabella 3: listWit (salta la prima riga!)
+    # Tabla 3: listWit (salta la primera fila)
     witnesses = []
     for i, row in enumerate(tables[2].rows):
         if i == 0:
-            continue  # salta la riga guida "SIGLA TESTIMONIO | DESCRIPCIÓN"
+            continue  # salta la fila guía "SIGLA TESTIMONIO | DESCRIPCIÓN"
         if len(row.cells) >= 2:
             siglum = row.cells[0].text.strip()
 
-            # Estrai il contenuto della seconda cella mantenendo il corsivo
+            # Extrae el contenido de la segunda celda manteniendo la cursiva
             desc_parts = []
             for run in row.cells[1].paragraphs[0].runs:
                 if run.italic:
@@ -172,7 +191,7 @@ def parse_metadata_docx(path):
             if siglum and desc:
                 witnesses.append((siglum, desc))
 
-    # Costruzione teiHeader
+    # Construcción del teiHeader
     tei = ['<teiHeader>', '  <fileDesc>', '    <titleStmt>']
 
     tei.append(f'      <title>{main_meta.get("Título comedia", "")}</title>')
@@ -251,6 +270,9 @@ def parse_metadata_docx(path):
     return "\n".join(tei)
 
 def process_front_paragraphs(paragraphs, footnotes_intro):
+    """
+    Procesa los párrafos del front-matter, generando el bloque <front> del TEI.
+    """
     tei_front = []
     subsection_open = False
     subsection_n = 1
@@ -280,19 +302,19 @@ def process_front_paragraphs(paragraphs, footnotes_intro):
         if text.lower() == "introducción":
             continue
 
-        # 🔹 Gestione titolo principale "PRÓLOGO"
+        # 🔹 Gestión del título principal "PRÓLOGO"
         if not head_inserted and "prólogo" in text.lower():
             flush_paragraph_buffer()
             tei_front.append(f'        <head type="divTitle" subtype="MenuLevel_1">PRÓLOGO</head>')
             head_inserted = True
             continue
 
-        # 🔹 Riconoscimento sottotitolo con asterisco
+        # 🔹 Reconocimiento de subtítulo con asterisco
         if text.startswith("*"):
             flush_paragraph_buffer()
             title = text.lstrip("*").strip()
             if title.lower() == "prólogo":
-                continue  # ignora duplicazione
+                continue  # ignora duplicado
             if subsection_open:
                 tei_front.append('        </div>')
             tei_front.append(f'        <div type="subsection" n="{subsection_n}">')
@@ -301,7 +323,7 @@ def process_front_paragraphs(paragraphs, footnotes_intro):
             current_section = title.lower()
             subsection_n += 1
 
-        # 🔹 Tabelle nella sezione "Sinopsis"
+        # 🔹 Tablas en la sección "Sinopsis"
             if current_section and "sinopsis" in current_section:
                 parent = para._parent
                 if hasattr(parent, "tables") and parent.tables:
@@ -309,17 +331,20 @@ def process_front_paragraphs(paragraphs, footnotes_intro):
                         tei_front.append(process_table_to_tei(tbl))
             continue
 
-        # 🔹 Aggiungi al buffer
+        # 🔹 Añade al buffer
         paragraph_buffer.append(para)
 
     flush_paragraph_buffer()
 
     if subsection_open:
-        tei_front.append('        </div>')  # chiude ultimo subsection
+        tei_front.append('        </div>')  # cierra la última subsection
 
     return "\n".join(tei_front)
 
 def process_table_to_tei(table):
+    """
+    Convierte una tabla DOCX en una tabla TEI.
+    """
     tei = ['          <table rend="rules">']
     
     for row in table.rows:
@@ -327,14 +352,14 @@ def process_table_to_tei(table):
         texts = [cell.text.strip() for cell in cells]
         non_empty_cells = [t for t in texts if t]
 
-        # Riga di intestazione di sezione (es. Acto primero, Resumen)
+        # Fila de encabezado de sección (ej. Acto primero, Resumen)
         if len(non_empty_cells) == 1 and texts[0]:
             tei.append('            <row>')
             tei.append(f'              <cell rend="both" cols="3"><hi rend="italic">{texts[0]}</hi></cell>')
             tei.append('            </row>')
             continue
 
-        # Riga standard a 3 colonne
+        # Fila estándar de 3 columnas
         tei.append('            <row>')
         for txt in texts:
             tei.append(f'              <cell rend="both">{txt}</cell>')
@@ -343,14 +368,12 @@ def process_table_to_tei(table):
     tei.append('          </table>')
     return "\n".join(tei)
 
-#############################
-# 2) LETTURA NOTE (COMENTARIO/APARATO)
-#############################
+# ==== EXTRACCIÓN DE NOTAS DE COMENTARIO Y APARATO ====
 
 def extract_notes_with_italics(docx_path: str) -> dict:
     """
     Extrae notas de comentario o aparato de un DOCX.
-    Retorna un dict donde las claves pueden ser int (versos) o str (palabras)
+    Devuelve un dict donde las claves pueden ser int (versos) o str (palabras)
     y los valores el texto de la nota.
     """
     notes: dict = {}
@@ -377,15 +400,12 @@ def extract_notes_with_italics(docx_path: str) -> dict:
     return notes
 
 
-#############################
-# 4) PROCESSAMENTO DELLE ANNOTAZIONI @
-#############################
-
+# ==== PROCESAMIENTO DE NOTAS DE COMENTARIO Y APARATO ====
 
 def process_annotations_with_ids(text, comentario_notes, aparato_notes, annotation_counter, section):
     """
     Sustituye marcadores @palabra@ en el texto por notas TEI con xml:ids únicos.
-    - comentario_notes y aparato_notes son dicts con claves normalizadas.
+    - comentario_notes y aparato_notes son dicts con claves normalizzate.
     - annotation_counter es un dict que lleva el conteo de repeticiones por sección.
     - section es el nombre de la sección (p.ej. 'p', 'speaker', etc.).
     """
@@ -458,10 +478,7 @@ def process_annotations_with_ids(text, comentario_notes, aparato_notes, annotati
     return new_text
 
 
-#############################
-# 5) FUNZIONE PRINCIPALE
-#############################
-
+# ==== FUNCIÓN PRINCIPAL DE CONVERSIÓN DOCX → TEI ====
 def convert_docx_to_tei(
     main_docx: str,
     comentario_docx: Optional[str] = None,
@@ -473,8 +490,6 @@ def convert_docx_to_tei(
 ) -> Optional[str]:
     """
     Convierte uno o más DOCX a un XML-TEI completo.
-    - Si save=False: devuelve el XML como cadena.
-    - Si save=True: escribe en output_file (o genera uno por defecto) y retorna None.
     """
     #Chequeo de existencia del principal
     if not main_docx.lower().endswith(".docx"):
@@ -491,12 +506,10 @@ def convert_docx_to_tei(
         except Exception as e:
             raise RuntimeError(f"No se pudo parsear metadata DOCX '{metadata_docx}': {e}")
     elif not tei_header:
-        # Cabecera mínima de respaldo
+        # Cabecera mínima de reserva
         tei_header_respaldo = "<teiHeader>…</teiHeader>"
 
     header = tei_header if tei_header else tei_header_respaldo
-
-    
 
     # Carga del DOCX principal
     doc = Document(main_docx)
@@ -550,13 +563,13 @@ def convert_docx_to_tei(
     
     # Contadores y estado
     annotation_counter = {}
-    stato = {
+    state = {
         "in_sp": False,
         "in_cast_list": False,
         "in_dedicatoria": False,
         "in_act": False
     }
-    personaggi = {}
+    characters = {}
     act_counter = 0
     verse_counter = 1
     current_milestone = None   # ← inicializado aquí
@@ -571,7 +584,7 @@ def convert_docx_to_tei(
     )
 
     # Notas introductorias
-    footnotes_intro = get_intro_footnotes(main_docx)
+    footnotes_intro = extract_intro_footnotes(main_docx)
 
     # Para el bucle de Personaje
     ultimo_speaker_id = None
@@ -602,7 +615,7 @@ def convert_docx_to_tei(
     ])
 
 
-    # Scansione paragrafi
+    # Recorre todos los párrafos del cuerpo para identificar y procesar cada bloque estilístico
     for para in body_paragraphs:
         text = extract_text_with_italics(para).strip()
         style = para.style.name if para.style else "Normal"
@@ -615,19 +628,19 @@ def convert_docx_to_tei(
 
         # 2) Antes de abrir un nuevo bloque estilístico, cerramos los que estén abiertos
         if style in ["Epigr_Dramatis", "Acto", "Epigr_Dedic"]:
-            chiudi_blocchi_correnti(tei, stato)
+            close_current_blocks(tei, state)
 
 
         if style == "Epigr_Dedic":
             tei.append('        <div type="dedicatoria">')
             tei.append(f'          <head>{text}</head>')
-            stato["in_dedicatoria"] = True
+            state["in_dedicatoria"] = True
 
         elif style == "Epigr_Dramatis":
             tei.append('        <div type="castList">')
             tei.append('          <castList>')
             tei.append(f'            <head>{text}</head>')
-            stato["in_cast_list"] = True
+            state["in_cast_list"] = True
 
 
         elif style == "Dramatis_lista":
@@ -635,13 +648,13 @@ def convert_docx_to_tei(
             if role_name:
                 role_id = re.sub(r'[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ_-]+', '_', role_name)
                 tei.append(f'            <castItem><role xml:id="{role_id}">{role_name}</role></castItem>')
-                personaggi[role_name] = role_id
+                characters[role_name] = role_id
 
         elif style == "Acto":
             act_counter += 1
             tei.append(f'        <div type="subsection" subtype="ACTO" n="{act_counter}">')
             tei.append(f'          <head type="acto">{text}</head>')
-            stato["in_act"] = True
+            state["in_act"] = True
 
         elif style == "Prosa":
             processed_text = process_annotations_with_ids(text, comentario_notes, aparato_notes, annotation_counter, "p")
@@ -649,9 +662,9 @@ def convert_docx_to_tei(
                 tei.append(f'          <p>{processed_text}</p>')
 
         elif style == "Verso":
-            if stato["in_dedicatoria"]:
+            if state["in_dedicatoria"]:
                 tei.append(f'          <l>{text}</l>')
-            elif stato["in_sp"]:
+            elif state["in_sp"]:
                 if current_milestone:
                     tei.append(f'            <milestone unit="stanza" type="{current_milestone}"/>')
                     current_milestone = None
@@ -680,21 +693,21 @@ def convert_docx_to_tei(
 
         elif style == "Acot":
             processed_text = process_annotations_with_ids(text, comentario_notes, aparato_notes, annotation_counter, "stage")
-            if stato["in_sp"]:
+            if state["in_sp"]:
                 tei.append('        </sp>')
-                stato["in_sp"] = False
+                state["in_sp"] = False
             tei.append(f'        <stage>{processed_text}</stage>')
 
         elif style == "Personaje":
-            who_id = find_who_id(text, personaggi)
+            who_id = find_who_id(text, characters)
             processed = process_annotations_with_ids(
                 text, comentario_notes, aparato_notes, annotation_counter, "speaker"
             )
 
             # 🔒 Chiudi <sp> precedente se necessario
-            if stato["in_sp"]:
+            if state["in_sp"]:
                 tei.append('        </sp>')
-                stato["in_sp"] = False
+                state["in_sp"] = False
 
             # 🎯 Se è lo stesso personaggio precedente, non inserire who o speaker
             if who_id == ultimo_speaker_id:
@@ -704,18 +717,17 @@ def convert_docx_to_tei(
                 tei.append(f'          <speaker>{processed}</speaker>')
                 ultimo_speaker_id = who_id
 
-            stato["in_sp"] = True
+            state["in_sp"] = True
 
 
     # Chiusura finale di tutti i blocchi ancora aperti
-    chiudi_blocchi_correnti(tei, stato)
+    close_current_blocks(tei, state)
 
     # Chiusura sezioni TEI
     tei.append('      </div>')  # chiude Texto
     tei.append('    </body>')
     tei.append('  </text>')
     tei.append('</TEI>')
-
 
 
 
@@ -739,8 +751,7 @@ def convert_docx_to_tei(
     return None
 
 
-### VALIDACIÓN Y ANÁLISIS ###
-
+# ==== VALIDACIÓN Y ANÁLISIS DE LOS DOCUMENTOS ====
 def analyze_main_text(main_docx) -> list[str]:
     """
     Analiza el archivo principal y devuelve avisos de párrafos sin estilo
@@ -823,8 +834,6 @@ def analyze_notes(
     return warnings
 
 
-
-from docx import Document
 
 def validate_documents(main_docx, aparato_docx=None, comentario_docx=None) -> list[str]:
     """
