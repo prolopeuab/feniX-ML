@@ -232,13 +232,13 @@ tei-milestone[unit="stanza"].show-line::after {
     cursor: pointer;
 }
 .note-aparato {
-    color: #3a86eb;
+    color: green;
     font-size: 0.8em;
     font-weight: bold;
     cursor: pointer;
 }
 .note-default {
-    color: #73d333;
+    color: #d9534f;
     font-size: 0.8em;
     cursor: pointer;
 }

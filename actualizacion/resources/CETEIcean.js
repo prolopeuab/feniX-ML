@@ -40,8 +40,8 @@ var CETEI = function() {
                     const doc = e.ownerDocument;
                     let sup = doc.createElement("sup");
                     let span = doc.createElement("span");
-                    // Obtén el tipo de nota del atributo "type"
-                    let noteType = e.getAttribute("type");
+                    // Obtén el tipo de nota del atributo "subtype"
+                    let noteType = e.getAttribute("subtype");
                     let displayText;
                     if (noteType === "comentario") {
                         displayText = "NOTA";
