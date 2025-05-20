@@ -1,6 +1,6 @@
 # ==========================================
 # feniX-ML: Marcado automático de DOCX a TEI/XML
-# Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde
+# Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde.
 # Grupo de investigación PROLOPE, Universitat Autònoma de Barcelona
 # Descripción: Funciones para convertir textos teatrales en formato DOCX a TEI/XML, incluyendo manejo de notas, metadatos y validaciones.
 # Este script debe utilizarse junto a visualizacion.py, gui.py y main.py.
