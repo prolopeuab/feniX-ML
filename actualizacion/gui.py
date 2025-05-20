@@ -133,14 +133,14 @@ def main_gui():
     btn_main = ttk.Button(frame_seleccion, text="Explora...", command=select_main)
     btn_main.grid(row=1, column=2, padx=5, pady=5, sticky="ew")
 
-    # --- Selección de archivo de notas filológicas ---
-    label_com = ttk.Label(frame_seleccion, text="Notas filológicas:")
+    # --- Selección de archivo de notas ---
+    label_com = ttk.Label(frame_seleccion, text="Notas:")
     label_com.grid(row=2, column=0, sticky="e", pady=5)
     entry_com = ttk.Entry(frame_seleccion, width=60)
     entry_com.grid(row=2, column=1, padx=5, sticky="ew")
     def select_com():
         path = filedialog.askopenfilename(
-            title="Seleccione archivo con las notas filológicas",
+            title="Seleccione archivo con las notas",
             filetypes=[("Archivo DOCX", "*.docx"), ("Todos los archivos", "*.*")]
         )
         if path:
