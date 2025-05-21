@@ -93,7 +93,7 @@ def main_gui():
         messagebox.showinfo(
             "Cómo usar feniX-ML",
             "1. Seleccione el archivo DOCX principal (texto de la comedia).\n"
-            "2. Opcionalmente, seleccione los archivos de comentario, aparato y metadatos.\n"
+            "2. Opcionalmente, seleccione los archivos de notas, aparato y metadatos.\n"
             "3. Pulse 'Generar archivo XML-TEI' para crear el archivo de salida.\n"
             "4. Use 'Vista previa XML' o 'Vista previa HTML' para comprobar el resultado.\n\n"
             "Nota: El DOCX debe seguir los estilos predefinidos para su correcta conversión."
@@ -193,7 +193,7 @@ def main_gui():
         """
         avisos = validate_documents(
             entry_main.get(),
-            comentario_docx=entry_com.get() or None,
+            notas_docx=entry_com.get() or None,
             aparato_docx=entry_apa.get() or None
         )
         if avisos:
@@ -264,7 +264,7 @@ def main_gui():
         command=lambda: (
             convert_docx_to_tei(
                 main_docx=entry_main.get(),
-                comentario_docx=entry_com.get() or None,
+                notas_docx=entry_com.get() or None,
                 aparato_docx=entry_apa.get() or None,
                 metadata_docx=entry_meta.get() or None,
                 output_file=entry_out.get() or None,
