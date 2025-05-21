@@ -51,7 +51,7 @@ def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root):
     try:
         tei_content = convert_docx_to_tei(
             main_docx=main_file,
-            comentario_docx=com_file if com_file else None,
+            notas_docx=com_file if com_file else None,
             aparato_docx=apa_file  if apa_file else None,
             metadata_docx=entry_meta.get() or None,
             output_file=None,
@@ -86,7 +86,7 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta):
     try:
         tei_content = convert_docx_to_tei(
             main_docx=main_file,
-            comentario_docx=com_file if com_file else None,
+            notas_docx=com_file if com_file else None,
             aparato_docx=apa_file  if apa_file else None,
             metadata_docx=entry_meta.get() or None,
             output_file=None,
