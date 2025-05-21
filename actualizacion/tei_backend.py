@@ -368,11 +368,11 @@ def process_table_to_tei(table):
     tei.append('          </table>')
     return "\n".join(tei)
 
-# ==== EXTRACCIÓN DE NOTAS DE COMENTARIO Y APARATO ====
+# ==== EXTRACCIÓN DE NOTAS DE notas Y APARATO ====
 
 def extract_notes_with_italics(docx_path: str) -> dict:
     """
-    Extrae notas de comentario o aparato de un DOCX.
+    Extrae notas o aparato de un DOCX.
     Devuelve un dict donde las claves pueden ser int (versos) o str (palabras)
     y los valores el texto de la nota.
     """
@@ -400,12 +400,12 @@ def extract_notes_with_italics(docx_path: str) -> dict:
     return notes
 
 
-# ==== PROCESAMIENTO DE NOTAS DE COMENTARIO Y APARATO ====
+# ==== PROCESAMIENTO DE NOTAS Y APARATO ====
 
-def process_annotations_with_ids(text, comentario_notes, aparato_notes, annotation_counter, section):
+def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, section):
     """
-    Sustituye marcadores @palabra@ en el texto por notas TEI con xml:ids únicos.
-    - comentario_notes y aparato_notes son dicts con claves normalizzate.
+    Sustituye marcadores @palabra en el texto por notas TEI con xml:ids únicos.
+    - nota_notes y aparato_notes son dicts con claves normalizadas.
     - annotation_counter es un dict que lleva el conteo de repeticiones por sección.
     - section es el nombre de la sección (p.ej. 'p', 'speaker', etc.).
     """
@@ -413,7 +413,7 @@ def process_annotations_with_ids(text, comentario_notes, aparato_notes, annotati
         return ""
 
     # Aseguramos dicts válidos
-    comentario_notes = comentario_notes or {}
+    nota_notes = nota_notes or {}
     aparato_notes    = aparato_notes    or {}
 
     # Función de normalización para claves
@@ -427,9 +427,9 @@ def process_annotations_with_ids(text, comentario_notes, aparato_notes, annotati
         return normalized
 
     # Normalizamos claves de las notas
-    comentario_notes_norm = {
+    nota_notes_norm = {
         normalize_word(k): v
-        for k, v in comentario_notes.items()
+        for k, v in nota_notes.items()
         if isinstance(k, str)
     }
     aparato_notes_norm = {
@@ -439,7 +439,7 @@ def process_annotations_with_ids(text, comentario_notes, aparato_notes, annotati
     }
 
     # Unificamos todas las notas en un solo dict
-    all_notes = {**comentario_notes_norm, **aparato_notes_norm}
+    all_notes = {**nota_notes_norm, **aparato_notes_norm}
 
     new_text = text.strip()
     # Buscamos todos los marcadores '@palabra'
@@ -465,8 +465,8 @@ def process_annotations_with_ids(text, comentario_notes, aparato_notes, annotati
 
             # Construimos los posibles <note>
             note_str = ""
-            if key in comentario_notes_norm:
-                note_str += f'<note subtype="comentario" xml:id="{xml_id}">{comentario_notes_norm[key]}</note>'
+            if key in nota_notes_norm:
+                note_str += f'<note subtype="nota" xml:id="{xml_id}">{nota_notes_norm[key]}</note>'
             if key in aparato_notes_norm:
                 note_str += f'<note subtype="aparato"     xml:id="{xml_id}">{aparato_notes_norm[key]}</note>'
 
@@ -481,7 +481,7 @@ def process_annotations_with_ids(text, comentario_notes, aparato_notes, annotati
 # ==== FUNCIÓN PRINCIPAL DE CONVERSIÓN DOCX → TEI ====
 def convert_docx_to_tei(
     main_docx: str,
-    comentario_docx: Optional[str] = None,
+    notas_docx: Optional[str] = None,
     aparato_docx: Optional[str] = None,
     metadata_docx: Optional[str] = None,  
     tei_header: Optional[str] = None,
@@ -543,14 +543,14 @@ def convert_docx_to_tei(
     title_key   = generate_filename(clean_title)
 
 
-    # --- Determinación y validación de rutas de comentario y aparato ---
-    comentario_notes = {}
-    if comentario_docx:
-        if not comentario_docx.lower().endswith(".docx"):
-            raise ValueError(f"El archivo de comentario debe ser .docx: {comentario_docx}")
-        if not os.path.exists(comentario_docx):
-            raise FileNotFoundError(f"No existe el archivo de comentario: {comentario_docx}")
-        comentario_notes = extract_notes_with_italics(comentario_docx)
+    # --- Determinación y validación de rutas de notas y aparato ---
+    nota_notes = {}
+    if notas_docx:
+        if not notas_docx.lower().endswith(".docx"):
+            raise ValueError(f"El archivo de notas debe ser .docx: {notas_docx}")
+        if not os.path.exists(notas_docx):
+            raise FileNotFoundError(f"No existe el archivo de notas: {notas_docx}")
+        nota_notes = extract_notes_with_italics(notas_docx)
 
     aparato_notes = {}
     if aparato_docx:
@@ -577,7 +577,7 @@ def convert_docx_to_tei(
     # Título procesado con el mismo contador de anotaciones
     processed_title = process_annotations_with_ids(
         clean_title,
-        comentario_notes,
+        nota_notes,
         aparato_notes,
         annotation_counter,
         "head"
@@ -638,8 +638,8 @@ def convert_docx_to_tei(
 
         elif style == "Epigr_Dramatis":
             tei.append('        <div type="castList">')
-            tei.append('          <castList>')
             tei.append(f'            <head>{text}</head>')
+            tei.append('          <castList>')
             state["in_cast_list"] = True
 
 
@@ -657,7 +657,7 @@ def convert_docx_to_tei(
             state["in_act"] = True
 
         elif style == "Prosa":
-            processed_text = process_annotations_with_ids(text, comentario_notes, aparato_notes, annotation_counter, "p")
+            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "p")
             if processed_text.strip():
                 tei.append(f'          <p>{processed_text}</p>')
 
@@ -669,8 +669,8 @@ def convert_docx_to_tei(
                     tei.append(f'            <milestone unit="stanza" type="{current_milestone}"/>')
                     current_milestone = None
                 verse_text = text
-                if verse_counter in comentario_notes:
-                    verse_text += f'<note subtype="comentario" n="{verse_counter}">{comentario_notes[verse_counter]}</note>'
+                if verse_counter in nota_notes:
+                    verse_text += f'<note subtype="nota" n="{verse_counter}">{nota_notes[verse_counter]}</note>'
                 if verse_counter in aparato_notes:
                     verse_text += f'<note subtype="aparato" n="{verse_counter}">{aparato_notes[verse_counter]}</note>'
                 tei.append(f'            <l n="{verse_counter}">{verse_text}</l>')
@@ -678,8 +678,8 @@ def convert_docx_to_tei(
 
         elif style == "Partido_incial":
             verse_text = text
-            if verse_counter in comentario_notes:
-                verse_text += f'<note subtype="comentario" n="{verse_counter}">{comentario_notes[verse_counter]}</note>'
+            if verse_counter in nota_notes:
+                verse_text += f'<note subtype="nota" n="{verse_counter}">{nota_notes[verse_counter]}</note>'
             if verse_counter in aparato_notes:
                 verse_text += f'<note subtype="aparato" n="{verse_counter}">{aparato_notes[verse_counter]}</note>'
             tei.append(f'            <l part="I" n="{verse_counter}">{verse_text}</l>')
@@ -692,7 +692,7 @@ def convert_docx_to_tei(
             tei.append(f'            <l part="F">{text}</l>')
 
         elif style == "Acot":
-            processed_text = process_annotations_with_ids(text, comentario_notes, aparato_notes, annotation_counter, "stage")
+            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "stage")
             if state["in_sp"]:
                 tei.append('        </sp>')
                 state["in_sp"] = False
@@ -701,7 +701,7 @@ def convert_docx_to_tei(
         elif style == "Personaje":
             who_id = find_who_id(text, characters)
             processed = process_annotations_with_ids(
-                text, comentario_notes, aparato_notes, annotation_counter, "speaker"
+                text, nota_notes, aparato_notes, annotation_counter, "speaker"
             )
 
             # 🔒 Chiudi <sp> precedente se necessario
@@ -808,7 +808,7 @@ def analyze_notes(
     note_type: str
 ) -> list[str]:
     """
-    Analiza el dict de notas (aparato o comentario) y devuelve
+    Analiza el dict de notas (aparato o nota) y devuelve
     una lista de strings con posibles notas mal formateadas.
     """
     warnings: list[str] = []
@@ -819,9 +819,9 @@ def analyze_notes(
         text = str(content).strip()
         if not text:
             continue
-        # Comprobamos formato: versos "1:..." los quita extract_notes y aquí sólo miramos @palabra@
+        # Comprobamos formato: versos "1:..." los quita extract_notes y aquí sólo miramos @palabra
         if isinstance(key, str):
-            # en extract_notes mantienes solo claves que cumplían @clave@.: no hay invalidas
+            # en extract_notes mantienes solo claves que cumplían @clave.: no hay invalidas
             continue
         elif isinstance(key, int):
             # en extract_notes mantienes los versos parseados; no hay invalidos
@@ -835,7 +835,7 @@ def analyze_notes(
 
 
 
-def validate_documents(main_docx, aparato_docx=None, comentario_docx=None) -> list[str]:
+def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[str]:
     """
     Ejecuta las comprobaciones sobre los DOCX y devuelve una lista
     de strings con los avisos encontrados (vacía si no hay warnings).
@@ -893,18 +893,18 @@ def validate_documents(main_docx, aparato_docx=None, comentario_docx=None) -> li
     # 4) Notas de aparato
     if aparato_docx:
         if not os.path.exists(aparato_docx):
-            warnings.append(f"❌ No existe el archivo de notas de aparato: {aparato_docx}")
+            warnings.append(f"❌ El archivo de notas de aparato: {aparato_docx}")
         else:
             aparato_notes = extract_notes_with_italics(aparato_docx)
             warnings.extend(analyze_notes(aparato_notes, "aparato"))
 
-    # 5) Notas de comentario
-    if comentario_docx:
-        if not os.path.exists(comentario_docx):
-            warnings.append(f"❌ No existe el archivo de notas de comentario: {comentario_docx}")
+    # 5) Notas
+    if notas_docx:
+        if not os.path.exists(notas_docx):
+            warnings.append(f"❌ El archivo de notas no existe: {notas_docx}")
         else:
-            comentario_notes = extract_notes_with_italics(comentario_docx)
-            warnings.extend(analyze_notes(comentario_notes, "comentario"))
+            nota_notes = extract_notes_with_italics(notas_docx)
+            warnings.extend(analyze_notes(nota_notes, "nota"))
 
     return warnings
 
