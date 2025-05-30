@@ -704,12 +704,12 @@ def convert_docx_to_tei(
                 text, nota_notes, aparato_notes, annotation_counter, "speaker"
             )
 
-            # 🔒 Chiudi <sp> precedente se necessario
+            # 🔒 Cierra <sp> anterior si es necesario
             if state["in_sp"]:
                 tei.append('        </sp>')
                 state["in_sp"] = False
 
-            # 🎯 Se è lo stesso personaggio precedente, non inserire who o speaker
+            # 🎯 Si es el mismo personaje anterior, no insertar who ni speaker
             if who_id == ultimo_speaker_id:
                 tei.append('        <sp>')
             else:
@@ -720,11 +720,11 @@ def convert_docx_to_tei(
             state["in_sp"] = True
 
 
-    # Chiusura finale di tutti i blocchi ancora aperti
+    # Cierre final de todos los bloques aún abiertos
     close_current_blocks(tei, state)
 
-    # Chiusura sezioni TEI
-    tei.append('      </div>')  # chiude Texto
+    # Cierre de secciones TEI
+    tei.append('      </div>')  # cierra Texto
     tei.append('    </body>')
     tei.append('  </text>')
     tei.append('</TEI>')

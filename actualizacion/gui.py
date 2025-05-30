@@ -13,6 +13,7 @@ import tkinter.ttk as ttk
 import webbrowser
 from tkinter import filedialog, messagebox
 from tkinter import ttk
+from tkinter import PhotoImage
 
 from tei_backend import convert_docx_to_tei, validate_documents, generate_filename
 from visualizacion import vista_previa_xml, vista_previa_html
@@ -32,8 +33,14 @@ def main_gui():
     # --- Configuración de la ventana principal y estilos ---
     root = tk.Tk()
     root.title("feniX-ML")
-    root.geometry("1000x800")
+    root.geometry("1000x860")
     root.configure(bg="#F0F2F5")
+
+    # Icono de la ventana 
+    # root.icon_img = tk.PhotoImage(file="logo_feniX-ML.png")
+    # root.iconphoto(True, root.icon_img)
+    # Cargar el logo de PROLOPE
+    root.logo_img = tk.PhotoImage(file="logo_prolope.png").subsample(6, 6)
 
     # 🎨 Estilos modernos con ttk
     style = ttk.Style(root)
@@ -285,15 +292,25 @@ def main_gui():
     main_frame.columnconfigure(0, weight=1)
 
     # ==== PIE DE PÁGINA ====
-    footer = tk.Label(
-        root,
+    # Frame para agrupar imagen y texto en horizontal
+    footer_frame = tk.Frame(root, bg=root.cget("bg"))
+    footer_frame.pack(side="bottom", fill="x", pady=10)
+
+    # Imagen del logo (izquierda)
+    logo_label = tk.Label(footer_frame, image=root.logo_img, bg=root.cget("bg"))
+    logo_label.pack(side="left", padx=10)
+
+    # Texto del footer (derecha)
+    footer_text = tk.Label(
+        footer_frame,
         text="Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde\nPROLOPE · Universitat Autònoma de Barcelona · 2025",
         font=("Segoe UI", 10),
         fg="gray",
         bg=root.cget("bg"),
-        justify="center",
+        justify="left",
     )
-    footer.pack(side="bottom", fill="x", pady=10)
+    footer_text.pack(side="left", anchor="w")
+
 
     # ==== INICIO DEL BUCLE PRINCIPAL ====
     root.mainloop()

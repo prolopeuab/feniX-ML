@@ -17,8 +17,11 @@ try:
 except Exception:
     pass
 
-# Escalado adicional para fuentes e interfaz (ajustable según necesidad)
-tk.Tk().tk.call('tk', 'scaling', 1.75)
+# Escalado adicional para fuentes e interfaz (ajustable según necesidad) sin mostrar ventana
+root = tk.Tk()
+root.withdraw()
+root.tk.call('tk', 'scaling', 1.75)
+root.destroy()
 
 from gui import main_gui
 
