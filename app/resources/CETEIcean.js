@@ -39,31 +39,35 @@ var CETEI = function() {
                 ["_", function(e) {
                     const doc = e.ownerDocument;
                     let sup = doc.createElement("sup");
-                    let span = doc.createElement("span");
-                    // Obtén el tipo de nota del atributo "subtype"
+
+                    // Determina el tipo de nota
                     let noteType = e.getAttribute("subtype");
-                    let displayText;
-                    if (noteType === "comentario") {
-                        displayText = "NOTA";
-                        span.classList.add("note-comentario");
-                    } else if (noteType === "aparato") {
-                        displayText = "AP";
-                        span.classList.add("note-aparato");
+
+                    // Asigna clase al <sup> según tipo
+                    if (noteType === "aparato") {
+                    sup.classList.add("sup-aparato");
+                    sup.innerHTML = `<svg width="0.9em" height="0.9em" viewBox="0 0 100 100">
+                                        <rect x="10" y="10" width="80" height="80" fill="none" stroke="currentColor" stroke-width="14"/>
+                                    </svg>`;
                     } else {
-                        displayText = "NOTA";
-                        span.classList.add("note-default");
+                    sup.classList.add("sup-nota");
+                    sup.innerHTML = `<svg width="0.9em" height="0.9em" viewBox="0 0 100 100">
+                                        <circle cx="50" cy="50" r="45" fill="none" stroke="currentColor" stroke-width="14"/>
+                                    </svg>`;
                     }
-                    span.innerText = displayText;
-                    sup.appendChild(span);
+
                     // Guarda el contenido completo de la nota
                     const noteContent = e.innerHTML.trim();
-                    // Al hacer clic, se muestra la ventana modal y se le pasa el contenido y el tipo
+
+                    // Evento de clic para mostrar la nota
                     sup.addEventListener("click", function() {
-                        showNoteModal(noteContent, noteType);
+                    showNoteModal(noteContent, noteType);
                     });
+
                     return sup;
                 }]
-            ],                                                                 
+            ],
+                               
             //teiHeader: function(e) {
             //    this.hideContent(e, !1)
             //},

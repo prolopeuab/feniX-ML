@@ -224,24 +224,37 @@ tei-milestone[unit="stanza"].show-line::after {
     background-color: #0056b3;
 }
 
-/* === LLAMADAS DE NOTA EN SUPERÍNDICE === */
-.note-comentario {
-    color: #d9534f;
-    font-size: 0.8em;
-    font-weight: bold;
-    cursor: pointer;
+/* === LLAMADAS DE NOTA EN SUPERÍNDICE CON ICONOS SVG === */
+
+.sup-nota,
+.sup-aparato {
+  cursor: pointer;
+  margin-left: 0.1em; /* espacio entre la palabra y el primer icono */
 }
-.note-aparato {
-    color: green;
-    font-size: 0.8em;
-    font-weight: bold;
-    cursor: pointer;
+
+/* Íconos SVG (círculo y cuadrado) */
+.sup-nota svg,
+.sup-aparato svg {
+  vertical-align: text-top;
+  width: 0.9em;
+  height: 0.9em;
+  stroke-width: 14 !important;
 }
-.note-default {
-    color: #d9534f;
-    font-size: 0.8em;
-    cursor: pointer;
+
+/* Colores diferenciados */
+.sup-nota svg {
+  color: #005f99; /* azul oscuro */
 }
+.sup-aparato svg {
+  color: #d97706; /* naranja ámbar */
+}
+
+/* Separación entre símbolos consecutivos */
+.sup-nota + .sup-aparato,
+.sup-aparato + .sup-nota {
+  margin-left: 0.15em;
+}
+
 
 /* === VENTANA MODAL PARA NOTAS === */
 .modal-overlay {
