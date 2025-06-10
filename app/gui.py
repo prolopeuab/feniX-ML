@@ -8,6 +8,8 @@
 # ==========================================
 
 # ==== IMPORTACIONES ====
+import os
+import sys
 import tkinter as tk
 import tkinter.ttk as ttk
 import webbrowser
@@ -17,6 +19,14 @@ from tkinter import PhotoImage
 
 from tei_backend import convert_docx_to_tei, validate_documents, generate_filename
 from visualizacion import vista_previa_xml, vista_previa_html
+
+def resource_path(relative_path):
+    """Obtiene la ruta absoluta del recurso, compatible con PyInstaller."""
+    try:
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+    return os.path.join(base_path, relative_path)
 
 # ==== FUNCIONES DE UTILIDAD PARA MENSAJES Y AYUDA ====
 def show_info(message):
@@ -40,7 +50,7 @@ def main_gui():
     # root.icon_img = tk.PhotoImage(file="logo_feniX-ML.png")
     # root.iconphoto(True, root.icon_img)
     # Cargar el logo de PROLOPE
-    root.logo_img = tk.PhotoImage(file="logo_prolope.png").subsample(6, 6)
+    root.logo_img = tk.PhotoImage(file=resource_path("resources/logo_prolope.png")).subsample(6, 6)
 
     # 🎨 Estilos modernos con ttk
     style = ttk.Style(root)
@@ -255,40 +265,61 @@ def main_gui():
 
     # Botón para seleccionar archivo de salida
     def select_out():
-        path = filedialog.asksaveasfilename(
+        result = filedialog.asksaveasfilename(
+            title="Guardar archivo TEI",
             defaultextension=".xml",
             filetypes=[("Archivo XML", "*.xml"), ("Todos los archivos", "*.*")]
         )
-        if path:
+        if result:
+            base, _ = os.path.splitext(result)
+            path = base + ".xml"   
             entry_out.delete(0, tk.END)
             entry_out.insert(0, path)
+
     btn_out = ttk.Button(frame_conversion, text="Explora...", command=select_out)
     btn_out.grid(row=1, column=2, padx=5, pady=5, sticky="ew")
 
     # Botón para convertir y guardar el archivo XML-TEI
+    def generate_and_save():
+        # 1. Tomamos lo que haya escrito el usuario
+        out = entry_out.get().strip()
+        if out:
+            base, ext = os.path.splitext(out)
+            # Si no tenía extensión, o tenía otra, forzamos .xml
+            out = base + ".xml"
+        else:
+            out = None
+
+        # 2. Llamamos a la función de conversión con 'out' que ya incluye .xml
+        convert_docx_to_tei(
+            main_docx=entry_main.get(),
+            notas_docx=entry_com.get() or None,
+            aparato_docx=entry_apa.get() or None,
+            metadata_docx=entry_meta.get() or None,
+            output_file=out,
+            save=True
+        )
+
+        # 3. Formamos el mensaje con la ruta definitiva
+        if out:
+            guardado = os.path.abspath(out)
+        else:
+            nombre_defecto = generate_filename(entry_main.get()) + ".xml"
+            guardado = os.path.abspath(nombre_defecto)
+
+        messagebox.showinfo(
+            "Conversión a XML-TEI completada",
+            f"Archivo TEI generado en:\n{guardado}"
+        )
+
     btn_convertir = ttk.Button(frame_conversion,
         text="⚙️ Generar archivo XML-TEI",
-        command=lambda: (
-            convert_docx_to_tei(
-                main_docx=entry_main.get(),
-                notas_docx=entry_com.get() or None,
-                aparato_docx=entry_apa.get() or None,
-                metadata_docx=entry_meta.get() or None,
-                output_file=entry_out.get() or None,
-                save=True
-            ),
-            messagebox.showinfo(
-                "Conversión a XML-TEI completada",
-                f"Archivo TEI generado en:\n{entry_out.get() or generate_filename(entry_main.get()) + '.xml'}"
-            )
-        )
+        command=generate_and_save
     )
     btn_convertir.grid(row=2, column=0, columnspan=3, padx=10, pady=15, sticky="ew")
 
     # Ajuste para expandir el campo de texto correctamente
     frame_conversion.columnconfigure(1, weight=1)
-
-    # Hace que la columna 0 se expanda
     main_frame.columnconfigure(0, weight=1)
 
     # ==== PIE DE PÁGINA ====
