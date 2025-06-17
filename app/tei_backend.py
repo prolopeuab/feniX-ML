@@ -242,6 +242,17 @@ def parse_metadata_docx(path):
     tei.append(f'          <title type="main">{source_meta.get("Titulo comedia", "")}</title>')
     if "Subtítulo" in source_meta:
         tei.append(f'          <title type="alt">{source_meta.get("Subtítulo", "")}</title>')
+    if 'Editor' in main_meta:
+        tei.append(f'        <editor>{main_meta["Editor"]}</editor>')
+    tei.append(f'          <title type="main">{source_meta.get("Titulo comedia", "")}</title>')
+    tei.append(f'          <title type="s">{source_meta.get("Título volumen", "")}</title>')
+    tei.append(f'          <title type="a">Parte {source_meta.get("Parte", "")}</title>')
+    if 'Coordinadores volumen' in source_meta:
+        tei.append('        <respStmt>')
+        tei.append('          <resp>Coordinación del volumen a cargo de</resp>')
+        for name in source_meta['Coordinadores volumen'].split(','):
+            tei.append(f'          <persName>{name.strip()}</persName>')
+        tei.append('        </respStmt>')
     tei.append(f'          <title type="s">{source_meta.get("Título volumen", "")}</title>')
     tei.append(f'          <title type="a">Parte {source_meta.get("Parte", "")}</title>')
     tei.append('          <availability status="restricted">')
@@ -256,6 +267,11 @@ def parse_metadata_docx(path):
     tei.append('          </imprint>')
     tei.append('        </monogr>')
     tei.append('      </biblStruct>')
+    tei.append('  <encodingDesc>')
+    tei.append('    <editorialDecl>')
+    tei.append('      <p>Este marcado ha sido realizado utilizando la aplicación FéniX-ML, desarrollada por Anna Abate, Emanuele Leboffe y David Merino Recalde.</p>')
+    tei.append('    </editorialDecl>')
+    tei.append('  </encodingDesc>')
 
     # listWit
     tei.append('      <listWit>')
@@ -309,10 +325,10 @@ def process_front_paragraphs(paragraphs, footnotes_intro):
             head_inserted = True
             continue
 
-        # 🔹 Reconocimiento de subtítulo con asterisco
-        if text.startswith("*"):
+        # 🔹 Reconocimiento de subtítulo con almohadilla
+        if text.startswith("#"):
             flush_paragraph_buffer()
-            title = text.lstrip("*").strip()
+            title = text.lstrip("#").strip()
             if title.lower() == "prólogo":
                 continue  # ignora duplicado
             if subsection_open:
@@ -345,27 +361,72 @@ def process_table_to_tei(table):
     """
     Convierte una tabla DOCX en una tabla TEI.
     """
-    tei = ['          <table rend="rules">']
-    
-    for row in table.rows:
-        cells = row.cells
-        texts = [cell.text.strip() for cell in cells]
-        non_empty_cells = [t for t in texts if t]
+    ncols = len(table.columns)
+    tei = ['<table rend="rules">']
 
-        # Fila de encabezado de sección (ej. Acto primero, Resumen)
-        if len(non_empty_cells) == 1 and texts[0]:
-            tei.append('            <row>')
-            tei.append(f'              <cell rend="both" cols="3"><hi rend="italic">{texts[0]}</hi></cell>')
-            tei.append('            </row>')
+    # 1) Filas título
+    hdr = table.rows[0]
+    tei.append('  <row>')
+    for cell in hdr.cells:
+        raw = extract_text_with_italics(cell.paragraphs[0])
+        tei.append(
+            '    <cell rend="both">\n'
+            f'      <hi rend="italic" style="padding-left:3em; font-size:13pt; font-weight:bold">{raw}</hi>\n'
+            '    </cell>'
+        )
+    tei.append('  </row>')
+
+    # 2) Filas vacías
+    tei.append('  <row>')
+    for _ in range(ncols):
+        tei.append('    <cell rend="both"> </cell>')
+    tei.append('  </row>')
+
+    # 3) Filas datos
+    for row in table.rows[1:]:
+        texts = [c.text.strip() for c in row.cells]
+        non_empty = [t for t in texts if t]
+
+        
+        if len(non_empty) == 1 and texts[0] and all(not t for t in texts[1:]):
+            raw = extract_text_with_italics(row.cells[0].paragraphs[0])
+            tei.extend([
+                '  <row>',
+                f'    <cell rend="both" cols="{ncols}">',
+                f'      <hi rend="italic" style="font-size:13pt; font-weight:bold;">{raw}</hi>',
+                '    </cell>',
+                '  </row>',
+            ])
             continue
 
-        # Fila estándar de 3 columnas
-        tei.append('            <row>')
-        for txt in texts:
-            tei.append(f'              <cell rend="both">{txt}</cell>')
-        tei.append('            </row>')
+        # Filas resumen
+        key = texts[0].lower()
+        is_summary = key in ("total", "resumen") and all(texts)
+        
+        tei.append('  <row>')
+        for idx, cell in enumerate(row.cells):
+            txt = cell.text.strip()
+            if not txt:
+                tei.append('    <cell rend="both"> </cell>')
+                continue
+            raw = extract_text_with_italics(cell.paragraphs[0])
+            if is_summary:
+                style = "padding-left:3em; font-size:11pt; font-weight:bold"
+                if key == "total":
+                    rend = ' rend="italic"' if idx == 0 else ""
+                else:
+                    rend = ' rend="italic"'
+            else:
+                style = "padding-left:3em; font-size:11pt"
+                rend = ""
+            tei.append(
+                f'    <cell rend="both">\n'
+                f'      <hi{rend} style="{style}">{raw}</hi>\n'
+                '    </cell>'
+            )
+        tei.append('  </row>')
 
-    tei.append('          </table>')
+    tei.append('</table>')
     return "\n".join(tei)
 
 # ==== EXTRACCIÓN DE NOTAS DE notas Y APARATO ====
@@ -718,6 +779,12 @@ def convert_docx_to_tei(
                 ultimo_speaker_id = who_id
 
             state["in_sp"] = True
+
+        elif style == "Epigr_final":
+            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "trailer")
+            if processed_text.strip():
+                tei.append(f'          <trailer>{processed_text}</trailer>')
+
 
 
     # Cierre final de todos los bloques aún abiertos
