@@ -915,10 +915,10 @@ def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[st
         return warnings
 
     # 2) Validación de estilos en el body
-    STILI_VALIDI = {
+    ESTILOS_VALIDOS = {
         "Titulo_comedia", "Acto", "Prosa", "Verso", "Partido_incial",
         "Partido_medio", "Partido_final", "Personaje", "Acot",
-        "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista"
+        "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista", "Epigr_final"
     }
     SKIP_STYLES = {"Cita", "Heading 1", "Heading 2", "Heading 3"}
     doc = Document(main_docx)
@@ -950,7 +950,7 @@ def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[st
             continue
 
         # 2.3) Validar estilo permitido
-        if style not in STILI_VALIDI:
+        if style not in ESTILOS_VALIDOS:
             snippet = text[:60]
             warnings.append(f"❌ Estilo no válido: {style or 'None'} — Texto: {snippet}")
 
