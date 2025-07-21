@@ -1,8 +1,19 @@
-title: Just the Docs Template
-description: A starter template for a Jeykll site using the Just the Docs theme!
+title: feniX-ML
+description: Herramienta para transformar ediciones críticas de teatro del Siglo de Oro de DOCX a XML-TEI.
 theme: just-the-docs
 
-url: https://just-the-docs.github.io
+# URL de tu sitio (opcional, se puede ajustar cuando esté publicado)
+url: https://prolopeuab.github.io/feniX-ML/
 
+# Enlaces auxiliares en la barra superior
 aux_links:
-  Template Repository: https://github.com/just-the-docs/just-the-docs-template
+  Repo GitHub: https://github.com/prolopeuab/feniX-ML
+  Prolope: https://prolope.uab.cat/
+  Biblioteca Digital: https://prolope.uab.cat/biblioteca/
+  Contacto: mailto:prolope@uab.cat
+
+# Opcional: habilita la búsqueda
+search_enabled: true
+
+# Orden de navegación si decides usar `_pages/`
+nav_sort: case_insensitive

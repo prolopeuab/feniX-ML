@@ -1,35 +1,57 @@
 ---
-title: Home
+title: Inicio
 layout: home
+nav_order: 1
 ---
 
-This is a *bare-minimum* template to create a Jekyll site that uses the [Just the Docs] theme. You can easily set the created site to be published on [GitHub Pages] – the [README] file explains how to do that, along with other details.
+# Bienvenido a feniX-ML
 
-If [Jekyll] is installed on your computer, you can also build and preview the created site *locally*. This lets you test changes before committing them, and avoids waiting for GitHub Pages.[^1] And you will be able to deploy your local build to a different platform than GitHub Pages.
+**feniX-ML** es una herramienta diseñada para facilitar la edición crítica digital de textos teatrales del Siglo de Oro a partir de documentos Word, sin necesidad de conocimientos técnicos en XML o TEI.
 
-More specifically, the created site:
+Está pensada especialmente para investigadores y editores críticos que deseen transformar sus ediciones filológicas en archivos digitales reutilizables, de forma rápida, estructurada y sin abandonar el entorno de trabajo habitual.
 
-- uses a gem-based approach, i.e. uses a `Gemfile` and loads the `just-the-docs` gem
-- uses the [GitHub Pages / Actions workflow] to build and publish the site on GitHub Pages
+La herramienta se basa en un sistema de **plantillas DOCX con estilos personalizados**, que permiten aplicar marcas semánticas de forma visual. A partir de estos estilos, el ejecutable de feniX-ML genera automáticamente un archivo XML-TEI válido y funcional.
 
-Other than that, you're free to customize sites that you create with this template, however you like. You can easily change the versions of `just-the-docs` and Jekyll it uses, as well as adding further plugins.
+El flujo de trabajo que propone feniX-ML ha sido desarrollado en el contexto editorial del grupo PROLOPE de la Universitat Autònoma de Barcelona, pero está diseñado para ser fácilmente reutilizable por cualquier editor interesado en aplicar este modelo a sus propias ediciones.
 
-[Browse our documentation][Just the Docs] to learn more about how to use this theme.
+---
 
-To get started with creating a site, simply:
+## ¿Qué puedo hacer con feniX-ML?
 
-1. click "[use this template]" to create a GitHub repository
-2. go to Settings > Pages > Build and deployment > Source, and select GitHub Actions
+- Aplicar estilos a un archivo DOCX y generar automáticamente su versión en XML-TEI.
+- Cargar hasta cuatro archivos independientes: prólogo y texto crítico, aparato crítico, notas explicativas y metadatos de la edición.
+- Validar el resultado y corregir errores de forma sencilla.
+- Previsualizar tanto el XML como la visualización en HTML antes de exportar el archivo final.
 
-If you want to maintain your docs in the `docs` directory of an existing project repo, see [Hosting your docs from an existing project repo](https://github.com/just-the-docs/just-the-docs-template/blob/main/README.md#hosting-your-docs-from-an-existing-project-repo) in the template README.
+---
 
-----
+## ¿Para quién está pensada esta herramienta?
 
-[^1]: [It can take up to 10 minutes for changes to your site to publish after you push the changes to GitHub](https://docs.github.com/en/pages/setting-up-a-github-pages-site-with-jekyll/creating-a-github-pages-site-with-jekyll#creating-your-site).
+feniX-ML está pensada para:
 
-[Just the Docs]: https://just-the-docs.github.io/just-the-docs/
-[GitHub Pages]: https://docs.github.com/en/pages
-[README]: https://github.com/just-the-docs/just-the-docs-template/blob/main/README.md
-[Jekyll]: https://jekyllrb.com
-[GitHub Pages / Actions workflow]: https://github.blog/changelog/2022-07-27-github-pages-custom-github-actions-workflows-beta/
-[use this template]: https://github.com/just-the-docs/just-the-docs-template/generate
+- *Editores críticos* que trabajan con teatro áureo y desean publicar sus ediciones digitales.
+- *Investigadores* con conocimientos básicos de Word pero sin formación técnica en XML.
+- *Grupos de investigación* que busquen escalar la producción de ediciones digitales sin depender de equipos de desarrollo externos.
+
+---
+
+## ¿Qué encontrarás en esta documentación?
+
+Esta guía está organizada por pasos, para acompañarte desde el inicio hasta la publicación de tu archivo XML-TEI:
+
+- [Primeros pasos e instalación](./instalacion)
+- [Preparar los archivos DOCX](./preparar-docx)
+  - Prólogo y texto crítico
+  - Aparato crítico
+  - Notas explicativas
+  - Metadatos de la edición
+- [Usar la aplicación de escritorio](./uso-app)
+- [Resolver errores comunes](./resolucion-problemas)
+
+---
+
+## Acceso abierto y reutilización
+
+feniX-ML está disponible en acceso abierto. Puedes descargar el ejecutable, las plantillas y esta documentación desde el [repositorio en GitHub](https://github.com/prolopeuab/feniX-ML).
+
+---
