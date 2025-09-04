@@ -47,4 +47,5 @@ Debe elaborarse a partir de la plantilla específica `plantilla-metadatos.docx`.
 
 ---
 
-Cada uno de estos archivos se elabora en Word y se carga de forma independiente en la aplicación feniX-ML.  
+> Cada uno de estos archivos se elabora en Word y se carga de forma independiente en la aplicación feniX-ML.
+{: .note }
