@@ -819,6 +819,58 @@ def convert_docx_to_tei(
 
 
 # ==== VALIDACIÓN Y ANÁLISIS DE LOS DOCUMENTOS ====
+def is_empty_paragraph(para) -> bool:
+    """
+    Determina si un párrafo está vacío o solo contiene espacios/caracteres invisibles.
+    """
+    if not para.text:
+        return True
+    
+    text = para.text.strip()
+    if not text:
+        return True
+    
+    # Verificar espacios invisibles, tabulaciones y caracteres especiales
+    clean_text = text.replace('\u00A0', '').replace('\t', '').strip()
+    if not clean_text:
+        return True
+    
+    # Verificar si todos los runs están vacíos
+    if not para.runs or all(not run.text.strip() for run in para.runs):
+        return True
+    
+    # Verificar líneas con solo puntuación, espacios o caracteres de control
+    if re.match(r'^[\s\.:!?\(\)"\']+$', text):
+        return True
+    
+    # Verificar líneas con solo caracteres de control o espacios no separables
+    if re.match(r'^[\s\u00A0\u2000-\u200F\u2028-\u202F]+$', text):
+        return True
+    
+    return False
+
+def should_skip_paragraph(para, text: str, style: str) -> bool:
+    """
+    Determina si un párrafo debe ser omitido durante la validación.
+    """
+    # Párrafos vacíos
+    if is_empty_paragraph(para):
+        return True
+    
+    # Milestones que empiezan con '$'
+    if re.match(r'^\$\S+', text):
+        return True
+    
+    # Front-matter con asterisco
+    if text.startswith("*"):
+        return True
+    
+    # Párrafos dentro de tablas (sinopsis, metadatos, etc.)
+    if para._element.xpath("ancestor::w:tbl"):
+        return True
+    
+    return False
+
 def analyze_main_text(main_docx) -> list[str]:
     """
     Analiza el archivo principal y devuelve avisos de párrafos sin estilo
@@ -833,7 +885,7 @@ def analyze_main_text(main_docx) -> list[str]:
 
     for para in doc.paragraphs:
         style = para.style.name if para.style else ""
-        text = para.text.strip()
+        text = para.text.strip() if para.text else ""
 
         # 1) Buscamos el inicio del body
         if not found_body:
@@ -841,21 +893,15 @@ def analyze_main_text(main_docx) -> list[str]:
                 found_body = True
             continue
 
-        # 2) Ignoramos párrafos vacíos
-        if not text:
+        # 2) Aplicamos los filtros comunes
+        if should_skip_paragraph(para, text, style):
             continue
 
-        # 3) Solo revisamos estilos 'Normal' o None
+        # 3) Solo revisamos estilos 'Normal' o None para párrafos sin estilo
         if style in ["Normal", "", None]:
-            # Ignora cualquier milestone que empiece con '$'
-            if re.match(r'^\$\S+', text):
-                continue
-            # Ignora líneas que solo contengan puntuación
-            if re.match(r'^[\.:!?\(\)"\']+$', text):
-                continue
             unstyled_paragraphs.append(text)
 
-    # 4) Tras recorrer todos las líneas, añadimos el warning si hay alguno
+    # 4) Tras recorrer todas las líneas, añadimos el warning si hay alguno
     if unstyled_paragraphs:
         count = len(unstyled_paragraphs)
         mensaje = (
@@ -926,7 +972,7 @@ def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[st
 
     for para in doc.paragraphs:
         style = para.style.name if para.style else ""
-        text  = para.text.strip()
+        text = para.text.strip() if para.text else ""
 
         # 2.1) Esperar hasta el inicio de cuerpo
         if not found_body:
@@ -934,27 +980,20 @@ def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[st
                 found_body = True
             continue
 
-        # 2.2) Filtros para no validar ciertos párrafos
-        if not text:
+        # 2.2) Aplicar filtros comunes para omitir párrafos
+        if should_skip_paragraph(para, text, style):
             continue
-        if re.match(r'^\$\S+', text):             # milestones "$redondilla", etc.
-            continue
-        if re.match(r'^[\.:!?\(\)"\']+$', text): # solo puntuación
-            continue
-        if text.startswith("*"):                 # front-matter con asterisco
-            continue
-        if style in SKIP_STYLES:                 # citas o encabezados
-            continue
-        # párrafos dentro de tablas (sinopsis, metadatos, etc.)
-        if para._element.xpath("ancestor::w:tbl"):
+        
+        # 2.3) Omitir estilos específicos que no necesitan validación
+        if style in SKIP_STYLES:
             continue
 
-        # 2.3) Validar estilo permitido
+        # 2.4) Validar estilo permitido (solo si no es un párrafo a omitir)
         if style not in ESTILOS_VALIDOS:
             snippet = text[:60]
             warnings.append(f"❌ Estilo no válido: {style or 'None'} — Texto: {snippet}")
 
-    # 3) Análisis avanzado del texto principal (detección de "Normal")
+    # 3) Análisis avanzado del texto principal (detección de párrafos sin estilo)
     warnings.extend(analyze_main_text(main_docx))
 
     # 4) Notas de aparato
