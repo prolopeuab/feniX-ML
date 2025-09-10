@@ -285,9 +285,9 @@ def parse_metadata_docx(path):
 
     return "\n".join(tei)
 
-def process_front_paragraphs(paragraphs, footnotes_intro):
+def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro):
     """
-    Procesa los párrafos del front-matter, generando el bloque <front> del TEI.
+    Procesa los párrafos del front-matter, incluyendo tablas, generando el bloque <front> del TEI.
     """
     tei_front = []
     subsection_open = False
@@ -295,6 +295,7 @@ def process_front_paragraphs(paragraphs, footnotes_intro):
     current_section = None
     paragraph_buffer = []
     head_inserted = False
+    processed_tables = set()  # Para evitar procesar tablas múltiples veces
 
     def flush_paragraph_buffer():
         nonlocal paragraph_buffer
@@ -308,7 +309,19 @@ def process_front_paragraphs(paragraphs, footnotes_intro):
                 tei_front.append(f'          <p>{text.strip()}</p>')
         paragraph_buffer.clear()
 
-    for i, para in enumerate(paragraphs):
+    def process_nearby_tables():
+        """Procesa tablas que aparecen en el contexto actual."""
+        for i, table in enumerate(doc.tables):
+            if i in processed_tables:
+                continue
+            
+            # Procesar todas las tablas no procesadas en la sección actual
+            # (en el futuro se podría refinar esto para detectar posición exacta)
+            if current_section and "sinopsis" in current_section:
+                tei_front.append(process_table_to_tei(table, footnotes_intro))
+                processed_tables.add(i)
+
+    for i, para in enumerate(front_paragraphs):
         raw = extract_text_with_intro_notes(para, footnotes_intro)
         text = para.text.strip() if para.text else ""
         if not text:
@@ -339,12 +352,8 @@ def process_front_paragraphs(paragraphs, footnotes_intro):
             current_section = title.lower()
             subsection_n += 1
 
-        # 🔹 Tablas en la sección "Sinopsis"
-            if current_section and "sinopsis" in current_section:
-                parent = para._parent
-                if hasattr(parent, "tables") and parent.tables:
-                    for tbl in parent.tables:
-                        tei_front.append(process_table_to_tei(tbl))
+            # 🔹 Procesar tablas después de abrir la subsección
+            process_nearby_tables()
             continue
 
         # 🔹 Añade al buffer
@@ -357,10 +366,13 @@ def process_front_paragraphs(paragraphs, footnotes_intro):
 
     return "\n".join(tei_front)
 
-def process_table_to_tei(table):
+def process_table_to_tei(table, footnotes_intro=None):
     """
-    Convierte una tabla DOCX en una tabla TEI.
+    Convierte una tabla DOCX en una tabla TEI, incluyendo notas al pie.
     """
+    if footnotes_intro is None:
+        footnotes_intro = {}
+        
     ncols = len(table.columns)
     tei = ['<table rend="rules">']
 
@@ -368,7 +380,7 @@ def process_table_to_tei(table):
     hdr = table.rows[0]
     tei.append('  <row>')
     for cell in hdr.cells:
-        raw = extract_text_with_italics(cell.paragraphs[0])
+        raw = extract_text_with_intro_notes(cell.paragraphs[0], footnotes_intro)
         tei.append(
             '    <cell rend="both">\n'
             f'      <hi rend="italic" style="padding-left:3em; font-size:13pt; font-weight:bold">{raw}</hi>\n'
@@ -389,7 +401,7 @@ def process_table_to_tei(table):
 
         
         if len(non_empty) == 1 and texts[0] and all(not t for t in texts[1:]):
-            raw = extract_text_with_italics(row.cells[0].paragraphs[0])
+            raw = extract_text_with_intro_notes(row.cells[0].paragraphs[0], footnotes_intro)
             tei.extend([
                 '  <row>',
                 f'    <cell rend="both" cols="{ncols}">',
@@ -409,7 +421,7 @@ def process_table_to_tei(table):
             if not txt:
                 tei.append('    <cell rend="both"> </cell>')
                 continue
-            raw = extract_text_with_italics(cell.paragraphs[0])
+            raw = extract_text_with_intro_notes(cell.paragraphs[0], footnotes_intro)
             if is_summary:
                 style = "padding-left:3em; font-size:11pt; font-weight:bold"
                 if key == "total":
@@ -663,8 +675,8 @@ def convert_docx_to_tei(
         '      <div type="Introducción">'
     ]
 
-    # Inserta el contenido de <front>, incluyendo notas introductorias
-    tei.append(process_front_paragraphs(front_paragraphs, footnotes_intro))
+    # Inserta el contenido de <front>, incluyendo notas introductorias y tablas
+    tei.append(process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro))
 
     # Cerramos el front y abrimos el body con el título principal
     tei.extend([
