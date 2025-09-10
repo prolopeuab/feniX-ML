@@ -86,30 +86,48 @@ def close_current_blocks(tei, state):
 def extract_text_with_italics(para):
     """
     Extrae el texto de un párrafo, preservando las cursivas.
+    Mueve los espacios que están dentro de runs cursivos hacia fuera para preservar el formato.
     """
     # Recorre los runs del párrafo y envuelve en <hi rend="italic"> si es cursiva
     text = ""
     for run in para.runs:
         if run.italic:
-            text += f'<hi rend="italic">{run.text}</hi>'
+            # Extrae espacios del principio y final del texto cursivo
+            content = run.text
+            leading_spaces = ""
+            trailing_spaces = ""
+            
+            # Extrae espacios del principio
+            while content.startswith(" ") or content.startswith("\t"):
+                leading_spaces += content[0]
+                content = content[1:]
+            
+            # Extrae espacios del final
+            while content.endswith(" ") or content.endswith("\t"):
+                trailing_spaces = content[-1] + trailing_spaces
+                content = content[:-1]
+            
+            # Solo envuelve en cursiva el contenido sin espacios
+            if content:  # solo si queda contenido después de quitar espacios
+                text += leading_spaces + f'<hi rend="italic">{content}</hi>' + trailing_spaces
+            else:  # si solo había espacios, los añade sin cursiva
+                text += run.text
         else:
             text += run.text
     return text.strip()
 
 def merge_italic_text(text):
     """
-    Fusiona secuencias consecutivas de etiquetas <hi rend="italic">...</hi> en una sola.
+    Fusiona SOLO etiquetas cursivas que están completamente pegadas (sin espacios ni contenido entre ellas).
+    Versión conservadora para evitar fusiones incorrectas entre notas diferentes.
     """
-    # Busca una o más ocurrencias consecutivas de <hi rend="italic">...</hi>
-    pattern = re.compile(r'((?:<hi rend="italic">.*?</hi>\s*)+)', re.DOTALL)
-    def replacer(match):
-        segment = match.group(1)
-        # Extrae todo el contenido interno de los tags
-        inner_texts = re.findall(r'<hi rend="italic">(.*?)</hi>', segment, re.DOTALL)
-        # Une todo en una sola cadena (sin espacios adicionales)
-        merged = ''.join(inner_texts).strip()
-        return f'<hi rend="italic">{merged}</hi>'
-    return pattern.sub(replacer, text)
+    # Busca SOLO etiquetas que están completamente pegadas: </hi><hi rend="italic">
+    pattern = re.compile(r'</hi><hi rend="italic">')
+    
+    # Reemplaza la secuencia </hi><hi rend="italic"> por nada (fusiona las etiquetas)
+    result = pattern.sub('', text)
+    
+    return result
 
 def generate_filename(title):
     """
@@ -887,6 +905,19 @@ def convert_docx_to_tei(
                 ultimo_speaker_id = who_id
 
             state["in_sp"] = True
+
+        elif style == "Prosa":
+            # Párrafos en prosa, pueden estar en dedicatoria o en otras secciones
+            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "p")
+            if state["in_dedicatoria"]:
+                tei.append(f'          <p>{processed_text}</p>')
+            elif state["in_cast_list"]:
+                tei.append(f'            <p>{processed_text}</p>')
+            elif state["in_sp"]:
+                tei.append(f'            <p>{processed_text}</p>')
+            else:
+                # Prosa en contexto general
+                tei.append(f'        <p>{processed_text}</p>')
 
         elif style == "Epigr_final":
             processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "trailer")
