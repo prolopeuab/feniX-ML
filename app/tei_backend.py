@@ -857,6 +857,86 @@ def convert_docx_to_tei(
 
 
 # ==== VALIDACIÓN Y ANÁLISIS DE LOS DOCUMENTOS ====
+def count_verses_in_document(main_docx, include_dedication=False):
+    """
+    Cuenta los versos en un documento DOCX usando la misma lógica que el procesamiento principal.
+    
+    Args:
+        main_docx: Ruta al archivo DOCX
+        include_dedication: Si True, cuenta versos desde Titulo_comedia; si False, desde primer Acto
+    
+    Returns:
+        Lista de tuplas (paragraph_index, verse_number, style, text) para cada verso encontrado
+    """
+    doc = Document(main_docx)
+    verses = []
+    found_start = False
+    verse_counter = 1
+    
+    for para_idx, para in enumerate(doc.paragraphs):
+        style = para.style.name if para.style else ""
+        text = para.text.strip() if para.text else ""
+        
+        # Determinar punto de inicio según parámetro
+        if not found_start:
+            start_style = "Titulo_comedia" if include_dedication else "Acto"
+            if style == start_style:
+                found_start = True
+                if not include_dedication:  # Si empezamos en Acto, reiniciar contador
+                    verse_counter = 1
+            continue
+        
+        # Aplicar los mismos filtros que en el procesamiento principal
+        if re.match(r'^\$\w+', text):  # Milestones
+            continue
+        if is_empty_paragraph(para):  # Párrafos vacíos
+            continue
+        if style in [
+            "Personaje", "Acot", "Prosa", 
+            "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista", "Epigr_final",
+            "Acto", "Cita", "Heading 1", "Heading 2", "Heading 3", "Normal"
+        ]:
+            continue
+        
+        # Contar versos reales
+        if style == "Verso":
+            verses.append((para_idx, verse_counter, style, text))
+            verse_counter += 1
+        elif style == "Partido_incial":
+            verses.append((para_idx, verse_counter, style, text))
+            verse_counter += 1
+        elif style in ["Partido_medio", "Partido_final"]:
+            # Medio y final usan el número del inicial (counter - 1)
+            verses.append((para_idx, verse_counter - 1, style, text))
+    
+    return verses
+
+def get_verse_number_at_position(main_docx, target_para_index, include_dedication=False):
+    """
+    Obtiene el número del último verso antes de una posición específica en el documento.
+    
+    Args:
+        main_docx: Ruta al archivo DOCX
+        target_para_index: Índice del párrafo objetivo
+        include_dedication: Si True, cuenta versos desde Titulo_comedia; si False, desde primer Acto
+    
+    Returns:
+        int: Número del último verso antes de la posición, o 0 si no hay versos previos
+    """
+    verses = count_verses_in_document(main_docx, include_dedication)
+    
+    # Buscar el último verso antes de la posición objetivo
+    last_verse_number = 0
+    for para_idx, verse_number, style, text in verses:
+        if para_idx < target_para_index:
+            # Solo contar versos que incrementan el contador (no medio/final)
+            if style in ["Verso", "Partido_incial"]:
+                last_verse_number = verse_number
+        else:
+            break
+    
+    return last_verse_number
+
 def is_empty_paragraph(para) -> bool:
     """
     Determina si un párrafo está vacío o solo contiene espacios/caracteres invisibles.
@@ -916,66 +996,46 @@ def analyze_main_text(main_docx) -> list[str]:
     y milestones ($.). Incluye dramatis personae pero no cuenta versos.
     """
     warnings: list[str] = []
-    unstyled_paragraphs: list[tuple[str, int]] = []  # (text, last_verse_number)
+    unstyled_paragraphs: list[tuple[str, str]] = []  # (text, location_info)
 
     doc = Document(main_docx)
     found_body = False
-    found_first_act = False  # Para saber cuándo empezar a contar versos
-    verse_counter = 0  # Contador de versos para localización
 
-    for para in doc.paragraphs:
+    for para_idx, para in enumerate(doc.paragraphs):
         style = para.style.name if para.style else ""
         text = para.text.strip() if para.text else ""
 
         # 1) Buscamos el inicio del body (incluyendo dramatis personae)
         if not found_body:
-            if style == "Titulo_comedia":  # Revertido para incluir dramatis personae
+            if style == "Titulo_comedia":
                 found_body = True
             continue
 
-        # 2) Detectar cuando empezamos a contar versos (después del primer Acto)
-        if not found_first_act and style == "Acto":
-            found_first_act = True
-            verse_counter = 0  # Reiniciar contador
-            continue
-
-        # 3) Contar versos solo después del primer Acto
-        if found_first_act:
-            # Aplicar los mismos filtros que en validate_split_verses
-            if re.match(r'^\$\w+', text):  # Milestones
-                continue
-            if is_empty_paragraph(para):  # Párrafos vacíos
-                continue
-            if style in [
-                "Personaje", "Acot", "Prosa", 
-                "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista", "Epigr_final",
-                "Acto", "Cita", "Heading 1", "Heading 2", "Heading 3"
-            ]:
-                continue
-            
-            # Contar versos reales
-            if style == "Verso":
-                verse_counter += 1
-            elif style == "Partido_incial":
-                verse_counter += 1
-
-        # 4) Aplicamos los filtros comunes para detectar párrafos problemáticos
+        # 2) Aplicamos los filtros comunes para detectar párrafos problemáticos
         if should_skip_paragraph(para, text, style):
             continue
 
-        # 5) Solo revisamos estilos 'Normal' o None para párrafos sin estilo
+        # 3) Solo revisamos estilos 'Normal' o None para párrafos sin estilo
         if style in ["Normal", "", None]:
+            # Obtener número del último verso antes de esta posición
+            last_verse = get_verse_number_at_position(main_docx, para_idx, include_dedication=False)
+            
             # Determinar el contexto de localización
-            if found_first_act and verse_counter > 0:
-                location_info = f" (después del verso {verse_counter})"
-            elif found_first_act:
-                location_info = " (al inicio del Acto)"
+            if last_verse > 0:
+                location_info = f" (después del verso {last_verse})"
             else:
-                location_info = " (en dramatis personae o dedicatoria)"
+                # Verificar si estamos antes del primer acto
+                verses_with_dedication = count_verses_in_document(main_docx, include_dedication=True)
+                has_dedication_verses = any(v[0] < para_idx for v in verses_with_dedication)
+                
+                if has_dedication_verses:
+                    location_info = " (en dramatis personae o dedicatoria)"
+                else:
+                    location_info = " (al inicio del documento)"
             
             unstyled_paragraphs.append((text, location_info))
 
-    # 6) Tras recorrer todas las líneas, añadimos el warning si hay alguno
+    # 4) Tras recorrer todas las líneas, añadimos el warning si hay alguno
     if unstyled_paragraphs:
         count = len(unstyled_paragraphs)
         warnings.append(
@@ -1037,56 +1097,26 @@ def validate_split_verses_impact_on_numbering(main_docx) -> list[str]:
     """
     warnings: list[str] = []
     
-    doc = Document(main_docx)
-    found_body = False
+    # Obtener todos los versos
+    verses = count_verses_in_document(main_docx, include_dedication=False)
     
     total_verses = 0  # Versos normales
     split_verse_initials = 0  # Partido_incial (cada uno debería ser un verso)
     split_verse_groups = 0  # Grupos completos de versos partidos (I + [M...] + F)
     incomplete_splits = 0  # Partido_incial sin Partido_final
     
-    verse_sequence = []
-    
-    # 1. Recopilar información de versos APLICANDO LOS MISMOS FILTROS
-    for para in doc.paragraphs:
-        style = para.style.name if para.style else ""
-        text = para.text.strip() if para.text else ""
-        
-        if not found_body:
-            if style == "Acto":  # Cambiado de "Titulo_comedia" a "Acto"
-                found_body = True
-            continue
-        
-        # *** APLICAR LOS MISMOS FILTROS QUE EN EL PROCESAMIENTO PRINCIPAL ***
-        
-        # Saltar milestones ($nombreMilestone)
-        if re.match(r'^\$\w+', text):
-            continue
-        
-        # Saltar párrafos vacíos o con solo espacios
-        if is_empty_paragraph(para):
-            continue
-        
-        # Saltar estilos que NO son versos
-        if style in [
-            "Personaje", "Acot", "Prosa", 
-            "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista", "Epigr_final",
-            "Acto", "Cita", "Heading 1", "Heading 2", "Heading 3", "Normal"
-        ]:
-            continue
-        
-        # Contar SOLO versos reales
-        if style == "Verso":
-            total_verses += 1
-        elif style in ["Partido_incial", "Partido_medio", "Partido_final"]:
-            verse_sequence.append((style, text))
+    # Separar por tipo de verso
+    verse_sequence = [(style, text) for _, _, style, text in verses]
     
     # 2. Analizar secuencias de versos partidos
     i = 0
     while i < len(verse_sequence):
         style, text = verse_sequence[i]
         
-        if style == "Partido_incial":
+        if style == "Verso":
+            total_verses += 1
+            i += 1
+        elif style == "Partido_incial":
             split_verse_initials += 1
             j = i + 1
             found_final = False
@@ -1098,7 +1128,7 @@ def validate_split_verses_impact_on_numbering(main_docx) -> list[str]:
                     found_final = True
                     split_verse_groups += 1
                     break
-                elif next_style in ["Partido_incial"]:
+                elif next_style in ["Partido_incial", "Verso"]:
                     break
                 j += 1
             
@@ -1106,7 +1136,7 @@ def validate_split_verses_impact_on_numbering(main_docx) -> list[str]:
                 incomplete_splits += 1
             
             i = j + 1 if found_final else i + 1
-        else:
+        else:  # Partido_medio, Partido_final
             i += 1
     
     # 3. Validaciones
@@ -1138,60 +1168,13 @@ def validate_split_verses(main_docx) -> list[str]:
     """
     warnings: list[str] = []
     
-    doc = Document(main_docx)
-    found_body = False
-    verse_sequence = []  # Lista de (style, text, verse_number)
-    
-    # Contadores para numerar correctamente
-    verse_counter = 1
-    
-    # 1. Recopilar secuencia de versos CON NUMERACIÓN CORRECTA
-    for i, para in enumerate(doc.paragraphs):
-        style = para.style.name if para.style else ""
-        text = para.text.strip() if para.text else ""
-        
-        # Esperar hasta el cuerpo del texto crítico (después del primer Acto)
-        if not found_body:
-            if style == "Acto":  # Cambiado de "Titulo_comedia" a "Acto"
-                found_body = True
-            continue
-        
-        # *** APLICAR LOS MISMOS FILTROS QUE EN EL PROCESAMIENTO PRINCIPAL ***
-        
-        # Saltar milestones ($nombreMilestone)
-        if re.match(r'^\$\w+', text):
-            continue
-        
-        # Saltar párrafos vacíos o con solo espacios
-        if is_empty_paragraph(para):
-            continue
-        
-        # Saltar estilos que NO son versos:
-        # - Personaje, Acot: no cuentan como versos
-        # - Prosa: no cuenta como verso
-        # - Epigrafes y otros elementos estructurales
-        if style in [
-            "Personaje", "Acot", "Prosa", 
-            "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista", "Epigr_final",
-            "Acto", "Cita", "Heading 1", "Heading 2", "Heading 3", "Normal"
-        ]:
-            continue
-        
-        # Recopilar SOLO versos y versos partidos CON SU NÚMERO DE VERSO REAL
-        if style == "Verso":
-            verse_sequence.append((style, text, verse_counter))
-            verse_counter += 1
-        elif style == "Partido_incial":
-            verse_sequence.append((style, text, verse_counter))
-            verse_counter += 1  # Solo el inicial incrementa el contador
-        elif style in ["Partido_medio", "Partido_final"]:
-            # Medio y final NO incrementan el contador, usan el del inicial
-            verse_sequence.append((style, text, verse_counter - 1))
+    # Obtener todos los versos con su numeración correcta
+    verses = count_verses_in_document(main_docx, include_dedication=False)
     
     # 2. Validar secuencia de versos partidos
     i = 0
-    while i < len(verse_sequence):
-        style, text, verse_num = verse_sequence[i]
+    while i < len(verses):
+        para_idx, verse_num, style, text = verses[i]
         
         if style == "Partido_incial":
             # Buscar el final correspondiente
@@ -1199,12 +1182,12 @@ def validate_split_verses(main_docx) -> list[str]:
             found_final = False
             middle_count = 0
             
-            while j < len(verse_sequence):
-                next_style, next_text, next_verse_num = verse_sequence[j]
+            while j < len(verses):
+                next_para_idx, next_verse_num, next_style, next_text = verses[j]
                 
-                if next_style == "Partido_medio":
+                if next_style == "Partido_medio" and next_verse_num == verse_num:
                     middle_count += 1
-                elif next_style == "Partido_final":
+                elif next_style == "Partido_final" and next_verse_num == verse_num:
                     found_final = True
                     break
                 elif next_style in ["Verso", "Partido_incial"]:
@@ -1223,10 +1206,9 @@ def validate_split_verses(main_docx) -> list[str]:
             
         elif style == "Partido_medio":
             # Partido_medio sin Partido_incial previo
-            # Buscar si hay un Partido_incial antes en el grupo actual
             has_initial = False
             for k in range(i - 1, -1, -1):
-                prev_style, _, prev_verse_num = verse_sequence[k]
+                prev_para_idx, prev_verse_num, prev_style, prev_text = verses[k]
                 if prev_style == "Partido_incial" and prev_verse_num == verse_num:
                     has_initial = True
                     break
@@ -1244,7 +1226,7 @@ def validate_split_verses(main_docx) -> list[str]:
             # Partido_final sin Partido_incial previo
             has_initial = False
             for k in range(i - 1, -1, -1):
-                prev_style, _, prev_verse_num = verse_sequence[k]
+                prev_para_idx, prev_verse_num, prev_style, prev_text = verses[k]
                 if prev_style in ["Partido_incial", "Partido_medio"] and prev_verse_num == verse_num:
                     has_initial = True
                     break
