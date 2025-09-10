@@ -459,7 +459,7 @@ def extract_notes_with_italics(docx_path: str) -> dict:
 
         # Notas tipo verso: "1: contenido"
         match_verse = re.match(r'^(\d+):\s*(.*)', text)
-        # Notas tipo @palabra@: "@palabra@: contenido"
+        # Notas tipo @palabra: "@palabra: contenido"
         match_single = re.match(r'^@([^@]+?):\s*(.*)', text)
 
         if match_verse:
@@ -638,10 +638,9 @@ def convert_docx_to_tei(
         raise RuntimeError("No se encontró ningún párrafo con estilo 'Titulo_comedia' para extraer el título.")
 
     raw_title = doc.paragraphs[title_idx].text.strip()
-    # Quitar cualquier '@' u otro carácter problemático
-    clean_title = re.sub(r'@', '', raw_title)
-    # Generar la clave/slug a partir del título limpio
-    title_key   = generate_filename(clean_title)
+    # Generar la clave/slug a partir del título (sin marcadores @)
+    clean_title_for_filename = re.sub(r'@', '', raw_title)
+    title_key = generate_filename(clean_title_for_filename)
 
 
     # --- Determinación y validación de rutas de notas y aparato ---
@@ -677,7 +676,7 @@ def convert_docx_to_tei(
 
     # Título procesado con el mismo contador de anotaciones
     processed_title = process_annotations_with_ids(
-        clean_title,
+        raw_title,
         nota_notes,
         aparato_notes,
         annotation_counter,
@@ -733,28 +732,32 @@ def convert_docx_to_tei(
 
 
         if style == "Epigr_Dedic":
+            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "head")
             tei.append('        <div type="dedicatoria">')
-            tei.append(f'          <head>{text}</head>')
+            tei.append(f'          <head>{processed_text}</head>')
             state["in_dedicatoria"] = True
 
         elif style == "Epigr_Dramatis":
+            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "head")
             tei.append('        <div type="castList">')
-            tei.append(f'            <head>{text}</head>')
+            tei.append(f'            <head>{processed_text}</head>')
             tei.append('          <castList>')
             state["in_cast_list"] = True
 
 
         elif style == "Dramatis_lista":
-            role_name = text
+            processed_role_name = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "role")
+            role_name = text  # Para el ID usamos el texto sin procesar
             if role_name:
                 role_id = re.sub(r'[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ_-]+', '_', role_name)
-                tei.append(f'            <castItem><role xml:id="{role_id}">{role_name}</role></castItem>')
+                tei.append(f'            <castItem><role xml:id="{role_id}">{processed_role_name}</role></castItem>')
                 characters[role_name] = role_id
 
         elif style == "Acto":
+            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "head")
             act_counter += 1
             tei.append(f'        <div type="subsection" subtype="ACTO" n="{act_counter}">')
-            tei.append(f'          <head type="acto">{text}</head>')
+            tei.append(f'          <head type="acto">{processed_text}</head>')
             state["in_act"] = True
 
         elif style == "Prosa":
@@ -764,7 +767,8 @@ def convert_docx_to_tei(
 
         elif style == "Verso":
             if state["in_dedicatoria"]:
-                tei.append(f'          <l>{text}</l>')
+                processed_verse = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "l")
+                tei.append(f'          <l>{processed_verse}</l>')
             elif state["in_sp"]:
                 if current_milestone:
                     tei.append(f'            <milestone unit="stanza" type="{current_milestone}"/>')
