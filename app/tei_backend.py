@@ -447,7 +447,7 @@ def extract_notes_with_italics(docx_path: str) -> dict:
     """
     Extrae notas o aparato de un DOCX.
     Devuelve un dict donde las claves pueden ser int (versos) o str (palabras)
-    y los valores el texto de la nota.
+    y los valores pueden ser strings individuales o listas si hay múltiples notas para el mismo verso.
     """
     notes: dict = {}
     if not docx_path or not os.path.exists(docx_path):
@@ -464,11 +464,30 @@ def extract_notes_with_italics(docx_path: str) -> dict:
 
         if match_verse:
             verse_num = int(match_verse.group(1))
-            notes[verse_num] = match_verse.group(2).strip()
+            content = match_verse.group(2).strip()
+            
+            # Si ya existe una nota para este verso, crear una lista
+            if verse_num in notes:
+                if isinstance(notes[verse_num], list):
+                    notes[verse_num].append(content)
+                else:
+                    # Convertir la nota existente en lista
+                    notes[verse_num] = [notes[verse_num], content]
+            else:
+                notes[verse_num] = content
+                
         elif match_single:
             key = match_single.group(1).strip()
-            if key not in notes:
-                notes[key] = match_single.group(2).strip()
+            content = match_single.group(2).strip()
+            
+            # Mismo tratamiento para notas de palabras
+            if key in notes:
+                if isinstance(notes[key], list):
+                    notes[key].append(content)
+                else:
+                    notes[key] = [notes[key], content]
+            else:
+                notes[key] = content
 
     return notes
 
@@ -499,17 +518,16 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
         normalized = normalized.encode('ASCII', 'ignore').decode('utf-8').lower().strip()
         return normalized
 
-    # Normalizamos claves de las notas
-    nota_notes_norm = {
-        normalize_word(k): v
-        for k, v in nota_notes.items()
-        if isinstance(k, str)
-    }
-    aparato_notes_norm = {
-        normalize_word(k): v
-        for k, v in aparato_notes.items()
-        if isinstance(k, str)
-    }
+    # Normalizamos claves de las notas (manejando listas)
+    def normalize_notes_dict(notes_dict):
+        normalized = {}
+        for k, v in notes_dict.items():
+            if isinstance(k, str):
+                normalized[normalize_word(k)] = v
+        return normalized
+    
+    nota_notes_norm = normalize_notes_dict(nota_notes)
+    aparato_notes_norm = normalize_notes_dict(aparato_notes)
 
     # Unificamos todas las notas en un solo dict
     all_notes = {**nota_notes_norm, **aparato_notes_norm}
@@ -536,12 +554,22 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
             xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id)
             xml_id = xml_id.lower()
 
-            # Construimos los posibles <note>
+            # Construimos los posibles <note> (manejando listas)
             note_str = ""
             if key in nota_notes_norm:
-                note_str += f'<note subtype="nota" xml:id="{xml_id}">{nota_notes_norm[key]}</note>'
+                note_content = nota_notes_norm[key]
+                if isinstance(note_content, list):
+                    for i, content in enumerate(note_content, 1):
+                        note_str += f'<note subtype="nota" xml:id="{xml_id}_nota_{i}">{content}</note>'
+                else:
+                    note_str += f'<note subtype="nota" xml:id="{xml_id}">{note_content}</note>'
             if key in aparato_notes_norm:
-                note_str += f'<note subtype="aparato"     xml:id="{xml_id}">{aparato_notes_norm[key]}</note>'
+                aparato_content = aparato_notes_norm[key]
+                if isinstance(aparato_content, list):
+                    for i, content in enumerate(aparato_content, 1):
+                        note_str += f'<note subtype="aparato" xml:id="{xml_id}_aparato_{i}">{content}</note>'
+                else:
+                    note_str += f'<note subtype="aparato" xml:id="{xml_id}">{aparato_content}</note>'
 
             # Sustituimos solo la primera ocurrencia
             new_text = new_text.replace(phrase_to_replace, f"{phrase}{note_str}", 1)
@@ -742,10 +770,27 @@ def convert_docx_to_tei(
                     tei.append(f'            <milestone unit="stanza" type="{current_milestone}"/>')
                     current_milestone = None
                 verse_text = text
+                
+                # Procesar notas (pueden ser múltiples)
                 if verse_counter in nota_notes:
-                    verse_text += f'<note subtype="nota" n="{verse_counter}">{nota_notes[verse_counter]}</note>'
+                    note_content = nota_notes[verse_counter]
+                    if isinstance(note_content, list):
+                        # Múltiples notas
+                        for i, content in enumerate(note_content, 1):
+                            verse_text += f'<note subtype="nota" n="{verse_counter}" xml:id="nota_{verse_counter}_{i}">{content}</note>'
+                    else:
+                        # Una sola nota
+                        verse_text += f'<note subtype="nota" n="{verse_counter}">{note_content}</note>'
+                
+                # Mismo tratamiento para aparato
                 if verse_counter in aparato_notes:
-                    verse_text += f'<note subtype="aparato" n="{verse_counter}">{aparato_notes[verse_counter]}</note>'
+                    aparato_content = aparato_notes[verse_counter]
+                    if isinstance(aparato_content, list):
+                        for i, content in enumerate(aparato_content, 1):
+                            verse_text += f'<note subtype="aparato" n="{verse_counter}" xml:id="aparato_{verse_counter}_{i}">{content}</note>'
+                    else:
+                        verse_text += f'<note subtype="aparato" n="{verse_counter}">{aparato_content}</note>'
+                
                 tei.append(f'            <l n="{verse_counter}">{verse_text}</l>')
                 verse_counter += 1
 
@@ -773,10 +818,27 @@ def convert_docx_to_tei(
             }
             
             verse_text = text
+            
+            # Procesar notas (pueden ser múltiples)
             if verse_counter in nota_notes:
-                verse_text += f'<note subtype="nota" n="{verse_counter}">{nota_notes[verse_counter]}</note>'
+                note_content = nota_notes[verse_counter]
+                if isinstance(note_content, list):
+                    # Múltiples notas
+                    for i, content in enumerate(note_content, 1):
+                        verse_text += f'<note subtype="nota" n="{verse_counter}" xml:id="nota_{verse_counter}_{i}">{content}</note>'
+                else:
+                    # Una sola nota
+                    verse_text += f'<note subtype="nota" n="{verse_counter}">{note_content}</note>'
+            
+            # Mismo tratamiento para aparato
             if verse_counter in aparato_notes:
-                verse_text += f'<note subtype="aparato" n="{verse_counter}">{aparato_notes[verse_counter]}</note>'
+                aparato_content = aparato_notes[verse_counter]
+                if isinstance(aparato_content, list):
+                    for i, content in enumerate(aparato_content, 1):
+                        verse_text += f'<note subtype="aparato" n="{verse_counter}" xml:id="aparato_{verse_counter}_{i}">{content}</note>'
+                else:
+                    verse_text += f'<note subtype="aparato" n="{verse_counter}">{aparato_content}</note>'
+            
             tei.append(f'            <l part="I" n="{verse_counter}">{verse_text}</l>')
             verse_counter += 1
 
