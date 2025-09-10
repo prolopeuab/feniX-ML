@@ -1085,19 +1085,19 @@ def should_skip_paragraph(para, text: str, style: str) -> bool:
     # Párrafos vacíos
     if is_empty_paragraph(para):
         return True
-    
+
     # Milestones que empiezan con '$'
     if re.match(r'^\$\S+', text):
         return True
-    
-    # Front-matter con asterisco
-    if text.startswith("*"):
+
+    # Front-matter con almohadilla (títulos de sección del prólogo)
+    if text.startswith("#"):
         return True
-    
+
     # Párrafos dentro de tablas (sinopsis, metadatos, etc.)
     if para._element.xpath("ancestor::w:tbl"):
         return True
-    
+
     return False
 
 def analyze_main_text(main_docx) -> list[str]:
