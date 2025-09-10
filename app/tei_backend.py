@@ -749,6 +749,17 @@ def convert_docx_to_tei(
                 tei.append(f'            <l n="{verse_counter}">{verse_text}</l>')
                 verse_counter += 1
 
+        elif style == "Laguna":
+            # Laguna de extensión incierta - no incrementa el contador de versos
+            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "gap")
+            if state["in_sp"]:
+                if current_milestone:
+                    tei.append(f'            <milestone unit="stanza" type="{current_milestone}"/>')
+                    current_milestone = None
+                tei.append(f'            <gap>{processed_text}</gap>')
+            elif state["in_dedicatoria"]:
+                tei.append(f'          <gap>{processed_text}</gap>')
+
         elif style == "Partido_incial":
             # Almacenar información del verso partido para procesamiento posterior
             if not hasattr(state, "pending_split_verse"):
@@ -898,7 +909,7 @@ def count_verses_in_document(main_docx, include_dedication=False):
         ]:
             continue
         
-        # Contar versos reales
+        # Contar versos reales (excluyendo Laguna que no incrementa numeración)
         if style == "Verso":
             verses.append((para_idx, verse_counter, style, text))
             verse_counter += 1
@@ -908,6 +919,9 @@ def count_verses_in_document(main_docx, include_dedication=False):
         elif style in ["Partido_medio", "Partido_final"]:
             # Medio y final usan el número del inicial (counter - 1)
             verses.append((para_idx, verse_counter - 1, style, text))
+        elif style == "Laguna":
+            # Registrar laguna pero sin incrementar contador
+            verses.append((para_idx, verse_counter, style, text))
     
     return verses
 
@@ -1246,6 +1260,86 @@ def validate_split_verses(main_docx) -> list[str]:
     return warnings
 
 
+def validate_Laguna(main_docx) -> list[str]:
+    """
+    Valida que las lagunas marcadas como Laguna no sean versos específicos perdidos
+    que deberían marcarse como Verso normal para mantener la numeración.
+    """
+    warnings: list[str] = []
+    
+    doc = Document(main_docx)
+    found_body = False
+    
+    for para_idx, para in enumerate(doc.paragraphs):
+        style = para.style.name if para.style else ""
+        text = para.text.strip() if para.text else ""
+        
+        # Esperar hasta el inicio del cuerpo principal
+        if not found_body:
+            if style == "Acto":
+                found_body = True
+            continue
+        
+        if style == "Laguna":
+            # Obtener el número de verso en la posición actual
+            verse_num = get_verse_number_at_position(main_docx, para_idx, include_dedication=False)
+            
+            # Contar total de versos para contexto
+            total_verses = len([v for v in count_verses_in_document(main_docx, include_dedication=False) 
+                              if v[2] in ["Verso", "Partido_incial"]])
+            
+            warnings.append(
+                f"⚠️ Has marcado una Laguna tras el verso {verse_num}: '{text[:50]}...' "
+                f"- Revisa que no se trate de un verso específico faltante entre corchetes que "
+                f"debería contarse en la numeración. La numeración total actual es {total_verses}, "
+                f"¿es correcta?"
+            )
+    
+    return warnings
+
+
+def validate_verso_con_corchetes(main_docx) -> list[str]:
+    """
+    Valida que los versos marcados como 'Verso' que contienen solo corchetes
+    no sean lagunas que deberían marcarse como 'Laguna' para no contar en la numeración.
+    """
+    warnings: list[str] = []
+    
+    doc = Document(main_docx)
+    found_body = False
+    
+    # Patrón para detectar texto que consiste principalmente en corchetes con puntos o puntos suspensivos
+    import re
+    # Incluye tanto puntos normales (.) como puntos suspensivos (…)
+    corchetes_pattern = re.compile(r'^\s*\[[\.…]{1,}\]\s*$|^\s*\[\s*[\.…\s]+\s*\]\s*$')
+    
+    for para_idx, para in enumerate(doc.paragraphs):
+        style = para.style.name if para.style else ""
+        text = para.text.strip() if para.text else ""
+        
+        # Esperar hasta el inicio del cuerpo principal
+        if not found_body:
+            if style in ["Titulo_comedia", "Acto"]:
+                found_body = True
+            continue
+        
+        if style == "Verso" and corchetes_pattern.match(text):
+            # Obtener el número de verso en la posición actual
+            verse_num = get_verse_number_at_position(main_docx, para_idx, include_dedication=False)
+            
+            # Contar total de versos para contexto
+            total_verses = len([v for v in count_verses_in_document(main_docx, include_dedication=False) 
+                              if v[2] in ["Verso", "Partido_incial"]])
+            
+            warnings.append(
+                f"⚠️ Has marcado como Verso normal una línea con corchetes en el verso {verse_num}: '{text}' "
+                f"- ¿Se trata de una laguna incierta que debería marcarse como 'Laguna' para no "
+                f"contarla en la numeración? La numeración total actual es {total_verses}, "
+                f"¿es correcta considerando este verso?"
+            )
+    
+    return warnings
+
 
 def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[str]:
     """
@@ -1263,7 +1357,8 @@ def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[st
     ESTILOS_VALIDOS = {
         "Titulo_comedia", "Acto", "Prosa", "Verso", "Partido_incial",
         "Partido_medio", "Partido_final", "Personaje", "Acot",
-        "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista", "Epigr_final"
+        "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista", "Epigr_final",
+        "Laguna"  # Nuevo estilo para lagunas de extensión incierta
     }
     SKIP_STYLES = {"Cita", "Heading 1", "Heading 2", "Heading 3"}
     doc = Document(main_docx)
@@ -1314,6 +1409,12 @@ def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[st
     # 6) Validación de versos partidos
     warnings.extend(validate_split_verses(main_docx))
     warnings.extend(validate_split_verses_impact_on_numbering(main_docx))
+
+    # 7) Validación de lagunas marcadas como Laguna
+    warnings.extend(validate_Laguna(main_docx))
+
+    # 8) Validación de versos con corchetes que podrían ser lagunas
+    warnings.extend(validate_verso_con_corchetes(main_docx))
 
     return warnings
 
