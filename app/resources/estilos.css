@@ -117,6 +117,19 @@ tei-l {
     padding-left: 200px;
 }
 
+/* === PÁRRAFO DENTRO DE INTERVENCIÓN (alineado como verso) === */
+tei-sp tei-p,
+tei-sp tei-gap {
+    display: block;
+    font-size: 1.1em;
+    line-height: 1.2em;
+    position: relative;
+    padding-left: 200px;
+    text-indent: 0;
+    margin-top: 0.2em;
+    margin-bottom: 0.2em;
+}
+
 /* === BLOQUES DE DIÁLOGO === */
 tei-sp {
     display: block;
@@ -597,7 +610,7 @@ witness:last-child {
 
 tei-witness::before,
 witness::before {
-    content: attr(xml\\:id) ":;
+    content: attr(xml\:id) ":";
     font-weight: bold;
     font-family: monospace;
     color: #37474f;

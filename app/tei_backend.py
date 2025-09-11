@@ -314,6 +314,7 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
     paragraph_buffer = []
     head_inserted = False
     processed_tables = set()  # Para evitar procesar tablas múltiples veces
+    tables_processed_in_current_section = False
 
     def flush_paragraph_buffer():
         nonlocal paragraph_buffer
@@ -323,21 +324,23 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
                 tei_front.append(f'          <cit rend="blockquote">')
                 tei_front.append(f'            <quote>{text}</quote>')
                 tei_front.append(f'          </cit>')
+            elif p.style and p.style.name == "Verso":
+                # Los versos en el prólogo se codifican como <l>
+                if text.strip():
+                    tei_front.append(f'          <l>{text.strip()}</l>')
             elif text.strip():
                 tei_front.append(f'          <p>{text.strip()}</p>')
         paragraph_buffer.clear()
 
-    def process_nearby_tables():
-        """Procesa tablas que aparecen en el contexto actual."""
-        for i, table in enumerate(doc.tables):
-            if i in processed_tables:
-                continue
-            
-            # Procesar todas las tablas no procesadas en la sección actual
-            # (en el futuro se podría refinar esto para detectar posición exacta)
-            if current_section and "sinopsis" in current_section:
-                tei_front.append(process_table_to_tei(table, footnotes_intro))
-                processed_tables.add(i)
+    def process_tables_for_current_section():
+        """Procesa las tablas para la sección actual."""
+        nonlocal tables_processed_in_current_section
+        if current_section and "sinopsis" in current_section and not tables_processed_in_current_section:
+            for table_idx, table in enumerate(doc.tables):
+                if table_idx not in processed_tables:
+                    tei_front.append(process_table_to_tei(table, footnotes_intro))
+                    processed_tables.add(table_idx)
+            tables_processed_in_current_section = True
 
     for i, para in enumerate(front_paragraphs):
         raw = extract_text_with_intro_notes(para, footnotes_intro)
@@ -369,15 +372,26 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
             subsection_open = True
             current_section = title.lower()
             subsection_n += 1
-
-            # 🔹 Procesar tablas después de abrir la subsección
-            process_nearby_tables()
+            tables_processed_in_current_section = False  # Reset para nueva sección
             continue
 
         # 🔹 Añade al buffer
         paragraph_buffer.append(para)
 
+        # 🔹 Si tenemos párrafos en el buffer y estamos en sinopsis, procesar en orden correcto
+        if (current_section and "sinopsis" in current_section and 
+            len(paragraph_buffer) > 0 and not tables_processed_in_current_section):
+            # Procesar primero los párrafos del buffer
+            flush_paragraph_buffer()
+            # Luego procesar las tablas
+            process_tables_for_current_section()
+
+    # Procesar cualquier contenido restante
     flush_paragraph_buffer()
+    
+    # Procesar tablas que no se hayan procesado aún
+    if current_section and "sinopsis" in current_section and not tables_processed_in_current_section:
+        process_tables_for_current_section()
 
     if subsection_open:
         tei_front.append('        </div>')  # cierra la última subsection
