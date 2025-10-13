@@ -40,12 +40,12 @@ feniX-ML está pensada para:
 Esta guía está organizada por pasos, para acompañarte desde el inicio hasta la publicación de tu archivo XML-TEI:
 
 - [Primeros pasos e instalación](./instalacion)
-- [Preparar los archivos DOCX](./preparar-docx)
+- [Preparación de archivos DOCX](./preparar-docx)
   - Prólogo y texto crítico
   - Aparato crítico
   - Notas explicativas
   - Metadatos de la edición
-- [Usar la aplicación de escritorio](./uso-app)
+- [Uso de la app](./uso-app)
 - [Resolver errores comunes](./resolucion-problemas)
 
 ---

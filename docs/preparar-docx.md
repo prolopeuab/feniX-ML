@@ -1,11 +1,11 @@
 ---
 layout: default
-title: Preparar los archivos DOCX
+title: Preparación de archivos DOCX
 nav_order: 3
 has_children: true
 ---
 
-# Preparar los archivos DOCX
+# Preparación de archivos DOCX
 
 Para generar una edición digital completa con feniX-ML, necesitarás preparar **cuatro archivos DOCX independientes**. Cada uno tiene una función específica y debe seguir unas pautas concretas, que explicamos en las secciones siguientes.
 

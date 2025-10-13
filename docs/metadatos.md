@@ -1,7 +1,7 @@
 ---
 layout: default
 title: 4. Metadatos
-parent: Preparar los archivos DOCX
+parent: Preparación de archivos DOCX
 nav_order: 4
 ---
 

@@ -1,7 +1,7 @@
 ---
 layout: default
 title: 1. Prólogo y texto crítico
-parent: Preparar los archivos DOCX
+parent: Preparación de archivos DOCX
 nav_order: 1
 ---
 
@@ -46,9 +46,7 @@ Para que el prólogo sea reconocido correctamente por la herramienta, debe cumpl
 - Cada sección debe comenzar en una **línea nueva**, y el símbolo `#` debe ir seguido directamente del nombre de la sección (sin espacio).
 - Todo el contenido del prólogo se interpreta por defecto como texto en prosa, por lo que no es necesario utilizar el estilo `Prosa` incluido en la plantilla (ver la utilidad de este estilo [aquí](http://prolopeuab.github.io/feniX-ML/prologo-y-texto-critico#los-estilos)).
 
-
-#### Ejemplo:
-<div style="border: 1px solid #ccc; padding: 1em; background-color: #f9f9f9; font-family: 'Garamond', serif; font-size: 1.05em;">
+<div class="ejemplo">
   <p>#Prólogo<br>
   Texto introductorio del editor.</p>
 
@@ -85,46 +83,43 @@ Además de su estructura mínima, el prólogo puede enriquecerse con distintos e
 > Recuerda que elementos como imágenes, gráficos o tablas que no sean la de versificación **no serán procesados automáticamente**. Si los incluyes, pueden provocar errores en el archivo XML generado.   Te recomendamos evitarlos o consultar con un especialista en XML-TEI si necesitas incluirlos.
 {: .warning }
 
+<div class="ejemplo">
 
-### Ejemplo de prólogo
+  <p>#Prólogo<br>
+  Texto introductorio del editor. Aquí puede aparecer texto en <em>cursiva</em>, que será conservado en la visualización final.<sup style="font-size: 0.75em;">1</sup>
+  </p>
 
-<div style="border: 1px solid #ccc; padding: 1em; background-color: #f9f9f9; font-family: 'Garamond', serif; font-size: 1.05em;">
+  <p>También pueden incluirse versos si es necesario, usando el estilo correspondiente (<code>Verso</code>):</p>
 
-<p>#Prólogo<br>
-Texto introductorio del editor. Aquí puede aparecer texto en <em>cursiva</em>, que será conservado en la visualización final.<sup style="font-size: 0.75em;">1</sup>
-</p>
+  <p style="margin-left: 2em; line-height: 1.5;">
+    Hoy entrambos los poseo,<br>
+    pues he tenido, Feniso,<br>
+    con la vitoria de Niso,<br>
+    la venganza de Androgeo.
+  </p>
 
-<p>También pueden incluirse versos si es necesario, usando el estilo correspondiente (<code>Verso</code>):</p>
+  <p>#Sinopsis de la versificación<br>
+  Siguiendo el formato de tabla de la plantilla:</p>
 
-<p style="margin-left: 2em; line-height: 1.5;">
-  Hoy entrambos los poseo,<br>
-  pues he tenido, Feniso,<br>
-  con la vitoria de Niso,<br>
-  la venganza de Androgeo.
-</p>
+  <table>
+    <thead>
+      <tr><th>Versos</th><th>Estrofa</th><th>Total</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>1–8</td><td>redondillas</td><td>8</td></tr>
+      <tr><td>9–142</td><td>romance en -e-o</td><td>134</td></tr>
+    </tbody>
+  </table>
 
-<p>#Sinopsis de la versificación<br>
-Siguiendo el formato de tabla de la plantilla:</p>
+  <p>#Resumen del argumento<br>
+  Aquí va el resumen del argumento de la obra.</p>
 
-<table>
-  <thead>
-    <tr><th>Versos</th><th>Estrofa</th><th>Total</th></tr>
-  </thead>
-  <tbody>
-    <tr><td>1–8</td><td>redondillas</td><td>8</td></tr>
-    <tr><td>9–142</td><td>romance en -e-o</td><td>134</td></tr>
-  </tbody>
-</table>
+  <p>#Nota onomástica<br>
+  Explicación de los nombres propios presentes en la comedia.</p>
 
-<p>#Resumen del argumento<br>
-Aquí va el resumen del argumento de la obra.</p>
+  <hr style="border: none; border-top: 1px solid #aaa; margin-top: 2em;"/>
 
-<p>#Nota onomástica<br>
-Explicación de los nombres propios presentes en la comedia.</p>
-
-<hr style="border: none; border-top: 1px solid #aaa; margin-top: 2em;"/>
-
-<p style="font-size: 0.85em;"><sup>1</sup> Las notas deben insertarse como notas al pie en Word.</p>
+  <p style="font-size: 0.85em;"><sup>1</sup> Las notas deben insertarse como notas al pie en Word.</p>
 
 </div>
 
@@ -229,8 +224,7 @@ En los textos teatrales del Siglo de Oro, puede ocurrir que los versos de un det
 > Esta repetición no se mostrará en la visualización final, pero es necesaria para el correcto procesado del XML y generar una codificación TEI semánticamente correcta.
 {: .note }
 
-#### Ejemplo:
-<div style="border: 1px solid #ccc; padding: 1em; background-color: #f9f9f9; font-family: 'Garamond', serif; font-size: 1.1em;">
+<div class="ejemplo">
   <p>
     <span style="font-variant: small-caps; font-weight: bold;">Personaje</span><br>
     <span style="color: #6a1b9a;">Verso 1</span><br>

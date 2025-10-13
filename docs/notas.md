@@ -1,7 +1,7 @@
 ---
 layout: default
 title: 3. Notas explicativas
-parent: Preparar los archivos DOCX
+parent: Preparación de archivos DOCX
 nav_order: 3
 ---
 

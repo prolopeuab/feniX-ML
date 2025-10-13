@@ -1,7 +1,7 @@
 ---
 layout: default
 title: 2. Aparato crítico
-parent: Preparar los archivos DOCX
+parent: Preparación de archivos DOCX
 nav_order: 2
 ---
 
@@ -28,10 +28,8 @@ El aparato crítico se redacta en un documento Word sencillo, siguiendo estas re
 
 - Comienzan con el número del verso, seguido de `:`.
 - Después, la entrada del aparato tal y como se podrá leer en la nota, siguiendo los [*Criterios de edición de PROLOPE*](https://prolope.uab.cat/wp-content/uploads/2023/12/criterios_edicion_prolope.pdf) o aquellos elegidos.
-  
-#### Ejemplo:
 
-<div style="border: 1px solid #ccc; padding: 1em; background-color: #f9f9f9; font-family: 'Garamond', serif; font-size: 1.05em;">
+<div class="ejemplo">
     <p>25: 25&nbsp;&nbsp;quiero <i>M</i> <i>FH</i> : quiera <i>ABCDEI</i> <i>Har</i> <i>Cot</i> : querría <i>G</i></p>
     <p>76: 76&nbsp;&nbsp;Que no son <i>Cot</i> : Que son <i>AB</i></p>
 </div>
@@ -49,9 +47,7 @@ Este símbolo se coloca **antes del término afectado** (o del último término 
 
 La entrada se redacta a continuación con el mismo formato habitual, respetando las cursivas donde corresponda.
 
-#### Ejemplo:
-
-<div style="border: 1px solid #ccc; padding: 1em; background-color: #f9f9f9; font-family: 'Garamond', serif; font-size: 1.05em;">
+<div class="ejemplo">
     <p>Dédalo@: 651<i>Acot</i>&nbsp;&nbsp;Sale Dédalo : <i>A</i> trae la acotación tras el verso 650 : <i>om</i> <i>Men</i></p>  
     <p>tragicomedia@: tragicomedia&nbsp;&nbsp;<i>A</i> : tragedia <i>Men</i></p>
 </div>
