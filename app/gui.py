@@ -48,16 +48,42 @@ def main_gui():
     
     root = ctk.CTk()
     root.title("feniX-ML")
-    root.geometry("1000x860")
+    root.geometry("1000x920")
 
     # Icono de la ventana
     try:
-        root.iconbitmap(resource_path("resources/logo.ico"))
+        root.iconbitmap(resource_path("resources/icon.ico"))
     except Exception:
         pass  # Si no se encuentra el icono, usa el predeterminado
     
-    # Cargar el logo de PROLOPE
-    root.logo_img = tk.PhotoImage(file=resource_path("resources/logo_prolope.png")).subsample(6, 6)
+    # Cargar logos
+    root.logo_prolope_img = tk.PhotoImage(file=resource_path("resources/logo_prolope.png")).subsample(6, 6)
+    root.logo_fenix_img = tk.PhotoImage(file=resource_path("resources/logo.png")).subsample(4, 4)  # Más pequeño
+
+    # ==== ENCABEZADO CON LOGO Y DESCRIPCIÓN ====
+    # Obtener color de fondo
+    try:
+        bg_color = root._apply_appearance_mode(ctk.ThemeManager.theme["CTk"]["fg_color"])
+    except:
+        bg_color = "#dbdbdb"
+    
+    header_frame = ctk.CTkFrame(root, fg_color="transparent")
+    header_frame.pack(fill="x", padx=20, pady=(15, 10))
+
+    header_frame.grid_columnconfigure(1, weight=1)  # la columna del texto se expande
+
+    # Logo
+    logo = tk.Label(header_frame, image=root.logo_fenix_img, bg=bg_color, borderwidth=0, highlightthickness=0)
+    logo.grid(row=0, column=0, sticky="sw", padx=(0, 15), pady=5)
+
+    # Texto
+    desc = tk.Label(
+        header_frame,
+        text="Conversor de ediciones críticas de teatro del Siglo de oro de DOCX a XML-TEI",
+        font=("Segoe UI", 9), fg="gray", wraplength=600, bg=bg_color, justify="left"
+    )
+    desc.grid(row=0, column=1, sticky="sw", pady=5)
+
 
     # ==== MENÚS DE AYUDA Y ACERCA DE ====
     # Menú "Acerca de" con créditos, licencia, web y contacto
@@ -117,17 +143,17 @@ def main_gui():
 
     # ==== SECCIÓN 1: SELECCIÓN DE ARCHIVOS DOCX ====
     main_frame = ctk.CTkFrame(root, fg_color="transparent")
-    main_frame.pack(fill="both", expand=True, padx=10, pady=10)
+    main_frame.pack(fill="both", expand=True, padx=10, pady=(10, 5))
     
     frame_seleccion = ctk.CTkFrame(main_frame, corner_radius=10)
     frame_seleccion.grid(row=0, column=0, columnspan=3, sticky="ew", padx=10, pady=10)
     
     # Título de la sección
     ctk.CTkLabel(frame_seleccion, text="Selección de archivos", 
-                 font=("Segoe UI", 14, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=15, pady=(15,10))
+                 font=("Segoe UI", 18, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=15, pady=(15,10))
 
     # --- Selección de archivo principal (prólogo y comedia) ---
-    label_main = ctk.CTkLabel(frame_seleccion, text="Prólogo y comedia:")
+    label_main = ctk.CTkLabel(frame_seleccion, text="Prólogo y comedia:", font=("Segoe UI", 14))
     label_main.grid(row=1, column=0, sticky="e", padx=(15,5), pady=5)
     entry_main = ctk.CTkEntry(frame_seleccion, width=400)
     entry_main.grid(row=1, column=1, padx=5, sticky="ew")
@@ -141,11 +167,11 @@ def main_gui():
             entry_main.insert(0, path)
     btn_main = ctk.CTkButton(frame_seleccion, text="Explora...", command=select_main,
                             fg_color="#6c757d", hover_color="#5a6268",
-                            corner_radius=10, width=100, height=30)
+                            corner_radius=10, width=100, height=30, font=("Segoe UI", 14))
     btn_main.grid(row=1, column=2, padx=(5,15), pady=5)
 
     # --- Selección de archivo de notas ---
-    label_com = ctk.CTkLabel(frame_seleccion, text="Notas:")
+    label_com = ctk.CTkLabel(frame_seleccion, text="Notas:", font=("Segoe UI", 14))
     label_com.grid(row=2, column=0, sticky="e", padx=(15,5), pady=5)
     entry_com = ctk.CTkEntry(frame_seleccion, width=400)
     entry_com.grid(row=2, column=1, padx=5, sticky="ew")
@@ -159,11 +185,11 @@ def main_gui():
             entry_com.insert(0, path)
     btn_com = ctk.CTkButton(frame_seleccion, text="Explora...", command=select_com,
                            fg_color="#6c757d", hover_color="#5a6268",
-                           corner_radius=10, width=100, height=30)
+                           corner_radius=10, width=100, height=30, font=("Segoe UI", 14))
     btn_com.grid(row=2, column=2, padx=(5,15), pady=5)
 
     # --- Selección de archivo de aparato crítico ---
-    label_apa = ctk.CTkLabel(frame_seleccion, text="Aparato crítico:")
+    label_apa = ctk.CTkLabel(frame_seleccion, text="Aparato crítico:", font=("Segoe UI", 14))
     label_apa.grid(row=3, column=0, sticky="e", padx=(15,5), pady=5)
     entry_apa = ctk.CTkEntry(frame_seleccion, width=400)
     entry_apa.grid(row=3, column=1, padx=5, sticky="ew")
@@ -177,11 +203,11 @@ def main_gui():
             entry_apa.insert(0, path)
     btn_apa = ctk.CTkButton(frame_seleccion, text="Explora...", command=select_apa,
                            fg_color="#6c757d", hover_color="#5a6268",
-                           corner_radius=10, width=100, height=30)
+                           corner_radius=10, width=100, height=30, font=("Segoe UI", 14))
     btn_apa.grid(row=3, column=2, padx=(5,15), pady=5)
 
     # --- Selección de archivo de metadatos ---
-    ctk.CTkLabel(frame_seleccion, text="Tabla de metadatos:").grid(row=4, column=0, sticky="e", padx=(15,5), pady=5)
+    ctk.CTkLabel(frame_seleccion, text="Tabla de metadatos:", font=("Segoe UI", 14)).grid(row=4, column=0, sticky="e", padx=(15,5), pady=5)
     entry_meta = ctk.CTkEntry(frame_seleccion, width=400)
     entry_meta.grid(row=4, column=1, padx=5, sticky="ew")
     def select_meta():
@@ -194,7 +220,7 @@ def main_gui():
             entry_meta.insert(0, path)
     btn_meta = ctk.CTkButton(frame_seleccion, text="Explora...", command=select_meta,
                             fg_color="#6c757d", hover_color="#5a6268",
-                            corner_radius=10, width=100, height=30)
+                            corner_radius=10, width=100, height=30, font=("Segoe UI", 14))
     btn_meta.grid(row=4, column=2, padx=(5,15), pady=(5,15))
 
     # Hace que la columna central (entries) sea expandible
@@ -206,7 +232,7 @@ def main_gui():
     
     # Título de la sección
     ctk.CTkLabel(frame_output, text="Validación y vista previa",
-                 font=("Segoe UI", 14, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=15, pady=(15,10))
+                 font=("Segoe UI", 18, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=15, pady=(15,10))
 
     def on_validar():
         """
@@ -235,7 +261,7 @@ def main_gui():
         corner_radius=15,
         width=180,
         height=70,
-        font=("Segoe UI", 12, "bold")
+        font=("Segoe UI", 18, "bold")
     )
     btn_validar.grid(row=1, column=0, rowspan=2, padx=15, pady=(5,15), sticky="nsew")
 
@@ -246,8 +272,8 @@ def main_gui():
         fg_color="#142a40",
         hover_color="#1a3650",
         corner_radius=15,
-        height=30,
-        font=("Segoe UI", 11)
+        height=50,
+        font=("Segoe UI", 18)
     )
     btn_vista_previa_xml.grid(row=1, column=1, padx=(5,15), pady=(5,5), sticky="ew")
 
@@ -258,8 +284,8 @@ def main_gui():
         fg_color="#142a40",
         hover_color="#1a3650",
         corner_radius=15,
-        height=30,
-        font=("Segoe UI", 11)
+        height=50,
+        font=("Segoe UI", 18)
     )
     btn_vista_previa_html.grid(row=2, column=1, padx=(5,15), pady=(5,15), sticky="ew")
 
@@ -275,15 +301,15 @@ def main_gui():
 
     # Título de la sección
     ctk.CTkLabel(frame_conversion, text="Guardar como",
-                 font=("Segoe UI", 14, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=15, pady=(15,5))
+                 font=("Segoe UI", 18, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=15, pady=(15,5))
     
     # Línea informativa en gris
     lbl_output_info = ctk.CTkLabel(frame_conversion, text="Ubicación y nombre del archivo XML de salida", 
-                                   text_color="gray")
+                                   text_color="gray", font=("Segoe UI", 14))
     lbl_output_info.grid(row=1, column=0, columnspan=3, sticky="w", padx=15, pady=(0, 10))
 
     # Etiqueta y campo para archivo de salida
-    label_out = ctk.CTkLabel(frame_conversion, text="Archivo:")
+    label_out = ctk.CTkLabel(frame_conversion, text="Archivo:", font=("Segoe UI", 14))
     label_out.grid(row=2, column=0, sticky="e", padx=(15,5), pady=5)
     entry_out = ctk.CTkEntry(frame_conversion, width=400)
     entry_out.grid(row=2, column=1, padx=5, sticky="ew")
@@ -303,7 +329,7 @@ def main_gui():
 
     btn_out = ctk.CTkButton(frame_conversion, text="Explora...", command=select_out,
                            fg_color="#6c757d", hover_color="#5a6268",
-                           corner_radius=10, width=100, height=30)
+                           corner_radius=10, width=100, height=30, font=("Segoe UI", 14))
     btn_out.grid(row=2, column=2, padx=(5,15), pady=5)
 
     # Botón para convertir y guardar el archivo XML-TEI
@@ -345,8 +371,8 @@ def main_gui():
         fg_color="#142a40",
         hover_color="#1a3650",
         corner_radius=15,
-        height=45,
-        font=("Segoe UI", 13, "bold")
+        height=50,
+        font=("Segoe UI", 18, "bold")
     )
     btn_convertir.grid(row=3, column=0, columnspan=3, padx=15, pady=15, sticky="ew")
 
@@ -363,22 +389,37 @@ def main_gui():
     
     # Frame para agrupar imagen y texto en horizontal
     footer_frame = tk.Frame(root, bg=root_bg)
-    footer_frame.pack(side="bottom", fill="x", pady=10)
+    footer_frame.pack(side="bottom", fill="x", pady=(5, 10))
 
-    # Imagen del logo (izquierda)
-    logo_label = tk.Label(footer_frame, image=root.logo_img, bg=root_bg)
+    # Imagen del logo de PROLOPE (izquierda)
+    logo_label = tk.Label(footer_frame, image=root.logo_prolope_img, bg=root_bg)
     logo_label.pack(side="left", padx=10)
 
-    # Texto del footer (derecha)
-    footer_text = tk.Label(
-        footer_frame,
-        text="Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde\nPROLOPE · Universitat Autònoma de Barcelona · 2025",
+    # Texto del footer (derecha) - contenedor vertical para dos líneas
+    footer_text_frame = tk.Frame(footer_frame, bg=root_bg)
+    footer_text_frame.pack(side="left", anchor="w")
+    
+    # Primera línea: texto normal
+    footer_text1 = tk.Label(
+        footer_text_frame,
+        text="Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde",
         font=("Segoe UI", 10),
         fg="gray",
         bg=root_bg,
         justify="left",
     )
-    footer_text.pack(side="left", anchor="w")
+    footer_text1.pack(anchor="w")
+    
+    # Segunda línea: texto en negrita
+    footer_text2 = tk.Label(
+        footer_text_frame,
+        text="PROLOPE · Universitat Autònoma de Barcelona · 2025",
+        font=("Segoe UI", 10, "bold"),
+        fg="gray",
+        bg=root_bg,
+        justify="left",
+    )
+    footer_text2.pack(anchor="w")
 
 
     # ==== INICIO DEL BUCLE PRINCIPAL ====
