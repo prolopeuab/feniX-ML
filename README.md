@@ -49,9 +49,12 @@ pyinstaller --onefile --windowed `
   --add-data "app\resources\estilos.css;resources" `
   --add-data "app\resources\logo_prolope.png;resources" `
   --add-data "app\resources\logo.png;resources" `
+  --add-data "app\resources\icon.ico;resources" `
   --icon="app\resources\icon.ico" `
   app\main.py
 ```
+
+**Nota sobre el icono**: El ejecutable incluye configuración especial (AppUserModelID) para que el icono se muestre correctamente en el explorador de archivos, la barra de tareas y la ventana de la aplicación en Windows. Si tras recompilar aparece el icono antiguo, reinicia el Explorador de Windows (`taskkill /f /im explorer.exe; Start-Process explorer.exe`).
 
 El ejecutable se generará en `dist\feniXML.exe` en el directorio raíz del proyecto.
 

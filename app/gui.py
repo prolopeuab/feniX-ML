@@ -19,16 +19,7 @@ import customtkinter as ctk
 
 from tei_backend import convert_docx_to_tei, validate_documents, generate_filename
 from visualizacion import vista_previa_xml, vista_previa_html
-
-def resource_path(relative_path):
-    """Obtiene la ruta absoluta del recurso, compatible con PyInstaller."""
-    try:
-        # Si está empaquetado con PyInstaller
-        base_path = sys._MEIPASS
-    except Exception:
-        # Si se ejecuta como script, usar el directorio del archivo actual
-        base_path = os.path.dirname(os.path.abspath(__file__))
-    return os.path.join(base_path, relative_path)
+from utils_icon import set_windows_icon, resource_path
 
 # ==== FUNCIONES DE UTILIDAD PARA MENSAJES Y AYUDA ====
 def show_info(message):
@@ -50,11 +41,8 @@ def main_gui():
     root.title("feniX-ML")
     root.geometry("1000x920")
 
-    # Icono de la ventana
-    try:
-        root.iconbitmap(resource_path("resources/icon.ico"))
-    except Exception:
-        pass  # Si no se encuentra el icono, usa el predeterminado
+    # Configurar icono de la aplicación (Windows: explorador, barra de tareas y ventana)
+    set_windows_icon(root)
     
     # Cargar logos
     root.logo_prolope_img = tk.PhotoImage(file=resource_path("resources/logo_prolope.png")).subsample(6, 6)
