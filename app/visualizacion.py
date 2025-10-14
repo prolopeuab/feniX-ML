@@ -38,7 +38,7 @@ CETEI_JS    = load_resource("resources/CETEIcean.js")
 ESTILOS_CSS = load_resource("resources/estilos.css")
 
 # ==== VISTAS DE PREVISUALIZACIÓN ====
-def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root):
+def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root, header_mode="prolope"):
     """
     Muestra una ventana con la previsualización del XML TEI generado.
     """
@@ -57,7 +57,8 @@ def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root):
             aparato_docx=apa_file  if apa_file else None,
             metadata_docx=entry_meta.get() or None,
             output_file=None,
-            save=False
+            save=False,
+            header_mode=header_mode
         )
 
 
@@ -73,7 +74,7 @@ def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root):
     except Exception as e:
         messagebox.showerror("Error", f"Se ha producido un error:\n{e}")
 
-def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta):
+def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode="prolope"):
     """
     Genera un archivo HTML temporal para previsualizar el TEI renderizado con CETEIcean.
     """
@@ -92,7 +93,8 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta):
             aparato_docx=apa_file  if apa_file else None,
             metadata_docx=entry_meta.get() or None,
             output_file=None,
-            save=False
+            save=False,
+            header_mode=header_mode
         )
 
         ESTILOS_CSS = load_resource("resources/estilos.css")

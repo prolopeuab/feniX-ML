@@ -163,9 +163,14 @@ def find_who_id(speaker, characters):
 
 
 # ==== PROCESAMIENTO DE METADATOS Y FRONT-MATTER ====
-def parse_metadata_docx(path):
+def parse_metadata_docx(path, header_mode="prolope"):
     """
-    Extrae metadatos de un archivo .docx estructurado en tablas y construye un teiHeader TEI/XML completo.
+    Extrae metadatos de un archivo .docx estructurado en tablas y construye un teiHeader TEI/XML.
+    
+    Args:
+        path: Ruta al archivo DOCX de metadatos.
+        header_mode: "prolope" para header completo con datos PROLOPE, 
+                     "minimo" para header solo con datos del usuario y referencia a la app.
     """
     doc = Document(path)
     tables = doc.tables
@@ -215,27 +220,35 @@ def parse_metadata_docx(path):
     tei.append(f'      <title>{main_meta.get("Título comedia", "")}</title>')
     tei.append(f'      <author><name>{main_meta.get("Autor", "")}</name></author>')
 
-    if 'Editor' in main_meta:
+    if 'Editor' in main_meta and main_meta['Editor']:
         tei.append(f'      <editor>{main_meta["Editor"]}</editor>')
 
-    if 'Responsable/s revisión' in main_meta:
+    if 'Responsable/s revisión' in main_meta and main_meta['Responsable/s revisión']:
         tei.append('      <respStmt>')
-        tei.append('        <resp>Edición crítica digital revisada filológicamente por</resp>')
+        if header_mode == "prolope":
+            tei.append('        <resp>Edición crítica digital revisada filológicamente por</resp>')
+        else:
+            tei.append('        <resp>Responsable/s revisión</resp>')
         for name in main_meta['Responsable/s revisión'].split(','):
             tei.append(f'        <persName>{name.strip()}</persName>')
         tei.append('      </respStmt>')
 
-    if 'Responsable marcado automático' in main_meta:
+    if 'Responsable marcado automático' in main_meta and main_meta['Responsable marcado automático']:
         tei.append('      <respStmt>')
-        tei.append('        <resp>Marcado XML-TEI automático revisado por</resp>')
+        if header_mode == "prolope":
+            tei.append('        <resp>Marcado XML-TEI automático revisado por</resp>')
+        else:
+            tei.append('        <resp>Responsable marcado automático</resp>')
         for name in main_meta['Responsable marcado automático'].split(','):
             tei.append(f'        <persName>{name.strip()}</persName>')
         tei.append('      </respStmt>')
 
-    tei.append('      <respStmt>')
-    tei.append('        <resp>Codificado según los criterios de</resp>')
-    tei.append('        <name ref="https://datos.bne.es/entidad/XX4849774.html">Grupo de investigación PROLOPE, de la Universitat Autònoma de Barcelona</name>')
-    tei.append('      </respStmt>')
+    # Solo en modo PROLOPE: añadir referencia al grupo de investigación
+    if header_mode == "prolope":
+        tei.append('      <respStmt>')
+        tei.append('        <resp>Codificado según los criterios de</resp>')
+        tei.append('        <name ref="https://datos.bne.es/entidad/XX4849774.html">Grupo de investigación PROLOPE, de la Universitat Autònoma de Barcelona</name>')
+        tei.append('      </respStmt>')
 
     tei.extend(['    </titleStmt>', '    <editionStmt>'])
     tei.append(f'      <edition>Versión {main_meta.get("Versión", "")}</edition>')
@@ -243,45 +256,77 @@ def parse_metadata_docx(path):
     tei.append(f'      <publisher>{main_meta.get("Publicado por", "")}</publisher>')
     tei.append(f'      <pubPlace>{main_meta.get("Lugar publicación", "")}</pubPlace>')
     tei.append(f'      <date>{main_meta.get("Fecha publicación", "")}</date>')
-    tei.extend(['    </publicationStmt>', '    <seriesStmt>'])
-    tei.append('      <title>Biblioteca Digital PROLOPE</title>')
-    tei.append('      <respStmt>')
-    tei.append('        <resp>Dirección de</resp>')
-    tei.append('        <persName ref="https://orcid.org/0000-0002-7429-9709"><forename>Ramón</forename> <surname>Valdés Gázquez</surname></persName>')
-    tei.append('      </respStmt>')
-    tei.append('      <idno type="URI">https://bibdigitalprolope.com/</idno>')
-    tei.append('    </seriesStmt>')
+    tei.append('    </publicationStmt>')
+    
+    # Solo en modo PROLOPE: añadir seriesStmt
+    if header_mode == "prolope":
+        tei.append('    <seriesStmt>')
+        tei.append('      <title>Biblioteca Digital PROLOPE</title>')
+        tei.append('      <respStmt>')
+        tei.append('        <resp>Dirección de</resp>')
+        tei.append('        <persName ref="https://orcid.org/0000-0002-7429-9709"><forename>Ramón</forename> <surname>Valdés Gázquez</surname></persName>')
+        tei.append('      </respStmt>')
+        tei.append('      <idno type="URI">https://bibdigitalprolope.com/</idno>')
+        tei.append('    </seriesStmt>')
 
     # sourceDesc
     tei.extend(['    <sourceDesc>', '      <biblStruct xml:lang="es">', '        <monogr>'])
-    tei.append('          <author>')
-    tei.append('            <persName ref="http://datos.bne.es/persona/XX1719671"><forename>Félix Lope</forename><surname>de Vega Carpio</surname></persName>')
-    tei.append('          </author>')
+    
+    # Autor
+    if header_mode == "prolope":
+        tei.append('          <author>')
+        tei.append('            <persName ref="http://datos.bne.es/persona/XX1719671"><forename>Félix Lope</forename><surname>de Vega Carpio</surname></persName>')
+        tei.append('          </author>')
+    else:
+        # Modo mínimo: autor desde metadatos
+        tei.append(f'          <author>{main_meta.get("Autor", "")}</author>')
+    
+    # Títulos
     tei.append(f'          <title type="main">{source_meta.get("Titulo comedia", "")}</title>')
-    if "Subtítulo" in source_meta:
+    if "Subtítulo" in source_meta and source_meta.get("Subtítulo"):
         tei.append(f'          <title type="alt">{source_meta.get("Subtítulo", "")}</title>')
-    if 'Editor' in main_meta:
-        tei.append(f'        <editor>{main_meta["Editor"]}</editor>')
-    tei.append(f'          <title type="main">{source_meta.get("Titulo comedia", "")}</title>')
-    tei.append(f'          <title type="s">{source_meta.get("Título volumen", "")}</title>')
-    tei.append(f'          <title type="a">Parte {source_meta.get("Parte", "")}</title>')
-    if 'Coordinadores volumen' in source_meta:
-        tei.append('        <respStmt>')
-        tei.append('          <resp>Coordinación del volumen a cargo de</resp>')
+    
+    # Editor (si existe)
+    if 'Editor' in main_meta and main_meta['Editor']:
+        tei.append(f'          <editor>{main_meta["Editor"]}</editor>')
+    
+    # Título del volumen (si existe)
+    if source_meta.get("Título volumen"):
+        tei.append(f'          <title type="s">{source_meta.get("Título volumen", "")}</title>')
+    
+    # Solo en modo PROLOPE: añadir "Parte"
+    if header_mode == "prolope" and source_meta.get("Parte"):
+        tei.append(f'          <title type="a">Parte {source_meta.get("Parte", "")}</title>')
+    
+    # Coordinadores del volumen (si existen)
+    if 'Coordinadores volumen' in source_meta and source_meta['Coordinadores volumen']:
+        tei.append('          <respStmt>')
+        if header_mode == "prolope":
+            tei.append('            <resp>Coordinación del volumen a cargo de</resp>')
+        else:
+            tei.append('            <resp>Coordinadores volumen</resp>')
         for name in source_meta['Coordinadores volumen'].split(','):
-            tei.append(f'          <persName>{name.strip()}</persName>')
-        tei.append('        </respStmt>')
-    tei.append(f'          <title type="s">{source_meta.get("Título volumen", "")}</title>')
-    tei.append(f'          <title type="a">Parte {source_meta.get("Parte", "")}</title>')
-    tei.append('          <availability status="restricted">')
-    tei.append('           <p>Todos los derechos reservados.</p>')
-    tei.append('          </availability>')
+            tei.append(f'            <persName>{name.strip()}</persName>')
+        tei.append('          </respStmt>')
+    
+    # Solo en modo PROLOPE: añadir availability
+    if header_mode == "prolope":
+        tei.append('          <availability status="restricted">')
+        tei.append('            <p>Todos los derechos reservados.</p>')
+        tei.append('          </availability>')
+    
+    # Imprint
     tei.append('          <imprint>')
     tei.append(f'            <pubPlace>{source_meta.get("Lugar publicación", "")}</pubPlace>')
     tei.append(f'            <publisher>{source_meta.get("Publicado por", "")}</publisher>')
     tei.append(f'            <date>{source_meta.get("Fecha publicación", "")}</date>')
-    tei.append(f'            <biblScope unit="volume" n="{source_meta.get("Volumen", "")}">vol. {source_meta.get("Volumen", "")}</biblScope>')
-    tei.append(f'            <biblScope unit="page">{source_meta.get("Páginas", "")}</biblScope>')
+    
+    # Volumen y páginas (si existen)
+    if source_meta.get("Volumen"):
+        tei.append(f'            <biblScope unit="volume" n="{source_meta.get("Volumen", "")}">vol. {source_meta.get("Volumen", "")}</biblScope>')
+    if source_meta.get("Páginas"):
+        tei.append(f'            <biblScope unit="page">{source_meta.get("Páginas", "")}</biblScope>')
+    
     tei.append('          </imprint>')
     tei.append('        </monogr>')
     tei.append('      </biblStruct>')
@@ -294,14 +339,23 @@ def parse_metadata_docx(path):
     tei.append('    </sourceDesc>')
     tei.append('  </fileDesc>')
     tei.append('  <encodingDesc>')
-    tei.append('    <editorialDecl>')
-    tei.append('      <p>El texto se transformó desde archivos DOCX mediante un flujo semiautomático con feniX-ML (versión 1.0.0).</p>')
-    tei.append('    </editorialDecl>')
+    
+    # Solo en modo PROLOPE: añadir editorialDecl
+    if header_mode == "prolope":
+        tei.append('    <editorialDecl>')
+        tei.append('      <p>El texto se transformó desde archivos DOCX mediante un flujo semiautomático con feniX-ML (versión 1.0.0).</p>')
+        tei.append('    </editorialDecl>')
+    
+    # Siempre incluir appInfo (en ambos modos)
     tei.append('    <appInfo>')
     tei.append('      <application ident="feniX-ML" version="1.0.0">')
     tei.append('        <label>feniX-ML</label>')
-    tei.append('        <desc>Conversor de ediciones críticas de teatro del Siglo de Oro de DOCX a XML-TEI, desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde (PROLOPE).</desc>')
-    tei.append('        <ref target="https://github.com/prolopeuab/feniX-ML">Repositorio y documentación</ref>')
+    if header_mode == "prolope":
+        tei.append('        <desc>Conversor de ediciones críticas de teatro del Siglo de Oro de DOCX a XML-TEI, desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde (PROLOPE).</desc>')
+        tei.append('        <ref target="https://github.com/prolopeuab/feniX-ML">Repositorio y documentación</ref>')
+    else:
+        tei.append('        <desc>Conversor de ediciones críticas de DOCX a XML-TEI.</desc>')
+        tei.append('        <ref target="https://github.com/prolopeuab/feniX-ML">https://github.com/prolopeuab/feniX-ML</ref>')
     tei.append('      </application>')
     tei.append('    </appInfo>')
     tei.append('  </encodingDesc>')
@@ -625,10 +679,21 @@ def convert_docx_to_tei(
     metadata_docx: Optional[str] = None,  
     tei_header: Optional[str] = None,
     output_file: Optional[str] = None,
-    save: bool = True
+    save: bool = True,
+    header_mode: str = "prolope"
 ) -> Optional[str]:
     """
     Convierte uno o más DOCX a un XML-TEI completo.
+    
+    Args:
+        main_docx: Ruta al archivo DOCX principal.
+        notas_docx: Ruta al archivo DOCX con notas (opcional).
+        aparato_docx: Ruta al archivo DOCX con aparato crítico (opcional).
+        metadata_docx: Ruta al archivo DOCX con metadatos (opcional).
+        tei_header: Header TEI personalizado (opcional).
+        output_file: Ruta donde guardar el archivo TEI (opcional).
+        save: Si se debe guardar el archivo (por defecto True).
+        header_mode: "prolope" para header completo, "minimo" para header básico.
     """
     #Chequeo de existencia del principal
     if not main_docx.lower().endswith(".docx"):
@@ -641,7 +706,7 @@ def convert_docx_to_tei(
         if not os.path.exists(metadata_docx):
             raise FileNotFoundError(f"No existe el archivo de metadatos: {metadata_docx}")
         try:
-            tei_header = parse_metadata_docx(metadata_docx)
+            tei_header = parse_metadata_docx(metadata_docx, header_mode=header_mode)
         except Exception as e:
             raise RuntimeError(f"No se pudo parsear metadata DOCX '{metadata_docx}': {e}")
     elif not tei_header:

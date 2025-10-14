@@ -20,7 +20,7 @@ except Exception:
 # Escalado adicional para fuentes e interfaz (ajustable según necesidad) sin mostrar ventana
 root = tk.Tk()
 root.withdraw()
-root.tk.call('tk', 'scaling', 1.75)
+root.tk.call('tk', 'scaling', 1)
 root.destroy()
 
 from gui import main_gui
