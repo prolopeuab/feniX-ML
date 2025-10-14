@@ -20,9 +20,11 @@ from tei_backend import convert_docx_to_tei
 def resource_path(relative_path):
     """Obtiene la ruta absoluta del recurso, compatible con PyInstaller."""
     try:
+        # Si está empaquetado con PyInstaller
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
+        # Si se ejecuta como script, usar el directorio del archivo actual
+        base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
 def load_resource(filename):
