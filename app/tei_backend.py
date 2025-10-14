@@ -285,21 +285,27 @@ def parse_metadata_docx(path):
     tei.append('          </imprint>')
     tei.append('        </monogr>')
     tei.append('      </biblStruct>')
-    tei.append('  <encodingDesc>')
-    tei.append('    <editorialDecl>')
-    tei.append('      <p>Este marcado ha sido realizado utilizando la aplicación FéniX-ML, desarrollada por Anna Abate, Emanuele Leboffe y David Merino Recalde.</p>')
-    tei.append('    </editorialDecl>')
-    tei.append('  </encodingDesc>')
-
-    # listWit
     tei.append('      <listWit>')
     for siglum, desc in witnesses:
         tei.append(f'        <witness xml:id="{siglum}">')
         tei.append(f'          <label>{desc}</label>')
         tei.append('        </witness>')
     tei.append('      </listWit>')
-
-    tei.extend(['    </sourceDesc>', '  </fileDesc>', '</teiHeader>'])
+    tei.append('    </sourceDesc>')
+    tei.append('  </fileDesc>')
+    tei.append('  <encodingDesc>')
+    tei.append('    <editorialDecl>')
+    tei.append('      <p>El texto se transformó desde archivos DOCX mediante un flujo semiautomático con feniX-ML (versión 1.0.0).</p>')
+    tei.append('    </editorialDecl>')
+    tei.append('    <appInfo>')
+    tei.append('      <application ident="feniX-ML" version="1.0.0">')
+    tei.append('        <label>feniX-ML</label>')
+    tei.append('        <desc>Conversor de ediciones críticas de teatro del Siglo de Oro de DOCX a XML-TEI, desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde (PROLOPE).</desc>')
+    tei.append('        <ref target="https://github.com/prolopeuab/feniX-ML">Repositorio y documentación</ref>')
+    tei.append('      </application>')
+    tei.append('    </appInfo>')
+    tei.append('  </encodingDesc>')
+    tei.append('</teiHeader>')
 
     return "\n".join(tei)
 
