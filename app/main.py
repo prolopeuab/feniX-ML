@@ -9,19 +9,12 @@
 # ==========================================
 
 import ctypes
-import tkinter as tk
 
 # Hacer que la app sea DPI-aware en Windows 10/11 para evitar desenfoque en pantallas HiDPI
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
 except Exception:
     pass
-
-# Escalado adicional para fuentes e interfaz (ajustable según necesidad) sin mostrar ventana
-root = tk.Tk()
-root.withdraw()
-root.tk.call('tk', 'scaling', 1)
-root.destroy()
 
 from gui import main_gui
 

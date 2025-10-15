@@ -12,6 +12,7 @@ import os
 import sys
 import tkinter as tk
 import webbrowser
+import ctypes
 from tkinter import filedialog, messagebox
 
 # Usar CustomTkinter para esquinas redondeadas verdaderas
@@ -33,23 +34,54 @@ def main_gui():
     Permite seleccionar archivos, validar, convertir y previsualizar resultados.
     """
 
-    # --- Configuración de la ventana principal con CustomTkinter ---
-    ctk.set_appearance_mode("light")  # Modo claro
-    ctk.set_default_color_theme("blue")  # Tema base (lo personalizaremos)
+    # Configuración principal de la ventana
+    ctk.set_appearance_mode("light")  
+    ctk.set_default_color_theme("blue")
     
     root = ctk.CTk()
     root.title("feniX-ML")
-    root.geometry("700x880") 
+    
+    # Obtener dimensiones de pantalla y calcular tamaño de ventana dinámico
+    try:
+        user32 = ctypes.windll.user32
+        screen_width = user32.GetSystemMetrics(0)
+        screen_height = user32.GetSystemMetrics(1)
+    except:
+        # Valores por defecto si falla la detección
+        screen_width = 1920
+        screen_height = 1080
+    
+    # Detectar pantallas pequeñas por resolución o altura física (ajustar si se cambia el diseño)
+    is_small_screen = screen_width <= 1366 or screen_height <= 1200
+    
+    if is_small_screen:  # Pantallas pequeñas (13-14")
+        window_width = int(screen_width * 0.45)  # ancho
+        window_height = int(screen_height * 0.55)  # alto
+    else:  # Pantallas más grandes (15" o superiores)
+        window_width = int(screen_width * 0.50) # ancho
+        window_height = int(screen_height * 0.55) # alto
+    
+    root.geometry(f"{window_width}x{window_height}")
+    root.resizable(True, True)
+    root.minsize(400, 600)
 
-    # Configurar icono de la aplicación (Windows: explorador, barra de tareas y ventana)
+    # Icono de la aplicación (Windows)
     set_windows_icon(root)
     
-    # Cargar logos
-    root.logo_prolope_img = tk.PhotoImage(file=resource_path("resources/logo_prolope.png")).subsample(6, 6)
-    root.logo_fenix_img = tk.PhotoImage(file=resource_path("resources/logo.png")).subsample(5, 5)  # Más pequeño aún para ahorrar espacio
+    # Tamaños de fuente escalables según altura de ventana
+    base_font = max(7, min(10, int(window_height / 80)))
+    menu_font = max(8, min(11, int(window_height / 70)))
+    title_font = max(12, min(16, int(window_height / 50)))
+    label_font = max(9, min(12, int(window_height / 65)))
+    button_font = max(12, min(14, int(window_height / 65)))
+    large_button_font = max(12, min(14, int(window_height / 55)))
+    
+    # Logos con escala dinámica
+    logo_scale = max(4, int(window_height / 150))
+    root.logo_prolope_img = tk.PhotoImage(file=resource_path("resources/logo_prolope.png")).subsample(logo_scale, logo_scale)
+    root.logo_fenix_img = tk.PhotoImage(file=resource_path("resources/logo.png")).subsample(logo_scale, logo_scale)
 
-    # ==== ENCABEZADO CON LOGO Y DESCRIPCIÓN ====
-    # Obtener color de fondo
+    # Encabezado con logo y descripción
     try:
         bg_color = root._apply_appearance_mode(ctk.ThemeManager.theme["CTk"]["fg_color"])
     except:
@@ -58,25 +90,24 @@ def main_gui():
     header_frame = ctk.CTkFrame(root, fg_color="transparent")
     header_frame.pack(fill="x", padx=20, pady=(10, 0))  # Reducido padding superior
 
-    # Sub-frame para logo y texto en vertical
+    # Sub-frame para logo y texto
     logo_text_frame = tk.Frame(header_frame, bg=bg_color)
     logo_text_frame.pack(side="left", anchor="nw")
 
-    # Logo
+    # Logo principal
     logo = tk.Label(logo_text_frame, image=root.logo_fenix_img, bg=bg_color, borderwidth=0, highlightthickness=0)
     logo.pack(anchor="w", pady=(0, 5))
 
-    # Texto debajo del logo
+    # Descripción bajo el logo
     desc = tk.Label(
         logo_text_frame,
         text="Conversor de ediciones críticas de teatro del Siglo de oro de DOCX a XML-TEI",
-        font=("Segoe UI", 11), fg="gray", wraplength=600, bg=bg_color, justify="left"
+        font=("Segoe UI", base_font), fg="gray", wraplength=int(window_width * 0.85), bg=bg_color, justify="left"
     )
     desc.pack(anchor="w")
 
 
-    # ==== MENÚS DE AYUDA Y ACERCA DE ====
-    # Menú "Acerca de" con créditos, licencia, web y contacto
+    # Menús de ayuda y acerca de
     def mostrar_creditos():
         messagebox.showinfo(
             "Créditos",
@@ -101,15 +132,15 @@ def main_gui():
         )
     
     # Configuración del menú principal
-    menubar = tk.Menu(root, font=("Segoe UI", 13))
-    acerca_menu = tk.Menu(menubar, tearoff=0, font=("Segoe UI", 13))
+    menubar = tk.Menu(root, font=("Segoe UI", menu_font))
+    acerca_menu = tk.Menu(menubar, tearoff=0, font=("Segoe UI", menu_font))
     acerca_menu.add_command(label="Créditos", command=mostrar_creditos)
     acerca_menu.add_command(label="Licencia", command=mostrar_licencia)
     acerca_menu.add_command(label="Sitio web del proyecto", command=abrir_sitio_web)
     acerca_menu.add_command(label="Contacto", command=mostrar_contacto)
     menubar.add_cascade(label="Acerca de", menu=acerca_menu)
 
-    # Menú "Ayuda" con instrucciones y plantillas
+    # Menú de ayuda
     def mostrar_ayuda_uso():
         messagebox.showinfo(
             "Cómo usar feniX-ML",
@@ -125,16 +156,14 @@ def main_gui():
     def abrir_plantillas():
         webbrowser.open("https://github.com/prolopeuab/feniX-ML/tree/main/ejemplos") 
 
-    ayuda_menu = tk.Menu(menubar, tearoff=0, font=("Segoe UI", 13))
+    ayuda_menu = tk.Menu(menubar, tearoff=0, font=("Segoe UI", menu_font))
     ayuda_menu.add_command(label="Cómo usar feniX-ML", command=mostrar_ayuda_uso)
     ayuda_menu.add_command(label="Documentación técnica completa", command=abrir_instrucciones)
     ayuda_menu.add_command(label="Descargar plantillas DOCX", command=abrir_plantillas)
     menubar.add_cascade(label="Ayuda", menu=ayuda_menu)
     root.config(menu=menubar)
 
-    # ==== CONTENEDOR SCROLLABLE PARA TODO EL CONTENIDO ====
-    # Frame scrollable que contiene todo el contenido de la aplicación
-    # El scrollbar es muy sutil pero visible cuando hace falta
+    # Contenedor scrollable para el contenido principal
     scrollable_frame = ctk.CTkScrollableFrame(
         root, 
         fg_color="transparent",
@@ -148,16 +177,16 @@ def main_gui():
     main_frame.pack(fill="both", expand=True, padx=0, pady=(5, 5))
     
     frame_seleccion = ctk.CTkFrame(main_frame, corner_radius=10)
-    frame_seleccion.grid(row=0, column=0, columnspan=3, sticky="ew", padx=10, pady=(5,8))
+    frame_seleccion.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(5,8))
     
-    # Título de la sección
+    # Título sección selección
     ctk.CTkLabel(frame_seleccion, text="Selección de archivos", 
-                 font=("Segoe UI", 18, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=15, pady=(12,8))
+                 font=("Segoe UI", title_font, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=15, pady=(12,8))
 
-    # --- Selección de archivo principal (prólogo y comedia) ---
-    label_main = ctk.CTkLabel(frame_seleccion, text="Prólogo y comedia:", font=("Segoe UI", 14))
+    # Selección de archivo principal
+    label_main = ctk.CTkLabel(frame_seleccion, text="Prólogo y comedia:", font=("Segoe UI", label_font))
     label_main.grid(row=1, column=0, sticky="e", padx=(15,5), pady=5)
-    entry_main = ctk.CTkEntry(frame_seleccion, width=400)
+    entry_main = ctk.CTkEntry(frame_seleccion, width=int(window_width * 0.5))
     entry_main.grid(row=1, column=1, padx=5, sticky="ew")
     def select_main():
         path = filedialog.askopenfilename(
@@ -169,13 +198,13 @@ def main_gui():
             entry_main.insert(0, path)
     btn_main = ctk.CTkButton(frame_seleccion, text="Explora...", command=select_main,
                             fg_color="#6c757d", hover_color="#5a6268",
-                            corner_radius=10, width=100, height=30, font=("Segoe UI", 14))
+                            corner_radius=10, width=100, height=30, font=("Segoe UI", button_font))
     btn_main.grid(row=1, column=2, padx=(5,15), pady=5)
 
-    # --- Selección de archivo de notas ---
-    label_com = ctk.CTkLabel(frame_seleccion, text="Notas:", font=("Segoe UI", 14))
+    # Selección de archivo de notas
+    label_com = ctk.CTkLabel(frame_seleccion, text="Notas:", font=("Segoe UI", label_font))
     label_com.grid(row=2, column=0, sticky="e", padx=(15,5), pady=5)
-    entry_com = ctk.CTkEntry(frame_seleccion, width=400)
+    entry_com = ctk.CTkEntry(frame_seleccion, width=int(window_width * 0.5))
     entry_com.grid(row=2, column=1, padx=5, sticky="ew")
     def select_com():
         path = filedialog.askopenfilename(
@@ -187,13 +216,13 @@ def main_gui():
             entry_com.insert(0, path)
     btn_com = ctk.CTkButton(frame_seleccion, text="Explora...", command=select_com,
                            fg_color="#6c757d", hover_color="#5a6268",
-                           corner_radius=10, width=100, height=30, font=("Segoe UI", 14))
+                           corner_radius=10, width=100, height=30, font=("Segoe UI", button_font))
     btn_com.grid(row=2, column=2, padx=(5,15), pady=5)
 
-    # --- Selección de archivo de aparato crítico ---
-    label_apa = ctk.CTkLabel(frame_seleccion, text="Aparato crítico:", font=("Segoe UI", 14))
+    # Selección de archivo de aparato crítico
+    label_apa = ctk.CTkLabel(frame_seleccion, text="Aparato crítico:", font=("Segoe UI", label_font))
     label_apa.grid(row=3, column=0, sticky="e", padx=(15,5), pady=5)
-    entry_apa = ctk.CTkEntry(frame_seleccion, width=400)
+    entry_apa = ctk.CTkEntry(frame_seleccion, width=int(window_width * 0.5))
     entry_apa.grid(row=3, column=1, padx=5, sticky="ew")
     def select_apa():
         path = filedialog.askopenfilename(
@@ -205,12 +234,12 @@ def main_gui():
             entry_apa.insert(0, path)
     btn_apa = ctk.CTkButton(frame_seleccion, text="Explora...", command=select_apa,
                            fg_color="#6c757d", hover_color="#5a6268",
-                           corner_radius=10, width=100, height=30, font=("Segoe UI", 14))
+                           corner_radius=10, width=100, height=30, font=("Segoe UI", button_font))
     btn_apa.grid(row=3, column=2, padx=(5,15), pady=5)
 
-    # --- Selección de archivo de metadatos ---
-    ctk.CTkLabel(frame_seleccion, text="Tabla de metadatos:", font=("Segoe UI", 14)).grid(row=4, column=0, sticky="e", padx=(15,5), pady=5)
-    entry_meta = ctk.CTkEntry(frame_seleccion, width=400)
+    # Selección de archivo de metadatos
+    ctk.CTkLabel(frame_seleccion, text="Tabla de metadatos:", font=("Segoe UI", label_font)).grid(row=4, column=0, sticky="e", padx=(15,5), pady=5)
+    entry_meta = ctk.CTkEntry(frame_seleccion, width=int(window_width * 0.5))
     entry_meta.grid(row=4, column=1, padx=5, sticky="ew")
     def select_meta():
         path = filedialog.askopenfilename(
@@ -222,44 +251,44 @@ def main_gui():
             entry_meta.insert(0, path)
     btn_meta = ctk.CTkButton(frame_seleccion, text="Explora...", command=select_meta,
                             fg_color="#6c757d", hover_color="#5a6268",
-                            corner_radius=10, width=100, height=30, font=("Segoe UI", 14))
+                            corner_radius=10, width=100, height=30, font=("Segoe UI", button_font))
     btn_meta.grid(row=4, column=2, padx=(5,15), pady=(5,15))
 
-    # Hace que la columna central (entries) sea expandible
+    # Columna central expandible
     frame_seleccion.columnconfigure(1, weight=1)
 
-    # ==== SECCIÓN 1.5: OPCIONES DE HEADER TEI (compacta) ====
+    # Sección 1.5: Opciones de header TEI
     frame_header_opciones = ctk.CTkFrame(main_frame, corner_radius=10)
-    frame_header_opciones.grid(row=1, column=0, columnspan=3, sticky="ew", padx=10, pady=(0,8))
+    frame_header_opciones.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0,8))
     
-    # Variable para almacenar la selección
+    # Variable para selección de header
     header_mode_var = tk.StringVar(value="prolope")
     
-    # Etiqueta + Radio buttons en una sola línea
+    # Etiqueta y radio buttons
     ctk.CTkLabel(frame_header_opciones, text="Tipo de TEI-header:",
-                 font=("Segoe UI", 14, "bold")).grid(row=0, column=0, sticky="w", padx=15, pady=8)
+                 font=("Segoe UI", label_font, "bold")).grid(row=0, column=0, sticky="w", padx=15, pady=8)
     
     radio_prolope = ctk.CTkRadioButton(frame_header_opciones, 
                                         text="TEI-header PROLOPE",
                                         variable=header_mode_var, 
                                         value="prolope",
-                                        font=("Segoe UI", 14))
+                                        font=("Segoe UI", label_font))
     radio_prolope.grid(row=0, column=1, sticky="w", padx=10, pady=8)
     
     radio_minimo = ctk.CTkRadioButton(frame_header_opciones, 
                                        text="TEI-header propio",
                                        variable=header_mode_var, 
                                        value="minimo",
-                                       font=("Segoe UI", 14))
+                                       font=("Segoe UI", label_font))
     radio_minimo.grid(row=0, column=2, sticky="w", padx=10, pady=8)
 
-    # ==== SECCIÓN 2: VALIDACIÓN Y VISTA PREVIA ====
+    # ==== SECCIÓN 2: VALIDACIÓN Y VISTA PREVIA (columna izquierda) ====
     frame_output = ctk.CTkFrame(main_frame, corner_radius=10)
-    frame_output.grid(row=2, column=0, columnspan=3, sticky="ew", padx=10, pady=(0,8))
+    frame_output.grid(row=2, column=0, sticky="nsew", padx=(10,5), pady=(0,8))
     
-    # Título de la sección
+    # Título sección validación
     ctk.CTkLabel(frame_output, text="Validación y vista previa",
-                 font=("Segoe UI", 18, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=15, pady=(12,8))
+                 font=("Segoe UI", title_font, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=15, pady=(12,8))
 
     def on_validar():
         """
@@ -279,69 +308,68 @@ def main_gui():
             mensaje = "✅ ¡Validación completada sin incidencias!"
         messagebox.showinfo("Validación", mensaje)
 
-    # Botón para validar el marcado con esquinas redondeadas (CustomTkinter)
-    btn_validar = ctk.CTkButton(frame_output,
-        text="✔ Validar marcado",
-        command=on_validar,
-        fg_color="#142a40",
-        hover_color="#1a3650",
-        corner_radius=15,
-        width=180,
-        height=70,
-        font=("Segoe UI", 18, "bold")
-    )
-    btn_validar.grid(row=1, column=0, rowspan=2, padx=15, pady=(5,15), sticky="nsew")
+    # Botones de validación y vista previa
+    validation_button_height = max(32, int(window_height * 0.04))  
 
-    # Botón para previsualizar el XML con esquinas redondeadas
+    btn_validar = ctk.CTkButton(frame_output,
+        text="Validar marcado",
+        command=on_validar,
+        fg_color="#2b5988", 
+        hover_color="#3773af",
+        corner_radius=15,
+        height=validation_button_height,
+        font=("Segoe UI", button_font, "bold")
+    )
+    btn_validar.grid(row=1, column=0, columnspan=2, padx=15, pady=(5,5), sticky="ew")
+
+    # Botón para previsualizar el XML
     btn_vista_previa_xml = ctk.CTkButton(frame_output,
-        text="🗎 Vista previa (XML)",
+        text="Vista previa (XML)",
         command=lambda: vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root, header_mode_var.get()),
         fg_color="#142a40",
         hover_color="#1a3650",
         corner_radius=15,
-        height=50,
-        font=("Segoe UI", 18)
+        height=validation_button_height,
+        font=("Segoe UI", button_font)
     )
-    btn_vista_previa_xml.grid(row=1, column=1, padx=(5,15), pady=(5,5), sticky="ew")
+    btn_vista_previa_xml.grid(row=2, column=0, columnspan=2, padx=15, pady=(5,5), sticky="ew")
 
-    # Botón para previsualizar HTML con esquinas redondeadas
+    # Botón para previsualizar HTML
     btn_vista_previa_html = ctk.CTkButton(frame_output,
-        text="🌐 Vista previa (HTML)",
+        text="Vista previa (HTML)",
         command=lambda: vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode_var.get()),
         fg_color="#142a40",
         hover_color="#1a3650",
         corner_radius=15,
-        height=50,
-        font=("Segoe UI", 18)
+        height=validation_button_height,
+        font=("Segoe UI", button_font)
     )
-    btn_vista_previa_html.grid(row=2, column=1, padx=(5,15), pady=(5,15), sticky="ew")
+    btn_vista_previa_html.grid(row=3, column=0, columnspan=2, padx=15, pady=(5,15), sticky="ew")
 
-    # Ajustar las columnas y filas para que los botones se distribuyan correctamente
+    # Columnas expandibles en frame_output
     frame_output.columnconfigure(0, weight=1) 
-    frame_output.columnconfigure(1, weight=2) 
-    frame_output.rowconfigure(1, weight=1) 
-    frame_output.rowconfigure(2, weight=1)
+    frame_output.columnconfigure(1, weight=1)
 
-    # ==== SECCIÓN 3: CONFIGURACIÓN DEL OUTPUT Y GUARDADO ====
+    # ==== SECCIÓN 3: CONFIGURACIÓN DEL OUTPUT Y GUARDADO (columna derecha) ====
     frame_conversion = ctk.CTkFrame(main_frame, corner_radius=10)
-    frame_conversion.grid(row=3, column=0, columnspan=3, sticky="ew", padx=10, pady=(0,8))
+    frame_conversion.grid(row=2, column=1, sticky="nsew", padx=(5,10), pady=(0,8))
 
-    # Título de la sección
+    # Título sección guardar
     ctk.CTkLabel(frame_conversion, text="Guardar como",
-                 font=("Segoe UI", 18, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=15, pady=(12,5))
+                 font=("Segoe UI", title_font, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=15, pady=(12,5))
     
-    # Línea informativa en gris
+    # Línea informativa
     lbl_output_info = ctk.CTkLabel(frame_conversion, text="Ubicación y nombre del archivo XML de salida", 
-                                   text_color="gray", font=("Segoe UI", 14))
+                                   text_color="gray", font=("Segoe UI", label_font))
     lbl_output_info.grid(row=1, column=0, columnspan=3, sticky="w", padx=15, pady=(0, 8))
 
-    # Etiqueta y campo para archivo de salida
-    label_out = ctk.CTkLabel(frame_conversion, text="Archivo:", font=("Segoe UI", 14))
+    # Etiqueta y campo archivo de salida
+    label_out = ctk.CTkLabel(frame_conversion, text="Archivo:", font=("Segoe UI", label_font))
     label_out.grid(row=2, column=0, sticky="e", padx=(15,5), pady=5)
-    entry_out = ctk.CTkEntry(frame_conversion, width=400)
+    entry_out = ctk.CTkEntry(frame_conversion, width=int(window_width * 0.5))
     entry_out.grid(row=2, column=1, padx=5, sticky="ew")
 
-    # Botón para seleccionar archivo de salida
+    # Botón seleccionar archivo de salida
     def select_out():
         result = filedialog.asksaveasfilename(
             title="Guardar archivo TEI",
@@ -356,10 +384,10 @@ def main_gui():
 
     btn_out = ctk.CTkButton(frame_conversion, text="Explora...", command=select_out,
                            fg_color="#6c757d", hover_color="#5a6268",
-                           corner_radius=10, width=100, height=30, font=("Segoe UI", 14))
+                           corner_radius=10, width=100, height=30, font=("Segoe UI", button_font))
     btn_out.grid(row=2, column=2, padx=(5,15), pady=5)
 
-    # Botón para convertir y guardar el archivo XML-TEI
+    # Botón para convertir y guardar XML-TEI
     def generate_and_save():
         # 1. Tomamos lo que haya escrito el usuario
         out = entry_out.get().strip()
@@ -393,58 +421,64 @@ def main_gui():
             f"Archivo TEI generado en:\n{guardado}"
         )
 
+    # Altura adaptable botón de conversión
+    conversion_button_height = max(36, int(window_height * 0.045))
+    
     btn_convertir = ctk.CTkButton(frame_conversion,
-        text="⚙️ Generar archivo XML-TEI",
+        text="Generar archivo XML-TEI",
         command=generate_and_save,
         fg_color="#142a40",
         hover_color="#1a3650",
         corner_radius=15,
-        height=50,
-        font=("Segoe UI", 18, "bold")
+        height=conversion_button_height,
+        font=("Segoe UI", button_font, "bold")
     )
     btn_convertir.grid(row=3, column=0, columnspan=3, padx=15, pady=15, sticky="ew")
 
-    # Ajuste para expandir el campo de texto correctamente
+    # Columna expandible en frame_conversion
     frame_conversion.columnconfigure(1, weight=1)
-    main_frame.columnconfigure(0, weight=1)
+    
+    # Grid del main_frame
+    main_frame.columnconfigure(0, weight=1, uniform="cols")
+    main_frame.columnconfigure(1, weight=2, uniform="cols")
 
     # ==== PIE DE PÁGINA ====
-    # Obtener color de fondo de forma segura
     try:
         root_bg = root.cget("background")
     except:
         root_bg = "#ffffff"
     
-    # Frame para agrupar imagen y texto en horizontal
+    # Frame horizontal para imagen y texto
     footer_frame = tk.Frame(root, bg=root_bg)
     footer_frame.pack(side="bottom", fill="x", pady=(5, 10))
 
-    # Imagen del logo de PROLOPE 
+    # Logo PROLOPE
     small_logo_img = root.logo_prolope_img.subsample(3, 3)
     logo_label = tk.Label(footer_frame, image=small_logo_img, bg=root_bg)
     logo_label.image = small_logo_img 
     logo_label.pack(side="left", padx=10)
 
-    # Texto del footer (derecha) - contenedor vertical para dos líneas
+    # Texto del footer (dos líneas)
     footer_text_frame = tk.Frame(footer_frame, bg=root_bg)
     footer_text_frame.pack(side="left", anchor="w")
     
-    # Primera línea: texto normal
+    # Primera línea footer
+    footer_font_size = max(9, min(11, int(window_height / 75)))
     footer_text1 = tk.Label(
         footer_text_frame,
         text="Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde",
-        font=("Segoe UI", 12),
+        font=("Segoe UI", footer_font_size),
         fg="gray",
         bg=root_bg,
         justify="left",
     )
     footer_text1.pack(anchor="w")
     
-    # Segunda línea: texto en negrita
+    # Segunda línea footer
     footer_text2 = tk.Label(
         footer_text_frame,
         text="PROLOPE · Universitat Autònoma de Barcelona · 2025",
-        font=("Segoe UI", 12, "bold"),
+        font=("Segoe UI", footer_font_size, "bold"),
         fg="gray",
         bg=root_bg,
         justify="left",
@@ -452,5 +486,5 @@ def main_gui():
     footer_text2.pack(anchor="w")
 
 
-    # ==== INICIO DEL BUCLE PRINCIPAL ====
+    # Inicio del bucle principal
     root.mainloop()
