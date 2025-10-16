@@ -586,12 +586,21 @@ def process_table_to_tei(table, footnotes_intro=None):
 def extract_notes_with_italics(docx_path: str) -> dict:
     """
     Extrae notas o aparato de un DOCX.
-    Devuelve un dict donde las claves pueden ser int (versos) o str (palabras)
-    y los valores pueden ser strings individuales o listas si hay múltiples notas para el mismo verso.
+    Devuelve un dict donde las claves pueden ser int (versos) o str (palabras normalizadas)
+    y los valores son SIEMPRE LISTAS de strings (para manejar múltiples notas secuencialmente).
+    Las claves de palabras se normalizan (sin acentos, minúsculas) para facilitar coincidencias.
     """
     notes: dict = {}
     if not docx_path or not os.path.exists(docx_path):
         return notes
+
+    def normalize_key(word):
+        """Normaliza una palabra eliminando acentos y convirtiendo a minúsculas."""
+        # Descomponer caracteres con acentos
+        normalized = unicodedata.normalize('NFKD', word)
+        # Eliminar marcas diacríticas y convertir a minúsculas
+        normalized = normalized.encode('ASCII', 'ignore').decode('utf-8').lower().strip()
+        return normalized
 
     doc = Document(docx_path)
     for para in doc.paragraphs:
@@ -606,28 +615,22 @@ def extract_notes_with_italics(docx_path: str) -> dict:
             verse_num = int(match_verse.group(1))
             content = match_verse.group(2).strip()
             
-            # Si ya existe una nota para este verso, crear una lista
-            if verse_num in notes:
-                if isinstance(notes[verse_num], list):
-                    notes[verse_num].append(content)
-                else:
-                    # Convertir la nota existente en lista
-                    notes[verse_num] = [notes[verse_num], content]
-            else:
-                notes[verse_num] = content
+            # Siempre usar listas para facilitar el acceso secuencial
+            if verse_num not in notes:
+                notes[verse_num] = []
+            notes[verse_num].append(content)
                 
         elif match_single:
-            key = match_single.group(1).strip()
+            key_original = match_single.group(1).strip()
             content = match_single.group(2).strip()
             
-            # Mismo tratamiento para notas de palabras
-            if key in notes:
-                if isinstance(notes[key], list):
-                    notes[key].append(content)
-                else:
-                    notes[key] = [notes[key], content]
-            else:
-                notes[key] = content
+            # Normalizar la clave para insensibilidad a mayúsculas/acentos
+            key = normalize_key(key_original)
+            
+            # Siempre usar listas para facilitar el acceso secuencial
+            if key not in notes:
+                notes[key] = []
+            notes[key].append(content)
 
     return notes
 
@@ -637,8 +640,11 @@ def extract_notes_with_italics(docx_path: str) -> dict:
 def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, section):
     """
     Sustituye marcadores @palabra en el texto por notas TEI con xml:ids únicos.
-    - nota_notes y aparato_notes son dicts con claves normalizadas.
-    - annotation_counter es un dict que lleva el conteo de repeticiones por sección.
+    Usa sincronización secuencial: la 1ª ocurrencia de @palabra recibe la 1ª nota,
+    la 2ª ocurrencia recibe la 2ª nota, etc.
+    
+    - nota_notes y aparato_notes son dicts con claves YA NORMALIZADAS y valores como LISTAS.
+    - annotation_counter lleva el conteo de ocurrencias de cada palabra por sección.
     - section es el nombre de la sección (p.ej. 'p', 'speaker', etc.).
     """
     if not text:
@@ -646,9 +652,9 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
 
     # Aseguramos dicts válidos
     nota_notes = nota_notes or {}
-    aparato_notes    = aparato_notes    or {}
+    aparato_notes = aparato_notes or {}
 
-    # Función de normalización para claves
+    # Función de normalización para palabras del texto (debe coincidir con extract_notes_with_italics)
     def normalize_word(word):
         if isinstance(word, int):
             return word
@@ -658,19 +664,9 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
         normalized = normalized.encode('ASCII', 'ignore').decode('utf-8').lower().strip()
         return normalized
 
-    # Normalizamos claves de las notas (manejando listas)
-    def normalize_notes_dict(notes_dict):
-        normalized = {}
-        for k, v in notes_dict.items():
-            if isinstance(k, str):
-                normalized[normalize_word(k)] = v
-        return normalized
-    
-    nota_notes_norm = normalize_notes_dict(nota_notes)
-    aparato_notes_norm = normalize_notes_dict(aparato_notes)
-
-    # Unificamos todas las notas en un solo dict
-    all_notes = {**nota_notes_norm, **aparato_notes_norm}
+    # Las claves de las notas ya vienen normalizadas, no necesitamos procesarlas de nuevo
+    # Solo necesitamos combinar los dicts
+    all_keys = set(nota_notes.keys()) | set(aparato_notes.keys())
 
     new_text = text.strip()
     # Buscamos todos los marcadores '@palabra'
@@ -682,55 +678,61 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
         phrase_to_replace = f"@{phrase}"
         key = normalize_word(phrase)
 
-        if key in all_notes:
-            # Gestionamos contadores separados para nota y aparato por sección
-            section_counters = annotation_counter.setdefault(section, {})
+        if key not in all_keys:
+            # No hay notas para esta palabra, solo eliminar el @
+            new_text = new_text.replace(phrase_to_replace, phrase, 1)
+            continue
+        
+        # Contador global de ocurrencias de esta palabra (independiente de sección)
+        occurrence_counters = annotation_counter.setdefault("_occurrences", {})
+        
+        # Obtener el índice de ocurrencia actual (0-indexed)
+        occurrence_index = occurrence_counters.get(key, 0)
+        occurrence_counters[key] = occurrence_index + 1
+        
+        # Construimos los <note> correspondientes a esta ocurrencia
+        note_str = ""
+        
+        # === NOTAS FILOLÓGICAS ===
+        if key in nota_notes:
+            nota_list = nota_notes[key]
+            # Verificar que nota_list sea una lista
+            if not isinstance(nota_list, list):
+                nota_list = [nota_list]
             
-            # Construimos los posibles <note> con IDs únicos y prefijos diferentes
-            note_str = ""
-            
-            # === NOTAS FILOLÓGICAS ===
-            if key in nota_notes_norm:
-                # Contador específico para notas
-                nota_counter_key = f"{key}_nota"
-                count_nota = section_counters.get(nota_counter_key, 0) + 1
-                section_counters[nota_counter_key] = count_nota
+            # Si hay una nota para este índice de ocurrencia, usarla
+            if occurrence_index < len(nota_list):
+                content = nota_list[occurrence_index]
                 
-                # Crear xml:id base para nota con prefijo 'n_'
-                xml_id_nota = f"n_{key}_{section}_{count_nota}"
+                # Crear xml:id único
+                xml_id_nota = f"n_{key}_{section}_{occurrence_index + 1}"
                 xml_id_nota = re.sub(r'\s+', '_', xml_id_nota)
                 xml_id_nota = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_nota)
                 xml_id_nota = xml_id_nota.lower()
                 
-                note_content = nota_notes_norm[key]
-                if isinstance(note_content, list):
-                    for i, content in enumerate(note_content, 1):
-                        note_str += f'<note subtype="nota" xml:id="{xml_id_nota}_{i}">{content}</note>'
-                else:
-                    note_str += f'<note subtype="nota" xml:id="{xml_id_nota}">{note_content}</note>'
+                note_str += f'<note subtype="nota" xml:id="{xml_id_nota}">{content}</note>'
+        
+        # === APARATO CRÍTICO ===
+        if key in aparato_notes:
+            aparato_list = aparato_notes[key]
+            # Verificar que aparato_list sea una lista
+            if not isinstance(aparato_list, list):
+                aparato_list = [aparato_list]
             
-            # === APARATO CRÍTICO ===
-            if key in aparato_notes_norm:
-                # Contador específico para aparato
-                aparato_counter_key = f"{key}_aparato"
-                count_aparato = section_counters.get(aparato_counter_key, 0) + 1
-                section_counters[aparato_counter_key] = count_aparato
+            # Si hay un aparato para este índice de ocurrencia, usarlo
+            if occurrence_index < len(aparato_list):
+                content = aparato_list[occurrence_index]
                 
-                # Crear xml:id base para aparato con prefijo 'a_'
-                xml_id_aparato = f"a_{key}_{section}_{count_aparato}"
+                # Crear xml:id único
+                xml_id_aparato = f"a_{key}_{section}_{occurrence_index + 1}"
                 xml_id_aparato = re.sub(r'\s+', '_', xml_id_aparato)
                 xml_id_aparato = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_aparato)
                 xml_id_aparato = xml_id_aparato.lower()
                 
-                aparato_content = aparato_notes_norm[key]
-                if isinstance(aparato_content, list):
-                    for i, content in enumerate(aparato_content, 1):
-                        note_str += f'<note subtype="aparato" xml:id="{xml_id_aparato}_{i}">{content}</note>'
-                else:
-                    note_str += f'<note subtype="aparato" xml:id="{xml_id_aparato}">{aparato_content}</note>'
+                note_str += f'<note subtype="aparato" xml:id="{xml_id_aparato}">{content}</note>'
 
-            # Sustituimos solo la primera ocurrencia
-            new_text = new_text.replace(phrase_to_replace, f"{phrase}{note_str}", 1)
+        # Sustituimos solo la primera ocurrencia del marcador
+        new_text = new_text.replace(phrase_to_replace, f"{phrase}{note_str}", 1)
 
     # Reagrupamos cursivas consecutivas
     new_text = merge_italic_text(new_text)
@@ -944,25 +946,19 @@ def convert_docx_to_tei(
                     current_milestone = None
                 verse_text = text
                 
-                # Procesar notas (pueden ser múltiples)
+                # Procesar notas
                 if verse_counter in nota_notes:
-                    note_content = nota_notes[verse_counter]
-                    if isinstance(note_content, list):
-                        # Múltiples notas
-                        for i, content in enumerate(note_content, 1):
-                            verse_text += f'<note subtype="nota" n="{verse_counter}" xml:id="nota_{verse_counter}_{i}">{content}</note>'
-                    else:
-                        # Una sola nota
-                        verse_text += f'<note subtype="nota" n="{verse_counter}">{note_content}</note>'
+                    note_list = nota_notes[verse_counter]
+                    # note_list siempre es una lista
+                    for i, content in enumerate(note_list, 1):
+                        verse_text += f'<note subtype="nota" n="{verse_counter}" xml:id="nota_{verse_counter}_{i}">{content}</note>'
                 
                 # Mismo tratamiento para aparato
                 if verse_counter in aparato_notes:
-                    aparato_content = aparato_notes[verse_counter]
-                    if isinstance(aparato_content, list):
-                        for i, content in enumerate(aparato_content, 1):
-                            verse_text += f'<note subtype="aparato" n="{verse_counter}" xml:id="aparato_{verse_counter}_{i}">{content}</note>'
-                    else:
-                        verse_text += f'<note subtype="aparato" n="{verse_counter}">{aparato_content}</note>'
+                    aparato_list = aparato_notes[verse_counter]
+                    # aparato_list siempre es una lista
+                    for i, content in enumerate(aparato_list, 1):
+                        verse_text += f'<note subtype="aparato" n="{verse_counter}" xml:id="aparato_{verse_counter}_{i}">{content}</note>'
                 
                 tei.append(f'            <l n="{verse_counter}">{verse_text}</l>')
                 verse_counter += 1
@@ -992,25 +988,17 @@ def convert_docx_to_tei(
             
             verse_text = text
             
-            # Procesar notas (pueden ser múltiples)
+            # Procesar notas
             if verse_counter in nota_notes:
-                note_content = nota_notes[verse_counter]
-                if isinstance(note_content, list):
-                    # Múltiples notas
-                    for i, content in enumerate(note_content, 1):
-                        verse_text += f'<note subtype="nota" n="{verse_counter}" xml:id="nota_{verse_counter}_{i}">{content}</note>'
-                else:
-                    # Una sola nota
-                    verse_text += f'<note subtype="nota" n="{verse_counter}">{note_content}</note>'
+                note_list = nota_notes[verse_counter]
+                for i, content in enumerate(note_list, 1):
+                    verse_text += f'<note subtype="nota" n="{verse_counter}" xml:id="nota_{verse_counter}_{i}">{content}</note>'
             
             # Mismo tratamiento para aparato
             if verse_counter in aparato_notes:
-                aparato_content = aparato_notes[verse_counter]
-                if isinstance(aparato_content, list):
-                    for i, content in enumerate(aparato_content, 1):
-                        verse_text += f'<note subtype="aparato" n="{verse_counter}" xml:id="aparato_{verse_counter}_{i}">{content}</note>'
-                else:
-                    verse_text += f'<note subtype="aparato" n="{verse_counter}">{aparato_content}</note>'
+                aparato_list = aparato_notes[verse_counter]
+                for i, content in enumerate(aparato_list, 1):
+                    verse_text += f'<note subtype="aparato" n="{verse_counter}" xml:id="aparato_{verse_counter}_{i}">{content}</note>'
             
             tei.append(f'            <l part="I" n="{verse_counter}">{verse_text}</l>')
             verse_counter += 1
@@ -1333,27 +1321,42 @@ def analyze_notes(
 ) -> list[str]:
     """
     Analiza el dict de notas (aparato o nota) y devuelve
-    una lista de strings con posibles notas mal formateadas.
+    una lista de strings con posibles notas mal formateadas o múltiples.
     """
     warnings: list[str] = []
 
     for key, content in notes.items():
-        # content es el texto de la nota
-        # key puede ser int (verso) o str (palabra)
-        text = str(content).strip()
-        if not text:
-            continue
-        # Comprobamos formato: versos "1:..." los quita extract_notes y aquí sólo miramos @palabra
-        if isinstance(key, str):
-            # en extract_notes mantienes solo claves que cumplían @clave.: no hay invalidas
-            continue
-        elif isinstance(key, int):
-            # en extract_notes mantienes los versos parseados; no hay invalidos
-            continue
-        else:
-            warnings.append(
-                f"❌ Nota {note_type} con clave inesperada ({key}): «{text[:60]}»"
-            )
+        # key puede ser int (verso) o str (palabra normalizada)
+        
+        # Verificar si hay múltiples notas para la misma clave
+        if isinstance(content, list) and len(content) > 1:
+            if isinstance(key, str):
+                # Notas @palabra con múltiples entradas
+                warnings.append(
+                    f"⚠️ Atención: Se encontraron {len(content)} {note_type}s para '@{key}'. "
+                    f"Verifica que la asignación secuencial sea correcta en el texto."
+                )
+            elif isinstance(key, int):
+                # Notas de verso con múltiples entradas
+                warnings.append(
+                    f"⚠️ Atención: Se encontraron {len(content)} {note_type}s para el verso {key}. "
+                    f"Verifica que todas sean correctas."
+                )
+        
+        # Validar que el contenido no esté vacío
+        if isinstance(content, list):
+            for i, text in enumerate(content, 1):
+                if not text.strip():
+                    if isinstance(key, str):
+                        warnings.append(f"❌ {note_type.capitalize()} vacía para '@{key}' (entrada #{i})")
+                    elif isinstance(key, int):
+                        warnings.append(f"❌ {note_type.capitalize()} vacía para verso {key} (entrada #{i})")
+        elif not str(content).strip():
+            # Caso de contenido no-lista (por compatibilidad)
+            if isinstance(key, str):
+                warnings.append(f"❌ {note_type.capitalize()} vacía para '@{key}'")
+            elif isinstance(key, int):
+                warnings.append(f"❌ {note_type.capitalize()} vacía para verso {key}")
 
     return warnings
 
