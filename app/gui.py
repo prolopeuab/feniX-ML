@@ -13,6 +13,7 @@ import sys
 import tkinter as tk
 import webbrowser
 import ctypes
+import json
 from tkinter import filedialog, messagebox
 
 # Usar CustomTkinter para esquinas redondeadas verdaderas
@@ -21,6 +22,27 @@ import customtkinter as ctk
 from tei_backend import convert_docx_to_tei, validate_documents, generate_filename
 from visualizacion import vista_previa_xml, vista_previa_html
 from utils_icon import set_windows_icon, resource_path
+
+# Archivo de configuración para guardar preferencias
+CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".fenixml_config.json")
+
+def load_config():
+    """Carga la configuración guardada."""
+    if os.path.exists(CONFIG_FILE):
+        try:
+            with open(CONFIG_FILE, 'r') as f:
+                return json.load(f)
+        except:
+            return {}
+    return {}
+
+def save_config(config):
+    """Guarda la configuración."""
+    try:
+        with open(CONFIG_FILE, 'w') as f:
+            json.dump(config, f)
+    except:
+        pass
 
 # ==== FUNCIONES DE UTILIDAD PARA MENSAJES Y AYUDA ====
 def show_info(message):
@@ -51,30 +73,71 @@ def main_gui():
         screen_width = 1920
         screen_height = 1080
     
-    # Detectar pantallas pequeñas por resolución o altura física (ajustar si se cambia el diseño)
-    is_small_screen = screen_width <= 1366 or screen_height <= 1200
+    # Cargar configuración guardada
+    config = load_config()
+    saved_scale_mode = config.get("scale_mode", "auto")
     
-    if is_small_screen:  # Pantallas pequeñas (13-14")
-        window_width = int(screen_width * 0.45)  # ancho
-        window_height = int(screen_height * 0.55)  # alto
-    else:  # Pantallas más grandes (15" o superiores)
-        window_width = int(screen_width * 0.50) # ancho
-        window_height = int(screen_height * 0.55) # alto
-    
-    root.geometry(f"{window_width}x{window_height}")
-    root.resizable(True, True)
-    root.minsize(400, 600)
+    # Selector de modo de escala (compacto/amplio) integrado en el menú superior
+    scale_mode_var = tk.StringVar(value=saved_scale_mode)
+    def get_scale_mode():
+        if scale_mode_var.get() == "auto":
+            return "compacto" if (screen_width <= 1440 or screen_height <= 900) else "amplio"
+        return scale_mode_var.get()
 
-    # Icono de la aplicación (Windows)
+    def apply_scale():
+        mode = get_scale_mode()
+        print(f"[DEBUG] screen_width={screen_width}, screen_height={screen_height}, scale_mode={mode}")
+        if mode == "compacto":
+            # Modo compacto: para pantallas pequeñas o preferencia de interfaz compacta
+            window_width = int(screen_width * 0.55)
+            window_height = int(screen_height * 0.60)
+            base_font = 9
+            menu_font = 10
+            title_font = 14
+            label_font = 11
+            button_font = 12
+            large_button_font = 13
+        else:
+            # Modo amplio: para pantallas grandes, fuentes más legibles
+            window_width = int(screen_width * 0.55)
+            window_height = int(screen_height * 0.60)
+            base_font = 11
+            menu_font = 12
+            title_font = 18
+            label_font = 14
+            button_font = 15
+            large_button_font = 16
+        root.geometry(f"{window_width}x{window_height}")
+        root.minsize(600, 700)
+        return base_font, menu_font, title_font, label_font, button_font, large_button_font, window_width, window_height
+
+    # Aplicar escala inicial
+    base_font, menu_font, title_font, label_font, button_font, large_button_font, window_width, window_height = apply_scale()
+    root.resizable(True, True)
     set_windows_icon(root)
-    
-    # Tamaños de fuente escalables según altura de ventana
-    base_font = max(7, min(10, int(window_height / 80)))
-    menu_font = max(8, min(11, int(window_height / 70)))
-    title_font = max(12, min(16, int(window_height / 50)))
-    label_font = max(9, min(12, int(window_height / 65)))
-    button_font = max(12, min(14, int(window_height / 65)))
-    large_button_font = max(12, min(14, int(window_height / 55)))
+
+    def on_scale_change(*args):
+        # Guardar la nueva preferencia
+        new_mode = scale_mode_var.get()
+        config = load_config()
+        config["scale_mode"] = new_mode
+        save_config(config)
+        
+        # Reiniciar la aplicación con la nueva escala
+        messagebox.showinfo(
+            "Cambio de escala",
+            "La aplicación se reiniciará para aplicar la nueva escala."
+        )
+        root.destroy()
+        main_gui()
+
+    scale_mode_var.trace_add("write", on_scale_change)
+
+    # Menú de escala integrado en el menú superior
+    escala_menu = tk.Menu(root, tearoff=0, font=("Segoe UI", 10))
+    escala_menu.add_radiobutton(label="Automático", variable=scale_mode_var, value="auto")
+    escala_menu.add_radiobutton(label="Compacto", variable=scale_mode_var, value="compacto")
+    escala_menu.add_radiobutton(label="Amplio", variable=scale_mode_var, value="amplio")
     
     # Logos con escala dinámica
     logo_scale = max(4, int(window_height / 150))
@@ -139,6 +202,9 @@ def main_gui():
     acerca_menu.add_command(label="Sitio web del proyecto", command=abrir_sitio_web)
     acerca_menu.add_command(label="Contacto", command=mostrar_contacto)
     menubar.add_cascade(label="Acerca de", menu=acerca_menu)
+
+    # Menú de escala
+    menubar.add_cascade(label="Escala", menu=escala_menu)
 
     # Menú de ayuda
     def mostrar_ayuda_uso():
