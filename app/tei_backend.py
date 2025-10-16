@@ -302,20 +302,34 @@ def find_who_id(speaker, characters):
     """
     Busca el xml:id correcto de un personaje en la lista de personajes, usando coincidencia flexible.
     """
-    # Limpia el nombre del personaje para facilitar la comparación
-    speaker_cleaned = re.sub(r'[\s\[\]]+', '_', speaker).strip()
-
-    # Coincidencia exacta
-    if speaker.strip() in characters:
-        return characters[speaker.strip()]
-
-    # Coincidencia parcial
+    if not characters:
+        return ""
+    
+    # Normalizar el speaker para comparación
+    speaker_normalized = speaker.strip().upper()
+    
+    # 1. Coincidencia exacta (case-insensitive)
     for name, role_id in characters.items():
-        if speaker.strip() in name or speaker_cleaned in role_id:
+        if speaker.strip().upper() == name.upper():
             return role_id
-
-    # Coincidencia difusa (fuzzy matching) como último recurso
-    close_matches = get_close_matches(speaker.strip(), characters.keys(), n=1, cutoff=0.8)
+    
+    # 2. Coincidencia parcial: el speaker está contenido al inicio del nombre completo
+    for name, role_id in characters.items():
+        name_upper = name.upper()
+        # Verificar si el speaker es el primer término (antes de coma)
+        if name_upper.startswith(speaker_normalized + ','):
+            return role_id
+        # O si el speaker coincide con la primera palabra
+        first_word = name.split(',')[0].split()[0].upper()
+        if speaker_normalized == first_word:
+            return role_id
+        # O si el speaker coincide con la segunda palabra (para "DON CARLOS")
+        words = name.split(',')[0].split()
+        if len(words) > 1 and speaker_normalized == words[1].upper():
+            return role_id
+    
+    # 3. Coincidencia difusa (fuzzy matching) como último recurso
+    close_matches = get_close_matches(speaker.strip(), characters.keys(), n=1, cutoff=0.6)
     if close_matches:
         return characters[close_matches[0]]
 
@@ -1071,7 +1085,10 @@ def convert_docx_to_tei(
         "in_dedicatoria": False,
         "in_act": False
     }
+    
+    # El diccionario de personajes se llenará durante el procesamiento
     characters = {}
+    
     act_counter = 0
     verse_counter = 1
     current_milestone = None   # ← inicializado aquí
@@ -1154,9 +1171,12 @@ def convert_docx_to_tei(
             processed_role_name = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "role")
             role_name = para.text.strip()  # Para el ID usamos el texto sin procesar
             if role_name:
-                role_id = re.sub(r'[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ_-]+', '_', role_name)
+                # Eliminar @ para el nombre limpio
+                role_name_clean = re.sub(r'@', '', role_name)
+                role_id = re.sub(r'[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ_-]+', '_', role_name_clean)
                 tei.append(f'            <castItem><role xml:id="{role_id}">{processed_role_name}</role></castItem>')
-                characters[role_name] = role_id
+                # Llenar el diccionario de personajes aquí
+                characters[role_name_clean] = role_id
 
         elif style == "Acto":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
@@ -1259,9 +1279,11 @@ def convert_docx_to_tei(
         elif style == "Acot":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "stage")
             if state["in_sp"]:
-                tei.append('        </sp>')
-                state["in_sp"] = False
-            tei.append(f'        <stage>{processed_text}</stage>')
+                # Si estamos dentro de un <sp>, insertar el <stage> dentro con la misma indentación que <l>
+                tei.append(f'            <stage>{processed_text}</stage>')
+            else:
+                # Si no hay <sp> abierto, insertar <stage> standalone
+                tei.append(f'        <stage>{processed_text}</stage>')
 
         elif style == "Personaje":
             text_simple = para.text.strip()
@@ -1275,21 +1297,19 @@ def convert_docx_to_tei(
                 tei.append('        </sp>')
                 state["in_sp"] = False
 
-            # Si es el mismo personaje anterior Y tiene who_id válido, no insertar speaker
-            # Pero siempre insertamos <sp> con who si está disponible
-            if who_id and who_id == ultimo_speaker_id:
-                # Mismo personaje: <sp> sin speaker pero con who
+            # Abrir <sp> con who si está disponible
+            if who_id:
                 tei.append(f'        <sp who="#{who_id}">')
             else:
-                # Personaje diferente o primer uso: <sp> con speaker
-                if who_id:
-                    tei.append(f'        <sp who="#{who_id}">')
-                else:
-                    # No hay who_id (personaje no encontrado en dramatis personae)
-                    tei.append('        <sp>')
+                # No hay who_id (personaje no encontrado en dramatis personae)
+                tei.append('        <sp>')
+            
+            # Insertar <speaker> solo si es diferente al anterior
+            if who_id != ultimo_speaker_id:
                 tei.append(f'          <speaker>{processed}</speaker>')
-                ultimo_speaker_id = who_id
-
+            
+            # Actualizar el último speaker
+            ultimo_speaker_id = who_id
             state["in_sp"] = True
 
         elif style == "Prosa":
