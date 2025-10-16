@@ -373,19 +373,23 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
     current_section = None
     paragraph_buffer = []
     head_inserted = False
-    processed_tables = set()  # Para evitar procesar tablas múltiples veces
+    processed_tables = set()
     tables_processed_in_current_section = False
 
     def flush_paragraph_buffer():
         nonlocal paragraph_buffer
         for p in paragraph_buffer:
             text = extract_text_with_intro_notes(p, footnotes_intro)
-            if p.style and p.style.name == "Cita":
+            # Obtener el estilo del párrafo
+            style = ""
+            if p.style:
+                style = p.style.name
+            
+            if style == "Quote":
                 tei_front.append(f'          <cit rend="blockquote">')
                 tei_front.append(f'            <quote>{text}</quote>')
                 tei_front.append(f'          </cit>')
-            elif p.style and p.style.name == "Verso":
-                # Los versos en el prólogo se codifican como <l>
+            elif style == "Verso":
                 if text.strip():
                     tei_front.append(f'          <l>{text.strip()}</l>')
             elif text.strip():
@@ -408,23 +412,23 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
         if not text:
             continue
 
-        # 🔹 Ignora "Introducción"
+        # Ignora "Introducción"
         if text.lower() == "introducción":
             continue
 
-        # 🔹 Gestión del título principal "PRÓLOGO"
+        # Gestión del título principal "PRÓLOGO"
         if not head_inserted and "prólogo" in text.lower():
             flush_paragraph_buffer()
             tei_front.append(f'        <head type="divTitle" subtype="MenuLevel_1">PRÓLOGO</head>')
             head_inserted = True
             continue
 
-        # 🔹 Reconocimiento de subtítulo con almohadilla
+        # Reconocimiento de subtítulo con almohadilla
         if text.startswith("#"):
             flush_paragraph_buffer()
             title = text.lstrip("#").strip()
             if title.lower() == "prólogo":
-                continue  # ignora duplicado
+                continue
             if subsection_open:
                 tei_front.append('        </div>')
             tei_front.append(f'        <div type="subsection" n="{subsection_n}">')
@@ -432,18 +436,16 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
             subsection_open = True
             current_section = title.lower()
             subsection_n += 1
-            tables_processed_in_current_section = False  # Reset para nueva sección
+            tables_processed_in_current_section = False
             continue
 
-        # 🔹 Añade al buffer
+        # Añade al buffer
         paragraph_buffer.append(para)
 
-        # 🔹 Si tenemos párrafos en el buffer y estamos en sinopsis, procesar en orden correcto
+        # Si tenemos párrafos en el buffer y estamos en sinopsis, procesar en orden correcto
         if (current_section and "sinopsis" in current_section and 
             len(paragraph_buffer) > 0 and not tables_processed_in_current_section):
-            # Procesar primero los párrafos del buffer
             flush_paragraph_buffer()
-            # Luego procesar las tablas
             process_tables_for_current_section()
 
     # Procesar cualquier contenido restante
@@ -454,7 +456,7 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
         process_tables_for_current_section()
 
     if subsection_open:
-        tei_front.append('        </div>')  # cierra la última subsection
+        tei_front.append('        </div>')
 
     return "\n".join(tei_front)
 
@@ -635,33 +637,51 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
         key = normalize_word(phrase)
 
         if key in all_notes:
-            # Gestionamos el contador por sección
+            # Gestionamos contadores separados para nota y aparato por sección
             section_counters = annotation_counter.setdefault(section, {})
-            count = section_counters.get(key, 0) + 1
-            section_counters[key] = count
-
-            # Creamos xml:id válido
-            xml_id = f"{key}_{section}_{count}"
-            xml_id = re.sub(r'\s+', '_', xml_id)
-            xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id)
-            xml_id = xml_id.lower()
-
-            # Construimos los posibles <note> (manejando listas)
+            
+            # Construimos los posibles <note> con IDs únicos y prefijos diferentes
             note_str = ""
+            
+            # === NOTAS FILOLÓGICAS ===
             if key in nota_notes_norm:
+                # Contador específico para notas
+                nota_counter_key = f"{key}_nota"
+                count_nota = section_counters.get(nota_counter_key, 0) + 1
+                section_counters[nota_counter_key] = count_nota
+                
+                # Crear xml:id base para nota con prefijo 'n_'
+                xml_id_nota = f"n_{key}_{section}_{count_nota}"
+                xml_id_nota = re.sub(r'\s+', '_', xml_id_nota)
+                xml_id_nota = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_nota)
+                xml_id_nota = xml_id_nota.lower()
+                
                 note_content = nota_notes_norm[key]
                 if isinstance(note_content, list):
                     for i, content in enumerate(note_content, 1):
-                        note_str += f'<note subtype="nota" xml:id="{xml_id}_nota_{i}">{content}</note>'
+                        note_str += f'<note subtype="nota" xml:id="{xml_id_nota}_{i}">{content}</note>'
                 else:
-                    note_str += f'<note subtype="nota" xml:id="{xml_id}">{note_content}</note>'
+                    note_str += f'<note subtype="nota" xml:id="{xml_id_nota}">{note_content}</note>'
+            
+            # === APARATO CRÍTICO ===
             if key in aparato_notes_norm:
+                # Contador específico para aparato
+                aparato_counter_key = f"{key}_aparato"
+                count_aparato = section_counters.get(aparato_counter_key, 0) + 1
+                section_counters[aparato_counter_key] = count_aparato
+                
+                # Crear xml:id base para aparato con prefijo 'a_'
+                xml_id_aparato = f"a_{key}_{section}_{count_aparato}"
+                xml_id_aparato = re.sub(r'\s+', '_', xml_id_aparato)
+                xml_id_aparato = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_aparato)
+                xml_id_aparato = xml_id_aparato.lower()
+                
                 aparato_content = aparato_notes_norm[key]
                 if isinstance(aparato_content, list):
                     for i, content in enumerate(aparato_content, 1):
-                        note_str += f'<note subtype="aparato" xml:id="{xml_id}_aparato_{i}">{content}</note>'
+                        note_str += f'<note subtype="aparato" xml:id="{xml_id_aparato}_{i}">{content}</note>'
                 else:
-                    note_str += f'<note subtype="aparato" xml:id="{xml_id}">{aparato_content}</note>'
+                    note_str += f'<note subtype="aparato" xml:id="{xml_id_aparato}">{aparato_content}</note>'
 
             # Sustituimos solo la primera ocurrencia
             new_text = new_text.replace(phrase_to_replace, f"{phrase}{note_str}", 1)
