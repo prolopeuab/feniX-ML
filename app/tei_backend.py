@@ -18,6 +18,22 @@ from difflib import get_close_matches
 from typing import Optional
 
 
+# ==== FUNCIONES DE ESCAPE XML ====
+def escape_xml(text):
+    """
+    Escapa caracteres especiales de XML en el texto.
+    """
+    if not text:
+        return text
+    # Orden importante: & primero para no escapar los escapes
+    text = text.replace("&", "&amp;")
+    text = text.replace("<", "&lt;")
+    text = text.replace(">", "&gt;")
+    text = text.replace('"', "&quot;")
+    text = text.replace("'", "&apos;")
+    return text
+
+
 # ==== EXTRACCIÓN Y PROCESAMIENTO DE NOTAS EN EL PRÓLOGO ====
 # Funciones para extraer y procesar notas a pie de página del prólogo o introducción.
 
@@ -38,7 +54,8 @@ def extract_intro_footnotes(docx_path):
                 texts = note.xpath(".//w:t", namespaces=ns)
                 full_text = "".join(t.text for t in texts if t is not None).strip()
                 if full_text:
-                    footnote_dict[note_id] = full_text
+                    # Escapar caracteres XML en el contenido de la nota
+                    footnote_dict[note_id] = escape_xml(full_text)
 
     return footnote_dict
 
@@ -54,12 +71,15 @@ def extract_text_with_intro_notes(para, footnotes_intro):
             for ref in refs:
                 note_id = ref.get(qn("w:id"))
                 note_text = footnotes_intro.get(note_id, "")
+                # note_text ya viene escapado de extract_intro_footnotes
                 text += f'<note type="intro" n="{note_id}">{note_text}</note>'
         else:
             if run.italic:
-                text += f'<hi rend="italic">{run.text}</hi>'
+                # Escapar el texto dentro de la cursiva
+                text += f'<hi rend="italic">{escape_xml(run.text)}</hi>'
             else:
-                text += run.text
+                # Escapar el texto normal
+                text += escape_xml(run.text)
     return text.strip()
 
 # ==== MANEJO DE BLOQUES ESTRUCTURALES TEI ====
@@ -107,13 +127,14 @@ def extract_text_with_italics(para):
                 trailing_spaces = content[-1] + trailing_spaces
                 content = content[:-1]
             
-            # Solo envuelve en cursiva el contenido sin espacios
+            # Solo envuelve en cursiva el contenido sin espacios, escapando caracteres XML
             if content:  # solo si queda contenido después de quitar espacios
-                text += leading_spaces + f'<hi rend="italic">{content}</hi>' + trailing_spaces
+                text += leading_spaces + f'<hi rend="italic">{escape_xml(content)}</hi>' + trailing_spaces
             else:  # si solo había espacios, los añade sin cursiva
                 text += run.text
         else:
-            text += run.text
+            # Escapar caracteres XML en texto normal
+            text += escape_xml(run.text)
     return text.strip()
 
 def merge_italic_text(text):
@@ -375,9 +396,10 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
     head_inserted = False
     processed_tables = set()
     tables_processed_in_current_section = False
+    in_sp_front = False  # Estado para controlar <sp> en el front
 
     def flush_paragraph_buffer():
-        nonlocal paragraph_buffer
+        nonlocal paragraph_buffer, in_sp_front
         for p in paragraph_buffer:
             text = extract_text_with_intro_notes(p, footnotes_intro)
             # Obtener el estilo del párrafo
@@ -386,15 +408,39 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
                 style = p.style.name
             
             if style == "Quote":
+                # Cerrar <sp> si está abierto antes de <cit>
+                if in_sp_front:
+                    tei_front.append('          </sp>')
+                    in_sp_front = False
                 tei_front.append(f'          <cit rend="blockquote">')
                 tei_front.append(f'            <quote>{text}</quote>')
                 tei_front.append(f'          </cit>')
+            elif style == "Personaje":
+                # Cerrar <sp> anterior si existe
+                if in_sp_front:
+                    tei_front.append('          </sp>')
+                # Abrir nuevo <sp> sin atributo who (personajes no declarados aún)
+                tei_front.append('          <sp>')
+                tei_front.append(f'            <speaker>{text}</speaker>')
+                in_sp_front = True
             elif style == "Verso":
                 if text.strip():
-                    tei_front.append(f'          <l>{text.strip()}</l>')
+                    # Los versos van dentro de <sp> si está abierto
+                    if in_sp_front:
+                        tei_front.append(f'            <l>{text.strip()}</l>')
+                    else:
+                        tei_front.append(f'          <l>{text.strip()}</l>')
             elif text.strip():
+                # Cerrar <sp> si está abierto antes de <p>
+                if in_sp_front:
+                    tei_front.append('          </sp>')
+                    in_sp_front = False
                 tei_front.append(f'          <p>{text.strip()}</p>')
         paragraph_buffer.clear()
+        # Cerrar <sp> al final del buffer si quedó abierto
+        if in_sp_front:
+            tei_front.append('          </sp>')
+            in_sp_front = False
 
     def process_tables_for_current_section():
         """Procesa las tablas para la sección actual."""
@@ -996,16 +1042,23 @@ def convert_docx_to_tei(
                 text, nota_notes, aparato_notes, annotation_counter, "speaker"
             )
 
-            # 🔒 Cierra <sp> anterior si es necesario
+            # Cierra <sp> anterior si es necesario
             if state["in_sp"]:
                 tei.append('        </sp>')
                 state["in_sp"] = False
 
-            # 🎯 Si es el mismo personaje anterior, no insertar who ni speaker
-            if who_id == ultimo_speaker_id:
-                tei.append('        <sp>')
-            else:
+            # Si es el mismo personaje anterior Y tiene who_id válido, no insertar speaker
+            # Pero siempre insertamos <sp> con who si está disponible
+            if who_id and who_id == ultimo_speaker_id:
+                # Mismo personaje: <sp> sin speaker pero con who
                 tei.append(f'        <sp who="#{who_id}">')
+            else:
+                # Personaje diferente o primer uso: <sp> con speaker
+                if who_id:
+                    tei.append(f'        <sp who="#{who_id}">')
+                else:
+                    # No hay who_id (personaje no encontrado en dramatis personae)
+                    tei.append('        <sp>')
                 tei.append(f'          <speaker>{processed}</speaker>')
                 ultimo_speaker_id = who_id
 
