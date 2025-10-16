@@ -137,10 +137,149 @@ def extract_text_with_italics(para):
             text += escape_xml(run.text)
     return text.strip()
 
+def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, section):
+    """
+    Extrae el texto de un párrafo procesando anotaciones (@palabra) y cursivas.
+    ESTRATEGIA FINAL: Usar marcadores para cursivas ANTES de procesar anotaciones.
+    """
+    
+    # Función para normalizar palabras
+    def normalize_word(word):
+        normalized = unicodedata.normalize('NFKD', word)
+        normalized = normalized.encode('ASCII', 'ignore').decode('utf-8').lower().strip()
+        return normalized
+    
+    # Crear conjunto de todas las claves
+    all_keys = set()
+    if nota_notes:
+        all_keys.update(nota_notes.keys())
+    if aparato_notes:
+        all_keys.update(aparato_notes.keys())
+    
+    # Contador de ocurrencias
+    occurrence_counters = annotation_counter.setdefault("_occurrences", {})
+    
+    # ==== PASO 1: Construir texto plano CON marcadores de cursiva ====
+    # Insertar marcadores ANTES de procesar anotaciones
+    marked_text = ""
+    prev_italic = False
+    
+    for run in para.runs:
+        if not run.text:
+            continue
+        
+        # Detectar cambios en cursiva y agregar marcadores
+        if run.italic and not prev_italic:
+            marked_text += '<<<ITALIC_START>>>'
+        elif not run.italic and prev_italic:
+            marked_text += '<<<ITALIC_END>>>'
+        
+        marked_text += run.text
+        prev_italic = run.italic
+    
+    # Cerrar cursiva si quedó abierta
+    if prev_italic:
+        marked_text += '<<<ITALIC_END>>>'
+    
+    # ==== PASO 2: Procesar TODAS las @palabra ====
+    # Primero, reemplazar temporalmente los marcadores por placeholders únicos
+    # que no interfieran con el regex pero sean fáciles de restaurar
+    
+    # Usar caracteres Unicode raros como placeholders
+    ITALIC_START_PLACEHOLDER = '\u0001'  # SOH (Start of Heading)
+    ITALIC_END_PLACEHOLDER = '\u0002'    # STX (Start of Text)
+    
+    # Reemplazar marcadores por placeholders
+    text_with_placeholders = marked_text.replace('<<<ITALIC_START>>>', ITALIC_START_PLACEHOLDER)
+    text_with_placeholders = text_with_placeholders.replace('<<<ITALIC_END>>>', ITALIC_END_PLACEHOLDER)
+    
+    # Procesar @palabra en el texto con placeholders
+    # El regex debe ignorar los placeholders Unicode entre @ y la palabra
+    def replace_at_word(match):
+        placeholders_before = match.group(1) if match.group(1) else ''  # Placeholders entre @ y palabra
+        word = match.group(2)  # palabra
+        key = normalize_word(word)
+        
+        if key not in all_keys:
+            # Sin notas, solo quitar el @ y mantener placeholders
+            return placeholders_before + word
+        
+        # Obtener índice de ocurrencia
+        occurrence_index = occurrence_counters.get(key, 0)
+        occurrence_counters[key] = occurrence_index + 1
+        
+        # Construir las notas
+        notes = []
+        
+        # Notas filológicas
+        if key in nota_notes:
+            nota_list = nota_notes[key] if isinstance(nota_notes[key], list) else [nota_notes[key]]
+            if occurrence_index < len(nota_list):
+                content = nota_list[occurrence_index]
+                xml_id = f"n_{key}_{section}_{occurrence_index + 1}"
+                xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id).lower()
+                notes.append(f'<<<NOTE>>><note subtype="nota" xml:id="{xml_id}">{content}</note><<<ENDNOTE>>>')
+        
+        # Aparato crítico
+        if key in aparato_notes:
+            aparato_list = aparato_notes[key] if isinstance(aparato_notes[key], list) else [aparato_notes[key]]
+            if occurrence_index < len(aparato_list):
+                content = aparato_list[occurrence_index]
+                xml_id = f"a_{key}_{section}_{occurrence_index + 1}"
+                xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id).lower()
+                notes.append(f'<<<NOTE>>><note subtype="aparato" xml:id="{xml_id}">{content}</note><<<ENDNOTE>>>')
+        
+        # Devolver: placeholders + palabra + notas
+        return placeholders_before + word + ''.join(notes)
+    
+    # Regex que captura @ seguido de opcionalmente placeholders, seguido de palabra
+    # Grupo 1: placeholders opcionales (\u0001 o \u0002)
+    # Grupo 2: palabra alfanumérica
+    pattern = r'@([\u0001\u0002]*)(\w+)'
+    processed_text = re.sub(pattern, replace_at_word, text_with_placeholders)
+    
+    # ==== PASO 3: Restaurar marcadores de cursiva ====
+    # Convertir placeholders de vuelta a marcadores
+    processed_text = processed_text.replace(ITALIC_START_PLACEHOLDER, '<<<ITALIC_START>>>')
+    processed_text = processed_text.replace(ITALIC_END_PLACEHOLDER, '<<<ITALIC_END>>>')
+    
+    # ==== PASO 4: Escapar XML (excepto notas y marcadores) ====
+    # Primero separar notas
+    parts = re.split(r'(<<<NOTE>>>.*?<<<ENDNOTE>>>)', processed_text, flags=re.DOTALL)
+    escaped_parts = []
+    for part in parts:
+        if part.startswith('<<<NOTE>>>'):
+            # Es una nota, solo quitar marcadores
+            note_content = part.replace('<<<NOTE>>>', '').replace('<<<ENDNOTE>>>', '')
+            escaped_parts.append(f'<<<NOTE>>>{note_content}<<<ENDNOTE>>>')
+        else:
+            # Es texto, escapar pero preservar marcadores de cursiva
+            # Separar por marcadores de cursiva
+            italic_parts = re.split(r'(<<<ITALIC_START>>>|<<<ITALIC_END>>>)', part)
+            for ip in italic_parts:
+                if ip in ['<<<ITALIC_START>>>', '<<<ITALIC_END>>>']:
+                    escaped_parts.append(ip)
+                else:
+                    escaped_parts.append(escape_xml(ip))
+    
+    processed_text = ''.join(escaped_parts)
+    
+    # ==== PASO 5: Convertir marcadores a XML ====
+    # Primero, limpiar marcadores de notas
+    processed_text = processed_text.replace('<<<NOTE>>>', '').replace('<<<ENDNOTE>>>', '')
+    
+    # Convertir TODOS los marcadores de cursiva a XML (dentro y fuera de notas)
+    processed_text = processed_text.replace('<<<ITALIC_START>>>', '<hi rend="italic">')
+    processed_text = processed_text.replace('<<<ITALIC_END>>>', '</hi>')
+    
+    result = processed_text
+    
+    return result.strip()
+
 def merge_italic_text(text):
     """
     Fusiona SOLO etiquetas cursivas que están completamente pegadas (sin espacios ni contenido entre ellas).
-    Versión conservadora para evitar fusiones incorrectas entre notas diferentes.
+    Versión conservadora para evitar fusiones incorrectas.
     """
     # Busca SOLO etiquetas que están completamente pegadas: </hi><hi rend="italic">
     pattern = re.compile(r'</hi><hi rend="italic">')
@@ -583,6 +722,80 @@ def process_table_to_tei(table, footnotes_intro=None):
 
 # ==== EXTRACCIÓN DE NOTAS DE notas Y APARATO ====
 
+def process_annotations_raw(raw_text, nota_notes, aparato_notes, annotation_counter, section):
+    """
+    Procesa anotaciones @palabra en texto plano (sin tags XML de cursivas).
+    Esta función se ejecuta ANTES de aplicar las cursivas.
+    Devuelve el texto con las anotaciones reemplazadas por: palabra<note>...</note>
+    """
+    # Función para normalizar palabras (sin acentos, minúsculas)
+    def normalize_word(word):
+        normalized = unicodedata.normalize('NFKD', word)
+        normalized = normalized.encode('ASCII', 'ignore').decode('utf-8').lower().strip()
+        return normalized
+    
+    # Crear conjunto de todas las claves normalizadas
+    all_keys = set()
+    if nota_notes:
+        all_keys.update(nota_notes.keys())
+    if aparato_notes:
+        all_keys.update(aparato_notes.keys())
+    
+    # Contador de ocurrencias para cada palabra
+    occurrence_counters = annotation_counter.setdefault("_occurrences", {})
+    
+    # Función de reemplazo
+    def replace_annotation(match):
+        phrase = match.group(1)  # La palabra capturada (sin el @)
+        key = normalize_word(phrase)
+        
+        if key not in all_keys:
+            # No hay notas para esta palabra, solo eliminar el @
+            return phrase
+        
+        # Obtener el índice de ocurrencia actual (0-indexed)
+        occurrence_index = occurrence_counters.get(key, 0)
+        occurrence_counters[key] = occurrence_index + 1
+        
+        # Construir las notas correspondientes a esta ocurrencia
+        note_str = ""
+        
+        # === NOTAS FILOLÓGICAS ===
+        if key in nota_notes:
+            nota_list = nota_notes[key]
+            if not isinstance(nota_list, list):
+                nota_list = [nota_list]
+            
+            if occurrence_index < len(nota_list):
+                content = nota_list[occurrence_index]
+                xml_id_nota = f"n_{key}_{section}_{occurrence_index + 1}"
+                xml_id_nota = re.sub(r'\s+', '_', xml_id_nota)
+                xml_id_nota = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_nota)
+                xml_id_nota = xml_id_nota.lower()
+                note_str += f'<note subtype="nota" xml:id="{xml_id_nota}">{content}</note>'
+        
+        # === APARATO CRÍTICO ===
+        if key in aparato_notes:
+            aparato_list = aparato_notes[key]
+            if not isinstance(aparato_list, list):
+                aparato_list = [aparato_list]
+            
+            if occurrence_index < len(aparato_list):
+                content = aparato_list[occurrence_index]
+                xml_id_aparato = f"a_{key}_{section}_{occurrence_index + 1}"
+                xml_id_aparato = re.sub(r'\s+', '_', xml_id_aparato)
+                xml_id_aparato = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_aparato)
+                xml_id_aparato = xml_id_aparato.lower()
+                note_str += f'<note subtype="aparato" xml:id="{xml_id_aparato}">{content}</note>'
+        
+        # Devolver la palabra (ya escapada XML si fuera necesario) seguida de las notas
+        return f'{escape_xml(phrase)}{note_str}'
+    
+    # Patrón simple: @palabra (sin preocuparnos por cursivas aún)
+    processed_text = re.sub(r'@(\w+)', replace_annotation, raw_text)
+    
+    return processed_text
+
 def extract_notes_with_italics(docx_path: str) -> dict:
     """
     Extrae notas o aparato de un DOCX.
@@ -669,70 +882,88 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
     all_keys = set(nota_notes.keys()) | set(aparato_notes.keys())
 
     new_text = text.strip()
-    # Buscamos todos los marcadores '@palabra'
-    matches = re.findall(r'@(\w+)', text)
-
-    for phrase in matches:
-        if not phrase:
-            continue
-        phrase_to_replace = f"@{phrase}"
-        key = normalize_word(phrase)
-
-        if key not in all_keys:
-            # No hay notas para esta palabra, solo eliminar el @
-            new_text = new_text.replace(phrase_to_replace, phrase, 1)
-            continue
+    
+    # Contador global de ocurrencias (necesita ser accesible desde la función de reemplazo)
+    occurrence_counters = annotation_counter.setdefault("_occurrences", {})
+    
+    # Función de reemplazo para usar con re.sub
+    def replace_annotation(match):
+        # Determinar qué patrón coincidió y extraer la palabra
+        phrase = match.group(1)  # Siempre está en el primer grupo de captura
+        full_match = match.group(0)  # El match completo
         
-        # Contador global de ocurrencias de esta palabra (independiente de sección)
-        occurrence_counters = annotation_counter.setdefault("_occurrences", {})
+        # Determinar si la palabra debe estar en cursiva
+        # Casos con cursiva: @<hi rend="italic">palabra</hi> o <hi rend="italic">@palabra</hi>
+        in_italic = '<hi rend="italic">' in full_match
+        
+        key = normalize_word(phrase)
+        
+        if key not in all_keys:
+            # No hay notas para esta palabra, solo eliminar el @ y mantener cursiva si la tenía
+            if in_italic:
+                return f'<hi rend="italic">{phrase}</hi>'
+            else:
+                return phrase
         
         # Obtener el índice de ocurrencia actual (0-indexed)
         occurrence_index = occurrence_counters.get(key, 0)
         occurrence_counters[key] = occurrence_index + 1
         
-        # Construimos los <note> correspondientes a esta ocurrencia
+        # Construir las notas correspondientes a esta ocurrencia
         note_str = ""
         
         # === NOTAS FILOLÓGICAS ===
         if key in nota_notes:
             nota_list = nota_notes[key]
-            # Verificar que nota_list sea una lista
             if not isinstance(nota_list, list):
                 nota_list = [nota_list]
             
-            # Si hay una nota para este índice de ocurrencia, usarla
             if occurrence_index < len(nota_list):
                 content = nota_list[occurrence_index]
-                
-                # Crear xml:id único
                 xml_id_nota = f"n_{key}_{section}_{occurrence_index + 1}"
                 xml_id_nota = re.sub(r'\s+', '_', xml_id_nota)
                 xml_id_nota = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_nota)
                 xml_id_nota = xml_id_nota.lower()
-                
                 note_str += f'<note subtype="nota" xml:id="{xml_id_nota}">{content}</note>'
         
         # === APARATO CRÍTICO ===
         if key in aparato_notes:
             aparato_list = aparato_notes[key]
-            # Verificar que aparato_list sea una lista
             if not isinstance(aparato_list, list):
                 aparato_list = [aparato_list]
             
-            # Si hay un aparato para este índice de ocurrencia, usarlo
             if occurrence_index < len(aparato_list):
                 content = aparato_list[occurrence_index]
-                
-                # Crear xml:id único
                 xml_id_aparato = f"a_{key}_{section}_{occurrence_index + 1}"
                 xml_id_aparato = re.sub(r'\s+', '_', xml_id_aparato)
                 xml_id_aparato = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_aparato)
                 xml_id_aparato = xml_id_aparato.lower()
-                
                 note_str += f'<note subtype="aparato" xml:id="{xml_id_aparato}">{content}</note>'
-
-        # Sustituimos solo la primera ocurrencia del marcador
-        new_text = new_text.replace(phrase_to_replace, f"{phrase}{note_str}", 1)
+        
+        # Reconstruir el texto con la nota, manteniendo cursiva si la tenía
+        if in_italic:
+            return f'<hi rend="italic">{phrase}</hi>{note_str}'
+        else:
+            return f'{phrase}{note_str}'
+    
+    # Aplicar el reemplazo en múltiples pasadas para capturar todas las variantes:
+    # Pasada 1: @<hi rend="italic">palabra</hi> (@ fuera, palabra dentro)
+    def replace_at_before_hi(match):
+        return replace_annotation(match)
+    
+    new_text = re.sub(r'@<hi rend="italic">(\w+)</hi>', replace_at_before_hi, new_text)
+    
+    # Pasada 2: <hi rend="italic">@palabra</hi> (ambos dentro)
+    def replace_at_inside_hi(match):
+        return replace_annotation(match)
+    
+    new_text = re.sub(r'<hi rend="italic">@(\w+)</hi>', replace_at_inside_hi, new_text)
+    
+    # Pasada 3: @palabra (sin cursivas o @ antes de otros elementos)
+    def replace_plain_at(match):
+        return replace_annotation(match)
+    
+    new_text = re.sub(r'@(\w+)', replace_plain_at, new_text)
 
     # Reagrupamos cursivas consecutivas
     new_text = merge_italic_text(new_text)
@@ -846,8 +1077,9 @@ def convert_docx_to_tei(
     current_milestone = None   # ← inicializado aquí
 
     # Título procesado con el mismo contador de anotaciones
-    processed_title = process_annotations_with_ids(
-        raw_title,
+    title_para = doc.paragraphs[title_idx]
+    processed_title = extract_text_with_italics_and_annotations(
+        title_para,
         nota_notes,
         aparato_notes,
         annotation_counter,
@@ -888,11 +1120,13 @@ def convert_docx_to_tei(
 
     # Recorre todos los párrafos del cuerpo para identificar y procesar cada bloque estilístico
     for para in body_paragraphs:
-        text = extract_text_with_italics(para).strip()
         style = para.style.name if para.style else "Normal"
-
+        
+        # Para detección de milestones, usamos texto simple
+        text_simple = para.text.strip()
+        
         # 1) Detección de estrofas marcadas con $nombreMilestone
-        milestone_match = re.match(r'^\$(\w+)', text)
+        milestone_match = re.match(r'^\$(\w+)', text_simple)
         if milestone_match:
             current_milestone = milestone_match.group(1)
             continue  # saltamos el resto: sólo guardamos el tipo de estrofa
@@ -903,13 +1137,13 @@ def convert_docx_to_tei(
 
 
         if style == "Epigr_Dedic":
-            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "head")
+            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
             tei.append('        <div type="dedicatoria">')
             tei.append(f'          <head>{processed_text}</head>')
             state["in_dedicatoria"] = True
 
         elif style == "Epigr_Dramatis":
-            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "head")
+            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
             tei.append('        <div type="castList">')
             tei.append(f'            <head>{processed_text}</head>')
             tei.append('          <castList>')
@@ -917,34 +1151,34 @@ def convert_docx_to_tei(
 
 
         elif style == "Dramatis_lista":
-            processed_role_name = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "role")
-            role_name = text  # Para el ID usamos el texto sin procesar
+            processed_role_name = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "role")
+            role_name = para.text.strip()  # Para el ID usamos el texto sin procesar
             if role_name:
                 role_id = re.sub(r'[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ_-]+', '_', role_name)
                 tei.append(f'            <castItem><role xml:id="{role_id}">{processed_role_name}</role></castItem>')
                 characters[role_name] = role_id
 
         elif style == "Acto":
-            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "head")
+            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
             act_counter += 1
             tei.append(f'        <div type="subsection" subtype="ACTO" n="{act_counter}">')
             tei.append(f'          <head type="acto">{processed_text}</head>')
             state["in_act"] = True
 
         elif style == "Prosa":
-            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "p")
+            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "p")
             if processed_text.strip():
                 tei.append(f'          <p>{processed_text}</p>')
 
         elif style == "Verso":
             if state["in_dedicatoria"]:
-                processed_verse = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "l")
+                processed_verse = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
                 tei.append(f'          <l>{processed_verse}</l>')
             elif state["in_sp"]:
                 if current_milestone:
                     tei.append(f'            <milestone unit="stanza" type="{current_milestone}"/>')
                     current_milestone = None
-                verse_text = text
+                verse_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
                 
                 # Procesar notas
                 if verse_counter in nota_notes:
@@ -965,7 +1199,7 @@ def convert_docx_to_tei(
 
         elif style == "Laguna":
             # Laguna de extensión incierta - no incrementa el contador de versos
-            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "gap")
+            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "gap")
             if state["in_sp"]:
                 if current_milestone:
                     tei.append(f'            <milestone unit="stanza" type="{current_milestone}"/>')
@@ -979,14 +1213,15 @@ def convert_docx_to_tei(
             if not hasattr(state, "pending_split_verse"):
                 state["pending_split_verse"] = {}
             
+            verse_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
+            text_simple = para.text.strip()
+            
             state["pending_split_verse"] = {
                 "verse_number": verse_counter,
-                "initial_text": text,
-                "parts": [text],
+                "initial_text": text_simple,
+                "parts": [text_simple],
                 "has_notes": verse_counter in nota_notes or verse_counter in aparato_notes
             }
-            
-            verse_text = text
             
             # Procesar notas
             if verse_counter in nota_notes:
@@ -1005,29 +1240,34 @@ def convert_docx_to_tei(
 
         elif style == "Partido_medio":
             # Añadir parte media al verso partido pendiente
+            text_simple = para.text.strip()
+            verse_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
             if hasattr(state, "pending_split_verse") and state.get("pending_split_verse"):
-                state["pending_split_verse"]["parts"].append(text)
-            tei.append(f'            <l part="M">{text}</l>')
+                state["pending_split_verse"]["parts"].append(text_simple)
+            tei.append(f'            <l part="M">{verse_text}</l>')
 
         elif style == "Partido_final":
             # Completar el verso partido y limpiar estado
+            text_simple = para.text.strip()
+            verse_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
             if hasattr(state, "pending_split_verse") and state.get("pending_split_verse"):
-                state["pending_split_verse"]["parts"].append(text)
+                state["pending_split_verse"]["parts"].append(text_simple)
                 # El verso partido está completo, limpiar estado
                 state["pending_split_verse"] = None
-            tei.append(f'            <l part="F">{text}</l>')
+            tei.append(f'            <l part="F">{verse_text}</l>')
 
         elif style == "Acot":
-            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "stage")
+            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "stage")
             if state["in_sp"]:
                 tei.append('        </sp>')
                 state["in_sp"] = False
             tei.append(f'        <stage>{processed_text}</stage>')
 
         elif style == "Personaje":
-            who_id = find_who_id(text, characters)
-            processed = process_annotations_with_ids(
-                text, nota_notes, aparato_notes, annotation_counter, "speaker"
+            text_simple = para.text.strip()
+            who_id = find_who_id(text_simple, characters)
+            processed = extract_text_with_italics_and_annotations(
+                para, nota_notes, aparato_notes, annotation_counter, "speaker"
             )
 
             # Cierra <sp> anterior si es necesario
@@ -1054,7 +1294,7 @@ def convert_docx_to_tei(
 
         elif style == "Prosa":
             # Párrafos en prosa, pueden estar en dedicatoria o en otras secciones
-            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "p")
+            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "p")
             if state["in_dedicatoria"]:
                 tei.append(f'          <p>{processed_text}</p>')
             elif state["in_cast_list"]:
@@ -1066,7 +1306,7 @@ def convert_docx_to_tei(
                 tei.append(f'        <p>{processed_text}</p>')
 
         elif style == "Epigr_final":
-            processed_text = process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, "trailer")
+            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "trailer")
             if processed_text.strip():
                 tei.append(f'          <trailer>{processed_text}</trailer>')
 
