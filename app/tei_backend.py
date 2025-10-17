@@ -456,21 +456,21 @@ def parse_metadata_docx(path, header_mode="prolope"):
         tei.append(f'          <author>{main_meta.get("Autor", "")}</author>')
     
     # Títulos
-    tei.append(f'          <title type="main">{source_meta.get("Titulo comedia", "")}</title>')
+    tei.append(f'          <title type="main">{source_meta.get("Título comedia", "")}</title>')
     if "Subtítulo" in source_meta and source_meta.get("Subtítulo"):
         tei.append(f'          <title type="alt">{source_meta.get("Subtítulo", "")}</title>')
+    
+    # Título del volumen (si existe)
+    if source_meta.get("Título volumen"):
+        tei.append(f'          <title level="s">{source_meta.get("Título volumen", "")}</title>')
+    
+    # Solo en modo PROLOPE: añadir "Parte"
+    if header_mode == "prolope" and source_meta.get("Parte"):
+        tei.append(f'          <title level="a">Parte {source_meta.get("Parte", "")}</title>')
     
     # Editor (si existe)
     if 'Editor' in main_meta and main_meta['Editor']:
         tei.append(f'          <editor>{main_meta["Editor"]}</editor>')
-    
-    # Título del volumen (si existe)
-    if source_meta.get("Título volumen"):
-        tei.append(f'          <title type="s">{source_meta.get("Título volumen", "")}</title>')
-    
-    # Solo en modo PROLOPE: añadir "Parte"
-    if header_mode == "prolope" and source_meta.get("Parte"):
-        tei.append(f'          <title type="a">Parte {source_meta.get("Parte", "")}</title>')
     
     # Coordinadores del volumen (si existen)
     if 'Coordinadores volumen' in source_meta and source_meta['Coordinadores volumen']:
