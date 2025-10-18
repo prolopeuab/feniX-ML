@@ -1228,7 +1228,7 @@ def convert_docx_to_tei(
             elif state["in_dedicatoria"]:
                 tei.append(f'          <gap>{processed_text}</gap>')
 
-        elif style == "Partido_incial":
+        elif style == "Partido_inicial":
             # Almacenar información del verso partido para procesamiento posterior
             if not hasattr(state, "pending_split_verse"):
                 state["pending_split_verse"] = {}
@@ -1416,7 +1416,7 @@ def count_verses_in_document(main_docx, include_dedication=False):
         if style == "Verso":
             verses.append((para_idx, verse_counter, style, text))
             verse_counter += 1
-        elif style == "Partido_incial":
+        elif style == "Partido_inicial":
             verses.append((para_idx, verse_counter, style, text))
             verse_counter += 1
         elif style in ["Partido_medio", "Partido_final"]:
@@ -1447,7 +1447,7 @@ def get_verse_number_at_position(main_docx, target_para_index, include_dedicatio
     for para_idx, verse_number, style, text in verses:
         if para_idx < target_para_index:
             # Solo contar versos que incrementan el contador (no medio/final)
-            if style in ["Verso", "Partido_incial"]:
+            if style in ["Verso", "Partido_inicial"]:
                 last_verse_number = verse_number
         else:
             break
@@ -1517,6 +1517,7 @@ def analyze_main_text(main_docx) -> list[str]:
 
     doc = Document(main_docx)
     found_body = False
+    last_act_name = None
 
     for para_idx, para in enumerate(doc.paragraphs):
         style = para.style.name if para.style else ""
@@ -1527,6 +1528,10 @@ def analyze_main_text(main_docx) -> list[str]:
             if style == "Titulo_comedia":
                 found_body = True
             continue
+
+        # Registrar actos para determinar ubicación
+        if style == "Acto":
+            last_act_name = text
 
         # 2) Aplicamos los filtros comunes para detectar párrafos problemáticos
         if should_skip_paragraph(para, text, style):
@@ -1539,16 +1544,14 @@ def analyze_main_text(main_docx) -> list[str]:
             
             # Determinar el contexto de localización
             if last_verse > 0:
+                # Hay versos antes, está dentro de un acto
                 location_info = f" (después del verso {last_verse})"
+            elif last_act_name:
+                # Hay un acto definido pero aún no hay versos
+                location_info = f" (en {last_act_name}, antes del primer verso marcado)"
             else:
-                # Verificar si estamos antes del primer acto
-                verses_with_dedication = count_verses_in_document(main_docx, include_dedication=True)
-                has_dedication_verses = any(v[0] < para_idx for v in verses_with_dedication)
-                
-                if has_dedication_verses:
-                    location_info = " (en dramatis personae o dedicatoria)"
-                else:
-                    location_info = " (al inicio del documento)"
+                # Está antes del primer acto (en dramatis personae o dedicatoria)
+                location_info = " (en dramatis personae o dedicatoria)"
             
             unstyled_paragraphs.append((text, location_info))
 
@@ -1556,19 +1559,19 @@ def analyze_main_text(main_docx) -> list[str]:
     if unstyled_paragraphs:
         count = len(unstyled_paragraphs)
         warnings.append(
-            f"⚠️ Se {'ha encontrado' if count == 1 else 'han encontrado'} "
-            f"{count} {'línea' if count == 1 else 'líneas'} sin estilo "
-            f"en el cuerpo del texto crítico: {main_docx}"
+            f"❌ LÍNEAS SIN ESTILO DETECTADAS ({count})\n"
+            f"   Archivo: {os.path.basename(main_docx)}\n"
+            f"   Revisa que todas las líneas tengan el estilo correcto aplicado."
         )
         
-        # Añadir detalles de cada párrafo sin estilo
-        for i, (text, location) in enumerate(unstyled_paragraphs[:5], 1):  # Mostrar máximo 5
+        # Añadir detalles de cada párrafo sin estilo (mostrar máximo 5)
+        for i, (text, location) in enumerate(unstyled_paragraphs[:5], 1):
             snippet = text[:60] + "..." if len(text) > 60 else text
             warnings.append(f"   {i}. «{snippet}»{location}")
         
         if len(unstyled_paragraphs) > 5:
             remaining = len(unstyled_paragraphs) - 5
-            warnings.append(f"   ... y {remaining} {'línea' if remaining == 1 else 'líneas'} más")
+            warnings.append(f"   ... y {remaining} {'línea más' if remaining == 1 else 'líneas más'}")
 
     return warnings
 
@@ -1593,14 +1596,14 @@ def analyze_notes(
             if isinstance(key, str):
                 # Notas @palabra con múltiples entradas
                 warnings.append(
-                    f"⚠️ Atención: Se encontraron {len(content)} {note_type}s para '@{key}'. "
-                    f"Verifica que la asignación secuencial sea correcta en el texto."
+                    f"⚠️ MÚLTIPLES {note_type.upper()}S PARA '@{key}' ({len(content)})\n"
+                    f"   Verifica que la asignación secuencial en el texto sea correcta."
                 )
             elif isinstance(key, int):
                 # Notas de verso con múltiples entradas
                 warnings.append(
-                    f"⚠️ Atención: Se encontraron {len(content)} {note_type}s para el verso {key}. "
-                    f"Verifica que todas sean correctas."
+                    f"⚠️ MÚLTIPLES {note_type.upper()}S PARA VERSO {key} ({len(content)})\n"
+                    f"   Verifica que todas las {note_type}s sean correctas."
                 )
         
         # Validar que el contenido no esté vacío
@@ -1608,15 +1611,15 @@ def analyze_notes(
             for i, text in enumerate(content, 1):
                 if not text.strip():
                     if isinstance(key, str):
-                        warnings.append(f"❌ {note_type.capitalize()} vacía para '@{key}' (entrada #{i})")
+                        warnings.append(f"❌ {note_type.capitalize()} vacía: '@{key}' (entrada #{i})")
                     elif isinstance(key, int):
-                        warnings.append(f"❌ {note_type.capitalize()} vacía para verso {key} (entrada #{i})")
+                        warnings.append(f"❌ {note_type.capitalize()} vacía: verso {key} (entrada #{i})")
         elif not str(content).strip():
             # Caso de contenido no-lista (por compatibilidad)
             if isinstance(key, str):
-                warnings.append(f"❌ {note_type.capitalize()} vacía para '@{key}'")
+                warnings.append(f"❌ {note_type.capitalize()} vacía: '@{key}'")
             elif isinstance(key, int):
-                warnings.append(f"❌ {note_type.capitalize()} vacía para verso {key}")
+                warnings.append(f"❌ {note_type.capitalize()} vacía: verso {key}")
 
     return warnings
 
@@ -1633,9 +1636,9 @@ def validate_split_verses_impact_on_numbering(main_docx) -> list[str]:
     verses = count_verses_in_document(main_docx, include_dedication=False)
     
     total_verses = 0  # Versos normales
-    split_verse_initials = 0  # Partido_incial (cada uno debería ser un verso)
+    split_verse_initials = 0  # Partido_inicial (cada uno debería ser un verso)
     split_verse_groups = 0  # Grupos completos de versos partidos (I + [M...] + F)
-    incomplete_splits = 0  # Partido_incial sin Partido_final
+    incomplete_splits = 0  # Partido_inicial sin Partido_final
     
     # Separar por tipo de verso
     verse_sequence = [(style, text) for _, _, style, text in verses]
@@ -1648,7 +1651,7 @@ def validate_split_verses_impact_on_numbering(main_docx) -> list[str]:
         if style == "Verso":
             total_verses += 1
             i += 1
-        elif style == "Partido_incial":
+        elif style == "Partido_inicial":
             split_verse_initials += 1
             j = i + 1
             found_final = False
@@ -1660,7 +1663,7 @@ def validate_split_verses_impact_on_numbering(main_docx) -> list[str]:
                     found_final = True
                     split_verse_groups += 1
                     break
-                elif next_style in ["Partido_incial", "Verso"]:
+                elif next_style in ["Partido_inicial", "Verso"]:
                     break
                 j += 1
             
@@ -1671,22 +1674,17 @@ def validate_split_verses_impact_on_numbering(main_docx) -> list[str]:
         else:  # Partido_medio, Partido_final
             i += 1
     
-    # 3. Validaciones
+    # 3. Validaciones - Solo mostrar desajuste si existe
     expected_total_verses = total_verses + split_verse_groups
     actual_verse_increments = total_verses + split_verse_initials
     
-    if incomplete_splits > 0:
-        warnings.append(
-            f"⚠️ Se encontraron {incomplete_splits} versos partidos incompletos que pueden "
-            f"afectar la numeración automática de versos"
-        )
-    
     if actual_verse_increments != expected_total_verses:
         diff = actual_verse_increments - expected_total_verses
+        plural_s = 's' if abs(diff) > 1 else ''
         warnings.append(
-            f"⚠️ Posible desajuste en numeración: se esperan {expected_total_verses} versos "
-            f"pero el contador automático generará {actual_verse_increments} "
-            f"(diferencia: {diff:+d})"
+            f"\n⚠️ DESAJUSTE EN LA NUMERACIÓN DE VERSOS\n"
+            f"Se esperan {expected_total_verses} pero se numerarán {actual_verse_increments}. "
+            f"Hay una diferencia de {diff:+d} verso{plural_s} debido a versos partidos incompletos."
         )
     
     return warnings
@@ -1694,21 +1692,22 @@ def validate_split_verses_impact_on_numbering(main_docx) -> list[str]:
 def validate_split_verses(main_docx) -> list[str]:
     """
     Valida que los versos partidos sigan la secuencia lógica correcta:
-    - Partido_incial debe tener al menos un Partido_final después
-    - Entre Partido_incial y Partido_final puede haber 0 o más Partido_medio
-    - No puede haber Partido_medio o Partido_final sin Partido_incial previo
+    - Partido_inicial debe tener al menos un Partido_final después
+    - Entre Partido_inicial y Partido_final puede haber 0 o más Partido_medio
+    - No puede haber Partido_medio o Partido_final sin Partido_inicial previo
     """
     warnings: list[str] = []
+    verse_problems: list[tuple[int, str, str]] = []  # (verse_num, text, problem_description)
     
     # Obtener todos los versos con su numeración correcta
     verses = count_verses_in_document(main_docx, include_dedication=False)
     
-    # 2. Validar secuencia de versos partidos
+    # 2. Validar secuencia de versos partidos y recopilar problemas
     i = 0
     while i < len(verses):
         para_idx, verse_num, style, text = verses[i]
         
-        if style == "Partido_incial":
+        if style == "Partido_inicial":
             # Buscar el final correspondiente
             j = i + 1
             found_final = False
@@ -1722,58 +1721,80 @@ def validate_split_verses(main_docx) -> list[str]:
                 elif next_style == "Partido_final" and next_verse_num == verse_num:
                     found_final = True
                     break
-                elif next_style in ["Verso", "Partido_incial"]:
+                elif next_style in ["Verso", "Partido_inicial"]:
                     # Nuevo verso antes de encontrar final
                     break
                 j += 1
             
             if not found_final:
-                warnings.append(
-                    f"❌ Verso partido incompleto: verso {verse_num} '{text[:50]}...' "
-                    f"- Falta Partido_final después de Partido_incial"
-                )
+                snippet = text[:50] + "..." if len(text) > 50 else text
+                verse_problems.append((
+                    verse_num,
+                    snippet,
+                    "Falta 'Partido_final' después de 'Partido_inicial'."
+                ))
             
             # Avanzar hasta después del grupo procesado
             i = j + 1 if found_final else i + 1
             
         elif style == "Partido_medio":
-            # Partido_medio sin Partido_incial previo
+            # Partido_medio sin Partido_inicial previo
             has_initial = False
             for k in range(i - 1, -1, -1):
                 prev_para_idx, prev_verse_num, prev_style, prev_text = verses[k]
-                if prev_style == "Partido_incial" and prev_verse_num == verse_num:
+                if prev_style == "Partido_inicial" and prev_verse_num == verse_num:
                     has_initial = True
                     break
-                elif prev_style in ["Verso"] or (prev_style == "Partido_incial" and prev_verse_num != verse_num):
+                elif prev_style in ["Verso"] or (prev_style == "Partido_inicial" and prev_verse_num != verse_num):
                     break
             
             if not has_initial:
-                warnings.append(
-                    f"❌ Partido_medio sin inicio: verso {verse_num} '{text[:50]}...' "
-                    f"- Partido_medio sin Partido_incial previo"
-                )
+                snippet = text[:50] + "..." if len(text) > 50 else text
+                verse_problems.append((
+                    verse_num,
+                    snippet,
+                    "Falta 'Partido_inicial' antes de este 'Partido_medio'."
+                ))
             i += 1
             
         elif style == "Partido_final":
-            # Partido_final sin Partido_incial previo
+            # Partido_final sin Partido_inicial previo
             has_initial = False
             for k in range(i - 1, -1, -1):
                 prev_para_idx, prev_verse_num, prev_style, prev_text = verses[k]
-                if prev_style in ["Partido_incial", "Partido_medio"] and prev_verse_num == verse_num:
+                if prev_style in ["Partido_inicial", "Partido_medio"] and prev_verse_num == verse_num:
                     has_initial = True
                     break
-                elif prev_style in ["Verso"] or (prev_style in ["Partido_incial", "Partido_final"] and prev_verse_num != verse_num):
+                elif prev_style in ["Verso"] or (prev_style in ["Partido_inicial", "Partido_final"] and prev_verse_num != verse_num):
                     break
             
             if not has_initial:
-                warnings.append(
-                    f"❌ Partido_final sin inicio: verso {verse_num} '{text[:50]}...' "
-                    f"- Partido_final sin Partido_incial o Partido_medio previo"
-                )
+                snippet = text[:50] + "..." if len(text) > 50 else text
+                verse_problems.append((
+                    verse_num,
+                    snippet,
+                    "Falta 'Partido_inicial' o 'Partido_medio' previo."
+                ))
             i += 1
             
         else:  # style == "Verso"
             i += 1
+    
+    # 3. Construir mensaje consolidado si hay problemas
+    if verse_problems:
+        count = len(verse_problems)
+        plural_s = 's' if count > 1 else ''
+        
+        # Encabezado
+        message = f"❌ ({count}) VERSO{plural_s.upper()} PARTIDO{plural_s.upper()} INCOMPLETO{plural_s.upper()}\n"
+        message += "Revisa los siguientes versos:\n\n"
+        
+        # Listar cada verso con su problema
+        for verse_num, text, problem in verse_problems:
+            message += f"Verso {verse_num}. Texto: {text}\n"
+            message += f"      Problema: {problem}\n\n"
+        
+        warnings.append(message.rstrip())
     
     return warnings
 
@@ -1804,13 +1825,15 @@ def validate_Laguna(main_docx) -> list[str]:
             
             # Contar total de versos para contexto
             total_verses = len([v for v in count_verses_in_document(main_docx, include_dedication=False) 
-                              if v[2] in ["Verso", "Partido_incial"]])
+                              if v[2] in ["Verso", "Partido_inicial"]])
             
+            snippet = text[:50] + "..." if len(text) > 50 else text
             warnings.append(
-                f"⚠️ Has marcado una Laguna tras el verso {verse_num}: '{text[:50]}...' "
-                f"- Revisa que no se trate de un verso específico faltante entre corchetes que "
-                f"debería contarse en la numeración. La numeración total actual es {total_verses}, "
-                f"¿es correcta?"
+                f"⚠️ LAGUNA DETECTADA (después del verso {verse_num})\n"
+                f"   Texto: {snippet}\n"
+                f"   Revisa: ¿Es una laguna de extensión incierta o un verso específico faltante?\n"
+                f"   Si es un verso específico faltante, márcalo como 'Verso' con corchetes.\n"
+                f"   Total de versos actual: {total_verses}"
             )
     
     return warnings
@@ -1847,13 +1870,60 @@ def validate_verso_con_corchetes(main_docx) -> list[str]:
             
             # Contar total de versos para contexto
             total_verses = len([v for v in count_verses_in_document(main_docx, include_dedication=False) 
-                              if v[2] in ["Verso", "Partido_incial"]])
+                              if v[2] in ["Verso", "Partido_inicial"]])
             
             warnings.append(
-                f"⚠️ Has marcado como Verso normal una línea con corchetes en el verso {verse_num}: '{text}' "
-                f"- ¿Se trata de una laguna incierta que debería marcarse como 'Laguna' para no "
-                f"contarla en la numeración? La numeración total actual es {total_verses}, "
-                f"¿es correcta considerando este verso?"
+                f"⚠️ VERSO CON CORCHETES DETECTADO (verso {verse_num})\n"
+                f"   Texto: {text}\n"
+                f"   Revisa: ¿Es una laguna de extensión incierta?\n"
+                f"   Si no sabes cuántos versos faltan, márcalo como 'Laguna' para no contarlo.\n"
+                f"   Total de versos actual: {total_verses}"
+            )
+    
+    return warnings
+
+
+def validate_note_format(docx_path: str, note_type: str) -> list[str]:
+    """
+    Valida que todas las entradas en el archivo de notas o aparato crítico
+    sigan el formato correcto:
+    - NÚMERO: contenido (ej: 6: 6 cursiva y van bien centradas...)
+    - @PALABRA: contenido (ej: @dedicatoria: Dedicatoria: Esta es una nota...)
+    
+    Devuelve una lista de warnings con las entradas que no cumplan el formato.
+    """
+    warnings: list[str] = []
+    
+    if not docx_path or not os.path.exists(docx_path):
+        return warnings
+    
+    # Obtener el nombre del archivo para mostrarlo en el mensaje
+    filename = os.path.basename(docx_path)
+    
+    doc = Document(docx_path)
+    
+    # Patrón para validar el formato correcto
+    # Debe comenzar con número: o @palabra:
+    pattern_verse = re.compile(r'^\d+:\s*')  # Números seguidos de :
+    pattern_word = re.compile(r'^@[^@\s]+:\s*')  # @palabra seguido de :
+    
+    for i, para in enumerate(doc.paragraphs, 1):
+        text = para.text.strip()
+        
+        # Ignorar párrafos vacíos o con solo espacios en blanco
+        if not text:
+            continue
+        
+        # Verificar si el párrafo cumple alguno de los formatos válidos
+        is_verse_format = pattern_verse.match(text)
+        is_word_format = pattern_word.match(text)
+        
+        if not is_verse_format and not is_word_format:
+            # El párrafo no cumple ninguno de los formatos válidos
+            snippet = text[:80] + "..." if len(text) > 80 else text
+            warnings.append(
+                f"❌ Formato incorrecto en archivo '{filename}' ({note_type}, párrafo {i}): "
+                f"Debe comenzar con 'NÚMERO:' o '@PALABRA:' → Texto: {snippet}"
             )
     
     return warnings
@@ -1873,12 +1943,13 @@ def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[st
 
     # 2) Validación de estilos en el body
     ESTILOS_VALIDOS = {
-        "Titulo_comedia", "Acto", "Prosa", "Verso", "Partido_incial",
+        "Titulo_comedia", "Acto", "Prosa", "Verso", "Partido_inicial",
         "Partido_medio", "Partido_final", "Personaje", "Acot",
         "Epigr_Dedic", "Epigr_Dramatis", "Dramatis_lista", "Epigr_final",
         "Laguna"  # Nuevo estilo para lagunas de extensión incierta
     }
-    SKIP_STYLES = {"Cita", "Heading 1", "Heading 2", "Heading 3"}
+    # Estilos que se omiten en esta validación básica porque tienen validación específica
+    SKIP_STYLES = {"Cita", "Heading 1", "Heading 2", "Heading 3", "Normal"}
     doc = Document(main_docx)
     found_body = False
 
@@ -1913,6 +1984,9 @@ def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[st
         if not os.path.exists(aparato_docx):
             warnings.append(f"❌ El archivo de notas de aparato: {aparato_docx}")
         else:
+            # Validar formato de entrada (NÚMERO: o @PALABRA:)
+            warnings.extend(validate_note_format(aparato_docx, "aparato crítico"))
+            # Validar contenido de las notas
             aparato_notes = extract_notes_with_italics(aparato_docx)
             warnings.extend(analyze_notes(aparato_notes, "aparato"))
 
@@ -1921,6 +1995,9 @@ def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[st
         if not os.path.exists(notas_docx):
             warnings.append(f"❌ El archivo de notas no existe: {notas_docx}")
         else:
+            # Validar formato de entrada (NÚMERO: o @PALABRA:)
+            warnings.extend(validate_note_format(notas_docx, "notas"))
+            # Validar contenido de las notas
             nota_notes = extract_notes_with_italics(notas_docx)
             warnings.extend(analyze_notes(nota_notes, "nota"))
 
