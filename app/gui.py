@@ -88,27 +88,34 @@ def main_gui():
         mode = get_scale_mode()
         print(f"[DEBUG] screen_width={screen_width}, screen_height={screen_height}, scale_mode={mode}")
         if mode == "compacto":
-            # Modo compacto: para pantallas pequeñas o preferencia de interfaz compacta
-            window_width = int(screen_width * 0.55)
-            window_height = int(screen_height * 0.60)
-            base_font = 9
-            menu_font = 10
-            title_font = 14
-            label_font = 11
-            button_font = 12
-            large_button_font = 13
+            # Modo compacto
+            window_width = 750
+            window_height = 620
+            base_font = 10
+            menu_font = 11
+            title_font = 15
+            label_font = 12
+            button_font = 13
+            large_button_font = 14
         else:
-            # Modo amplio: para pantallas grandes, fuentes más legibles
-            window_width = int(screen_width * 0.55)
-            window_height = int(screen_height * 0.60)
+            # Modo amplio
+            window_width = 1050
+            window_height = 620
             base_font = 11
             menu_font = 12
             title_font = 18
             label_font = 14
             button_font = 15
             large_button_font = 16
+        
+        # Asegurar que la ventana no exceda el tamaño de pantalla disponible
+        max_width = int(screen_width * 0.95)
+        max_height = int(screen_height * 0.90)
+        window_width = min(window_width, max_width)
+        window_height = min(window_height, max_height)
+        
         root.geometry(f"{window_width}x{window_height}")
-        root.minsize(600, 700)
+        root.minsize(700, 620)
         return base_font, menu_font, title_font, label_font, button_font, large_button_font, window_width, window_height
 
     # Aplicar escala inicial
@@ -165,7 +172,7 @@ def main_gui():
     desc = tk.Label(
         logo_text_frame,
         text="Conversor de ediciones críticas de teatro del Siglo de oro de DOCX a XML-TEI",
-        font=("Segoe UI", base_font), fg="gray", wraplength=int(window_width * 0.85), bg=bg_color, justify="left"
+        font=("Segoe UI", base_font), fg="gray", wraplength=int(window_width * 1), bg=bg_color, justify="left"
     )
     desc.pack(anchor="w")
 
@@ -229,17 +236,25 @@ def main_gui():
     menubar.add_cascade(label="Ayuda", menu=ayuda_menu)
     root.config(menu=menubar)
 
-    # Contenedor scrollable para el contenido principal
-    scrollable_frame = ctk.CTkScrollableFrame(
-        root, 
-        fg_color="transparent",
-        scrollbar_button_color="#d5d5d5",      # Gris muy claro, visible pero sutil
-        scrollbar_button_hover_color="#a0a0a0" # Se oscurece al hacer hover
-    )
-    scrollable_frame.pack(fill="both", expand=True, padx=10, pady=(5, 5))
-    
+    # Variable para activar/desactivar el scroll
+    ENABLE_SCROLL = False  # Cambia a True para activar el scroll
+
+    if ENABLE_SCROLL:
+        # Contenedor scrollable para el contenido principal
+        scrollable_frame = ctk.CTkScrollableFrame(
+            root, 
+            fg_color="transparent",
+            scrollbar_button_color="#d5d5d5",      
+            scrollbar_button_hover_color="#a0a0a0" 
+        )
+        scrollable_frame.pack(fill="both", expand=True, padx=10, pady=(5, 5))
+        main_parent = scrollable_frame
+    else:
+        # Sin scroll, usar root directamente
+        main_parent = root
+
     # ==== SECCIÓN 1: SELECCIÓN DE ARCHIVOS DOCX ====
-    main_frame = ctk.CTkFrame(scrollable_frame, fg_color="transparent")
+    main_frame = ctk.CTkFrame(main_parent, fg_color="transparent")
     main_frame.pack(fill="both", expand=True, padx=0, pady=(5, 5))
     
     frame_seleccion = ctk.CTkFrame(main_frame, corner_radius=10)
