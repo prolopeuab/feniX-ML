@@ -85,3 +85,85 @@
   color: #fd7e14;
   margin-right: 0.5em;
 }
+
+/* Logo en el menú lateral */
+.site-logo {
+  max-width: 180px;
+  height: auto;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+/* Ajustar el espacio del título si usas logo */
+.site-title {
+  padding-top: 0.5rem;
+}
+
+/* Footer del contenido principal (general) */
+.site-footer {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #eeebee;
+}
+
+.footer-logo-container {
+  text-align: center;
+  padding: 1rem 0.5rem;
+}
+
+.footer-logo-container a {
+  display: inline-block;
+  transition: opacity 0.2s ease;
+  margin-bottom: 0.75rem;
+}
+
+.footer-logo-container a:hover {
+  opacity: 0.7;
+}
+
+.footer-logo-img {
+  max-width: 140px;
+  height: auto;
+  display: block;
+  margin: 0 auto 0 auto;
+}
+
+.footer-text {
+  font-size: 0.7rem;
+  color: #5c5962;
+  line-height: 1.5;
+  margin: 0;
+  padding: 0;
+}
+
+/* Footer del sidebar de navegación (nav) */
+.nav-footer-logo-container {
+  text-align: center;
+  padding: 1.5rem 1rem 1rem 1rem;
+  margin-top: 1rem;
+  border-top: 1px solid #eeebee;
+}
+
+.nav-footer-logo-container a {
+  display: inline-block;
+  transition: opacity 0.2s ease;
+}
+
+.nav-footer-logo-container a:hover {
+  opacity: 0.7;
+}
+
+.nav-footer-logo-img {
+  max-width: 130px;
+  height: auto;
+  display: block;
+  margin: 0 auto 0.75rem auto;
+}
+
+.nav-footer-text {
+  font-size: 0.65rem;
+  color: #5c5962;
+  line-height: 1.4;
+  margin: 0;
+  padding: 0;
+}

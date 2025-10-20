@@ -5,6 +5,9 @@ theme: just-the-docs
 # URL de tu sitio (opcional, se puede ajustar cuando esté publicado)
 url: https://prolopeuab.github.io/feniX-ML/
 
+logo: "/assets/images/logo.png"
+favicon_ico: "/assets/images/icon.ico"
+
 # Enlaces auxiliares en la barra superior
 aux_links:
   Repo GitHub: https://github.com/prolopeuab/feniX-ML

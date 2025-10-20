@@ -5,11 +5,8 @@ nav_order: 1
 ---
 
 <p align="left">
-  <img src="assets/images/prolope-negro.png" alt="Logo PROLOPE" width="200">
+  <img src="assets/images/logo.png" alt="Logo PROLOPE" width="200">
 </p>
-
-
-# Bienvenido a feniX-ML
 
 **feniX-ML** es una herramienta diseñada para facilitar la edición crítica digital de textos teatrales del Siglo de Oro a partir de documentos Word, sin necesidad de conocimientos técnicos en XML o TEI.
 
@@ -58,5 +55,3 @@ Esta guía está organizada por pasos, para acompañarte desde el inicio hasta l
 ## Acceso abierto y reutilización
 
 feniX-ML está disponible en acceso abierto. Puedes descargar el ejecutable, las plantillas y esta documentación desde el [repositorio en GitHub](https://github.com/prolopeuab/feniX-ML).
-
----
