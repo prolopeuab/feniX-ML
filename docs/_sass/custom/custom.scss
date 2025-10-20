@@ -86,17 +86,29 @@
   margin-right: 0.5em;
 }
 
-/* Logo en el menú lateral */
+/* Logo en el header del sitio */
 .site-logo {
-  max-width: 180px;
-  height: auto;
-  margin-bottom: 1rem;
+  width: 100%;
+  max-width: 160px;
+  height: 50px;
+  background-image: url('../images/logo.png');
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center left;
   display: block;
 }
 
 /* Ajustar el espacio del título si usas logo */
 .site-title {
   padding-top: 0.5rem;
+  max-width: 100%;
+  flex-shrink: 1;
+}
+
+/* Asegurar que el site-header no desborde */
+.site-header {
+  padding-left: 1rem;
+  padding-right: 1rem;
 }
 
 /* Footer del contenido principal (general) */
@@ -138,7 +150,7 @@
 
 /* Footer del sidebar de navegación (nav) */
 .nav-footer-logo-container {
-  text-align: center;
+  text-align: right;
   padding: 1.5rem 1rem 1rem 1rem;
   margin-top: 1rem;
   border-top: 1px solid #eeebee;
