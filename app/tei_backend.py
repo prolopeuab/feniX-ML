@@ -39,8 +39,8 @@ def escape_xml(text):
 
 def extract_intro_footnotes(docx_path):
     """
-    Extrae todas las notas a pie de página de un archivo DOCX.
-    Devuelve un diccionario {id: note_text}.
+    Extrae todas las notas a pie de página de un archivo DOCX, preservando cursivas.
+    Devuelve un diccionario {id: note_text} con formato TEI (incluyendo <hi rend="italic">).
     """
     ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
     footnote_dict = {}
@@ -51,11 +51,27 @@ def extract_intro_footnotes(docx_path):
 
             for note in root.xpath("//w:footnote[not(@w:type='separator')]", namespaces=ns):
                 note_id = note.get(qn("w:id"))
-                texts = note.xpath(".//w:t", namespaces=ns)
-                full_text = "".join(t.text for t in texts if t is not None).strip()
-                if full_text:
-                    # Escapar caracteres XML en el contenido de la nota
-                    footnote_dict[note_id] = escape_xml(full_text)
+                
+                # Procesar todos los runs dentro de la nota para detectar cursivas
+                full_text = ""
+                for run in note.xpath(".//w:r", namespaces=ns):
+                    # Verificar si el run tiene formato cursiva
+                    is_italic = run.xpath(".//w:i", namespaces=ns) or run.xpath(".//w:iCs", namespaces=ns)
+                    
+                    # Extraer el texto del run
+                    text_elements = run.xpath(".//w:t", namespaces=ns)
+                    run_text = "".join(t.text for t in text_elements if t.text is not None)
+                    
+                    if run_text:
+                        if is_italic:
+                            # Envolver en cursiva y escapar el contenido
+                            full_text += f'<hi rend="italic">{escape_xml(run_text)}</hi>'
+                        else:
+                            # Escapar el texto normal
+                            full_text += escape_xml(run_text)
+                
+                if full_text.strip():
+                    footnote_dict[note_id] = full_text.strip()
 
     return footnote_dict
 
