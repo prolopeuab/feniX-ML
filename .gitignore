@@ -8,11 +8,9 @@ __pycache__/
 
 # Archivos de compilación
 build/
-dist/
 *.spec
 
 # Ejecutables
-*.exe
 *.dll
 
 # Archivos temporales
