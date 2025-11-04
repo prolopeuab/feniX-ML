@@ -641,7 +641,8 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
         # Reconocimiento de subtítulo con almohadilla
         if text.startswith("#"):
             flush_paragraph_buffer()
-            title = text.lstrip("#").strip()
+            # Usar 'raw' que ya tiene las notas procesadas, y quitar el # del texto procesado
+            title = raw.lstrip("#").strip()
             if title.lower() == "prólogo":
                 continue
             if subsection_open:
