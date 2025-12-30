@@ -359,7 +359,6 @@ tei-trailer {
 /* === BLOQUES DE DIÁLOGO === */
 tei-sp {
     display: block;
-    margin-bottom: 1em;
     text-align: left;
 }
 
@@ -383,6 +382,7 @@ tei-stage {
     padding: 0.6em 0.8em;
     background-color: #f5f5f0;
     border-left: 3px solid #bbb;
+    border-radius: 3px;
     line-height: 1.4em;
 }
 
@@ -408,16 +408,37 @@ tei-quote {
 }
 
 /* === MILESTONES (SEPARADORES DE ESTROFAS) === */
-tei-milestone[unit="stanza"]::after {
-    content: "";
-    display: none;
+/* Indicadores de formas estróficas flotantes a la derecha del texto */
+tei-milestone[unit="stanza"] {
+    display: block;
+    float: right;
+    clear: right;
+    margin: 0;
+    font-size: 0.85em;
+    font-weight: 600;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
 }
+
+tei-milestone[unit="stanza"]::before {
+    content: " " attr(type) " ";
+    padding: 0.3em 0.6em;
+    background: #f5f5f0;
+    border-left: 2px solid #d0d0cc;
+    border-right: 2px solid #d0d0cc;
+    border-radius: 3px;
+    display: inline-block;
+    white-space: nowrap;
+}
+
+/* Línea decorativa opcional debajo del milestone */
 tei-milestone[unit="stanza"].show-line::after {
+    content: "";
     display: block;
     border-bottom: 1px dotted #999;
-    width: 75%;
-    margin-top: 10px;
-    margin-bottom: 10px;
+    width: 60%;
+    margin: 0.8em auto 0;
 }
 
 /* === PANEL LATERAL Y NOTAS === */
