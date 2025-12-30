@@ -211,7 +211,7 @@ tei-div[type="Introducción"] > tei-head {
 
 /* Título principal con menos margen superior */
 tei-head[type="mainTitle"] {
-    margin-top: 0.5em;
+    margin-top: 3em;
     margin-bottom: 0.3em;
 }
 
@@ -465,34 +465,41 @@ tei-milestone[unit="stanza"].show-line::after {
 }
 
 /* === LLAMADAS DE NOTA EN SUPERÍNDICE CON ICONOS SVG === */
+/* Iconos optimizados para evitar cortes y espaciados irregulares */
 
 .sup-nota,
 .sup-aparato {
+  display: inline-block;
   cursor: pointer;
-  margin-left: 0.1em; /* espacio entre la palabra y el primer icono */
+  margin-left: 0.15em;
+  vertical-align: baseline;
+  line-height: 1;
 }
 
-/* Íconos SVG (círculo y cuadrado) */
+/* Íconos SVG (círculo y cuadrado) con dimensiones ajustadas */
 .sup-nota svg,
 .sup-aparato svg {
-  vertical-align: text-top;
-  width: 0.9em;
-  height: 0.9em;
-  stroke-width: 14 !important;
+  display: inline-block;
+  vertical-align: middle;
+  width: 0.75em;
+  height: 0.75em;
+  stroke-width: 12 !important;
+  transform: translateY(-0.40em);
+  overflow: visible;
 }
 
 /* Colores diferenciados */
 .sup-nota svg {
-  color: #005f99; /* azul oscuro */
+  color: #005f99; /* azul oscuro - notas filológicas */
 }
 .sup-aparato svg {
-  color: #d97706; /* naranja ámbar */
+  color: #d97706; /* naranja ámbar - aparato crítico */
 }
 
 /* Separación entre símbolos consecutivos */
 .sup-nota + .sup-aparato,
 .sup-aparato + .sup-nota {
-  margin-left: 0.15em;
+  margin-left: 0.2em;
 }
 
 
