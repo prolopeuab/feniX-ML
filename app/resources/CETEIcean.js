@@ -578,6 +578,9 @@ var CETEI = function() {
 }();
 
 function showNoteModal(content, noteType) {
+    // Bloquear scroll de la página de fondo
+    document.body.style.overflow = 'hidden';
+    
     // Crea el overlay que cubre toda la pantalla
     const overlay = document.createElement("div");
     overlay.classList.add("modal-overlay");
@@ -585,6 +588,7 @@ function showNoteModal(content, noteType) {
     // Cierra el modal al hacer clic fuera de la ventana
     overlay.addEventListener("click", function(e) {
         if (e.target === overlay) {
+            document.body.style.overflow = '';
             document.body.removeChild(overlay);
         }
     });
@@ -617,6 +621,7 @@ function showNoteModal(content, noteType) {
     closeBtn.classList.add("modal-close");
     closeBtn.innerHTML = "&times;";
     closeBtn.addEventListener("click", function() {
+        document.body.style.overflow = '';
         document.body.removeChild(overlay);
     });
 
