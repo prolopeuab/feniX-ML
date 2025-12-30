@@ -2076,7 +2076,7 @@ def validate_note_format(docx_path: str, note_type: str) -> list[str]:
     
     # Patrón para validar el formato correcto
     # Debe comenzar con número: o @palabra:
-    pattern_verse = re.compile(r'^\d+:\s*')  # Números seguidos de :
+    pattern_verse = re.compile(r'^\d+[a-z]?:\s*')  # Números seguidos opcionalmente de letra y :
     pattern_word = re.compile(r'^@[^@\s]+:\s*')  # @palabra seguido de :
     
     for i, para in enumerate(doc.paragraphs, 1):
