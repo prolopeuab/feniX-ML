@@ -254,11 +254,15 @@ tei-l {
     font-size: 1.1em;
     line-height: 1.2em;
 }
+tei-l {
+    position: relative;
+    padding-left: 200px;
+}
 tei-l::before {
-
     content: attr(n) " ";
-    display: inline-block;
-    width: 2em;
+    position: absolute;
+    left: 150px;
+    width: 3em;
     text-align: right;
     margin-right: 1em;
     font-weight: normal;
@@ -266,14 +270,10 @@ tei-l::before {
     color: #333;
 }
 tei-l[part="M"] {
-    text-indent: 75px;
+    padding-left: 275px;
 }
 tei-l[part="F"] {
-    text-indent: 150px;
-}
-tei-l {
-    position: relative;
-    padding-left: 200px;
+    padding-left: 350px;
 }
 
 /* === Prosa, omisiones y epígrafe final === */
