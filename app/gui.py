@@ -14,6 +14,7 @@ import tkinter as tk
 import webbrowser
 import ctypes
 import json
+import threading
 from tkinter import filedialog, messagebox
 
 # Usar CustomTkinter para esquinas redondeadas verdaderas
@@ -375,19 +376,28 @@ def main_gui():
         """
         Ejecuta la validación de los archivos seleccionados y muestra los avisos encontrados.
         """
-        avisos = validate_documents(
-            entry_main.get(),
-            notas_docx=entry_com.get() or None,
-            aparato_docx=entry_apa.get() or None
-        )
-        if avisos:
-            mensaje = (
-                "⚠️ Se han encontrado las siguientes incidencias:\n\n"
-                + "\n".join(avisos)
+        if not entry_main.get():
+            messagebox.showwarning("Validación", "Debe seleccionar un archivo principal.")
+            return
+        
+        def do_validation():
+            return validate_documents(
+                entry_main.get(),
+                notas_docx=entry_com.get() or None,
+                aparato_docx=entry_apa.get() or None
             )
-        else:
-            mensaje = "✅ ¡Validación completada sin incidencias!"
-        messagebox.showinfo("Validación", mensaje)
+        
+        def on_success(avisos):
+            if avisos:
+                mensaje = "⚠️ Se han encontrado las siguientes incidencias:\n\n" + "\n".join(avisos)
+            else:
+                mensaje = "✅ ¡Validación completada sin incidencias!"
+            messagebox.showinfo("Validación", mensaje)
+        
+        def on_error(e):
+            messagebox.showerror("Error", f"Error durante la validación:\n{str(e)}")
+        
+        run_with_progress(do_validation, "Validando documentos...", on_success, on_error)
 
     # Botones de validación y vista previa
     validation_button_height = max(32, int(window_height * 0.04))  
@@ -403,10 +413,22 @@ def main_gui():
     )
     btn_validar.grid(row=1, column=0, columnspan=2, padx=15, pady=(5,5), sticky="ew")
 
+    # Función para vista previa XML con barra de progreso
+    def on_vista_previa_xml():
+        if not entry_main.get():
+            messagebox.showwarning("Vista previa", "Debe seleccionar un archivo principal.")
+            return
+        
+        def do_preview():
+            vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root, header_mode_var.get())
+            return None
+        
+        run_with_progress(do_preview, "Generando vista previa XML...")
+    
     # Botón para previsualizar el XML
     btn_vista_previa_xml = ctk.CTkButton(frame_output,
         text="Vista previa (XML)",
-        command=lambda: vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root, header_mode_var.get()),
+        command=on_vista_previa_xml,
         fg_color="#142a40",
         hover_color="#1a3650",
         corner_radius=15,
@@ -415,10 +437,22 @@ def main_gui():
     )
     btn_vista_previa_xml.grid(row=2, column=0, columnspan=2, padx=15, pady=(5,5), sticky="ew")
 
+    # Función para vista previa HTML con barra de progreso
+    def on_vista_previa_html():
+        if not entry_main.get():
+            messagebox.showwarning("Vista previa", "Debe seleccionar un archivo principal.")
+            return
+        
+        def do_preview():
+            vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode_var.get())
+            return None
+        
+        run_with_progress(do_preview, "Generando vista previa HTML...")
+    
     # Botón para previsualizar HTML
     btn_vista_previa_html = ctk.CTkButton(frame_output,
         text="Vista previa (HTML)",
-        command=lambda: vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode_var.get()),
+        command=on_vista_previa_html,
         fg_color="#142a40",
         hover_color="#1a3650",
         corner_radius=15,
@@ -468,39 +502,43 @@ def main_gui():
                            corner_radius=10, width=100, height=30, font=("Segoe UI", button_font))
     btn_out.grid(row=2, column=2, padx=(5,15), pady=5)
 
-    # Botón para convertir y guardar XML-TEI
+    # Botón para convertir y guardar XML-TEI con barra de progreso
     def generate_and_save():
+        if not entry_main.get():
+            messagebox.showwarning("Conversión", "Debe seleccionar un archivo principal.")
+            return
+        
         # 1. Tomamos lo que haya escrito el usuario
         out = entry_out.get().strip()
         if out:
             base, ext = os.path.splitext(out)
-            # Si no tenía extensión, o tenía otra, forzamos .xml
             out = base + ".xml"
         else:
             out = None
-
-        # 2. Llamamos a la función de conversión con 'out' que ya incluye .xml
-        convert_docx_to_tei(
-            main_docx=entry_main.get(),
-            notas_docx=entry_com.get() or None,
-            aparato_docx=entry_apa.get() or None,
-            metadata_docx=entry_meta.get() or None,
-            output_file=out,
-            save=True,
-            header_mode=header_mode_var.get()
-        )
-
-        # 3. Formamos el mensaje con la ruta definitiva
-        if out:
-            guardado = os.path.abspath(out)
-        else:
-            nombre_defecto = generate_filename(entry_main.get()) + ".xml"
-            guardado = os.path.abspath(nombre_defecto)
-
-        messagebox.showinfo(
-            "Conversión a XML-TEI completada",
-            f"Archivo TEI generado en:\n{guardado}"
-        )
+        
+        def do_conversion():
+            convert_docx_to_tei(
+                main_docx=entry_main.get(),
+                notas_docx=entry_com.get() or None,
+                aparato_docx=entry_apa.get() or None,
+                metadata_docx=entry_meta.get() or None,
+                output_file=out,
+                save=True,
+                header_mode=header_mode_var.get()
+            )
+            # Retornamos la ruta del archivo guardado
+            if out:
+                return os.path.abspath(out)
+            else:
+                return os.path.abspath(generate_filename(entry_main.get()) + ".xml")
+        
+        def on_success(guardado):
+            messagebox.showinfo("Conversión a XML-TEI completada", f"Archivo TEI generado en:\n{guardado}")
+        
+        def on_error(e):
+            messagebox.showerror("Error en la conversión", f"Ocurrió un error durante la conversión:\n{str(e)}")
+        
+        run_with_progress(do_conversion, "Generando archivo XML-TEI...", on_success, on_error)
 
     # Altura adaptable botón de conversión
     conversion_button_height = max(36, int(window_height * 0.045))
@@ -522,6 +560,54 @@ def main_gui():
     # Grid del main_frame
     main_frame.columnconfigure(0, weight=1, uniform="cols")
     main_frame.columnconfigure(1, weight=2, uniform="cols")
+
+    # ==== BARRA DE PROGRESO ====
+    progress_frame = ctk.CTkFrame(main_parent, fg_color="transparent")
+    progress_frame.pack(fill="x", padx=10, pady=(0, 5))
+    
+    progress_label = ctk.CTkLabel(progress_frame, text="", font=("Segoe UI", label_font))
+    progress_label.pack()
+    
+    progress_bar = ctk.CTkProgressBar(progress_frame, width=int(window_width * 0.8), height=8)
+    progress_bar.pack(pady=(5, 0))
+    progress_bar.set(0)
+    progress_frame.pack_forget()  # Ocultar inicialmente
+
+    def run_with_progress(task_func, message, on_success=None, on_error=None):
+        """
+        Ejecuta una tarea en un thread secundario mostrando barra de progreso.
+        - task_func: función que ejecuta la tarea y retorna el resultado
+        - message: texto a mostrar durante la ejecución
+        - on_success: callback(result) al completar exitosamente
+        - on_error: callback(exception) en caso de error
+        """
+        def show_progress():
+            progress_frame.pack(fill="x", padx=10, pady=(0, 5), before=footer_frame)
+            progress_label.configure(text=message)
+            progress_bar.configure(mode="indeterminate")
+            progress_bar.start()
+        
+        def hide_progress():
+            progress_bar.stop()
+            progress_bar.configure(mode="determinate")
+            progress_bar.set(0)
+            progress_frame.pack_forget()
+        
+        def worker():
+            try:
+                root.after(0, show_progress)
+                result = task_func()
+                root.after(0, hide_progress)
+                if on_success:
+                    root.after(0, lambda: on_success(result))
+            except Exception as e:
+                root.after(0, hide_progress)
+                if on_error:
+                    root.after(0, lambda: on_error(e))
+                else:
+                    root.after(0, lambda: messagebox.showerror("Error", str(e)))
+        
+        threading.Thread(target=worker, daemon=True).start()
 
     # ==== PIE DE PÁGINA ====
     try:
