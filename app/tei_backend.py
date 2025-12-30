@@ -153,6 +153,21 @@ def extract_text_with_italics(para):
             text += escape_xml(run.text)
     return text.strip()
 
+def normalize_id(text):
+    """
+    Normaliza texto para crear IDs XML seguros.
+    Elimina tildes, convierte a minúsculas, reemplaza espacios y caracteres especiales por guiones bajos.
+    """
+    # Descomponer caracteres acentuados
+    normalized = unicodedata.normalize('NFKD', text)
+    # Eliminar marcas diacríticas (tildes, acentos, etc.)
+    normalized = normalized.encode('ascii', 'ignore').decode('utf-8')
+    # Reemplazar caracteres especiales por guiones bajos
+    normalized = re.sub(r'[^A-Za-z0-9_-]+', '_', normalized)
+    # Convertir a minúsculas
+    normalized = normalized.lower()
+    return normalized
+
 def uppercase_preserve_tags(text):
     """
     Convierte texto a mayúsculas preservando etiquetas XML.
@@ -1242,7 +1257,8 @@ def convert_docx_to_tei(
             if role_name:
                 # Eliminar @ para el nombre limpio
                 role_name_clean = re.sub(r'@', '', role_name)
-                role_id = re.sub(r'[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ_-]+', '_', role_name_clean)
+                # Normalizar el ID: eliminar tildes, espacios y caracteres especiales
+                role_id = normalize_id(role_name_clean)
                 tei.append(f'            <castItem><role xml:id="{role_id}">{processed_role_name}</role></castItem>')
                 # Llenar el diccionario de personajes aquí
                 characters[role_name_clean] = role_id
