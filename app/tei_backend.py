@@ -657,7 +657,9 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
         # Gestión del título principal "PRÓLOGO"
         if not head_inserted and "prólogo" in text.lower():
             flush_paragraph_buffer()
-            tei_front.append(f'        <head type="divTitle" subtype="MenuLevel_1">PRÓLOGO</head>')
+            # Usar 'raw' para preservar notas al pie, quitando el # si existe
+            title_prologo = raw.lstrip("#").strip()
+            tei_front.append(f'        <head type="divTitle" subtype="MenuLevel_1">{title_prologo}</head>')
             head_inserted = True
             continue
 
