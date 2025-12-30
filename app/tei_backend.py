@@ -1164,7 +1164,6 @@ def convert_docx_to_tei(
     
     act_counter = 0
     verse_counter = 1
-    current_milestone = None   # ← inicializado aquí
 
     # Título procesado con el mismo contador de anotaciones
     title_para = doc.paragraphs[title_idx]
@@ -1231,8 +1230,13 @@ def convert_docx_to_tei(
         # 1) Detección de estrofas marcadas con $nombreMilestone
         milestone_match = re.match(r'^\$(\w+)', text_simple)
         if milestone_match:
-            current_milestone = milestone_match.group(1)
-            continue  # saltamos el resto: sólo guardamos el tipo de estrofa
+            milestone_type = milestone_match.group(1)
+            # Insertar el milestone inmediatamente en la posición actual
+            if state["in_sp"]:
+                tei.append(f'            <milestone unit="stanza" type="{milestone_type}"/>')
+            elif state["in_dedicatoria"]:
+                tei.append(f'          <milestone unit="stanza" type="{milestone_type}"/>')
+            continue  # saltar el resto del procesamiento para este párrafo
 
         # 2) Antes de abrir un nuevo bloque estilístico, cerramos los que estén abiertos
         if style in ["Epigr_Dramatis", "Acto", "Epigr_Dedic"]:
@@ -1284,9 +1288,6 @@ def convert_docx_to_tei(
                 processed_verse = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
                 tei.append(f'          <l>{processed_verse}</l>')
             elif state["in_sp"]:
-                if current_milestone:
-                    tei.append(f'            <milestone unit="stanza" type="{current_milestone}"/>')
-                    current_milestone = None
                 verse_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
                 
                 # Procesar notas
@@ -1310,9 +1311,6 @@ def convert_docx_to_tei(
             # Laguna de extensión incierta - no incrementa el contador de versos
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "gap")
             if state["in_sp"]:
-                if current_milestone:
-                    tei.append(f'            <milestone unit="stanza" type="{current_milestone}"/>')
-                    current_milestone = None
                 tei.append(f'            <gap>{processed_text}</gap>')
             elif state["in_dedicatoria"]:
                 tei.append(f'          <gap>{processed_text}</gap>')
