@@ -170,9 +170,16 @@ tei-div {
     margin-top: 0.5em;
 }
 
+/* Subsecciones del prólogo con más separación visual */
+tei-div[type="subsection"] {
+    margin-top: 2.5em;
+    margin-bottom: 1.5em;
+}
+
+/* Párrafos con espaciado generoso para legibilidad */
 tei-p {
     display: block;
-    margin-top: 0.5em;
+    margin: 1em 0;
     text-align: justify;
     line-height: 1.5em;
     font-size: 1.1em;
@@ -189,23 +196,26 @@ tei-standoff {
 }
 
 /* === ENCABEZADOS === */
-tei-head {
-    font-size: 200%;
-    text-align: center;
-    margin-bottom: 0.5em;
-}
-tei-div[type="cover"] tei-head {
-    font-size: 300%;
-}
+/* Jerarquía de títulos: 3 niveles según estructura del documento */
 
-/* === TÍTULO Y SUBTÍTULO === */
-tei-head[type="mainTitle"] {
+/* NIVEL 1: Título principal de la obra y secciones principales (Prólogo) */
+tei-head[type="mainTitle"],
+tei-div[type="Introducción"] > tei-head {
     display: block;
     font-size: 200%;
     font-weight: bold;
     text-align: center;
+    margin-top: 1.5em;
+    margin-bottom: 1em;
+}
+
+/* Título principal con menos margen superior */
+tei-head[type="mainTitle"] {
+    margin-top: 0.5em;
     margin-bottom: 0.3em;
 }
+
+/* Subtítulo de la obra */
 tei-head[type="subTitle"] {
     display: block;
     font-size: 120%;
@@ -213,8 +223,41 @@ tei-head[type="subTitle"] {
     font-style: italic;
     text-align: center;
     margin-top: 0;
-    margin-bottom: 1em;
+    margin-bottom: 1.5em;
     color: #555;
+}
+
+/* NIVEL 2: Subsecciones del prólogo (marcadas con #) */
+tei-div[type="subsection"] > tei-head {
+    font-size: 150%;
+    font-weight: 600;
+    margin-top: 2em;
+    margin-bottom: 0.8em;
+}
+
+/* NIVEL 3: Actos dentro del resumen del argumento */
+tei-div[type="subsection"] tei-div[type="act"] > tei-head,
+tei-div[subtype*="acto"] > tei-head {
+    font-size: 120%;
+    font-weight: 600;
+    font-style: italic;
+    margin-top: 1.5em;
+    margin-bottom: 0.6em;
+    color: #444;
+}
+
+/* Portada con título más grande */
+tei-div[type="cover"] tei-head {
+    font-size: 300%;
+}
+
+/* Encabezados generales (fallback) */
+tei-head {
+    display: block;
+    text-align: center;
+    font-size: 150%;
+    margin-top: 1.5em;
+    margin-bottom: 1em;
 }
 
 /* === LISTAS Y ELEMENTOS DE LISTA === */
@@ -277,21 +320,20 @@ tei-l[part="F"] {
 }
 
 /* === Prosa, omisiones y epígrafe final === */
+/* Elementos de diálogo alineados con los versos */
 tei-sp tei-p,
-tei-sp tei-gap,
-tei-trailer {
+tei-sp tei-gap {
     display: block;
     font-size: 1.1em;
     line-height: 1.2em;
     position: relative;
     padding-left: 200px;
     text-indent: 0;
-    margin-top: 0.2em;
-    margin-bottom: 0.2em;
+    margin: 0.2em 0;
     text-align: justify;
 }
 
-/* Pseudo-elemento invisible para alinear con los versos que tienen número */
+/* Pseudo-elemento invisible para alinear con los versos numerados */
 tei-sp tei-p::before,
 tei-sp tei-gap::before {
     content: "";
@@ -300,10 +342,16 @@ tei-sp tei-gap::before {
     margin-right: 1em;
 }
 
+/* Epígrafe final centrado y decorado */
 tei-trailer {
+    display: block;
+    font-size: 1.1em;
+    line-height: 1.2em;
     font-style: normal;
     text-align: center;
+    padding-left: 0;
     margin-top: 2em;
+    margin-bottom: 0.2em;
     text-decoration: dashed underline;
     text-underline-offset: 0.5em;
 }
@@ -326,15 +374,16 @@ tei-speaker {
 }
 
 /* === ACOTACIONES ESCÉNICAS === */
+/* Didascalias con fondo sutil y borde para distinguirlas del texto */
 tei-stage {
     display: block;
     font-style: italic;
-    font-size: 1.1em;
-    margin-top: 1em;
-    margin-bottom: 1em;
-    padding: 0.5em;
-    background-color: #eee;
-    border-left: 3px solid #ccc;
+    font-size: 1.05em;
+    margin: 1em 0;
+    padding: 0.6em 0.8em;
+    background-color: #f5f5f0;
+    border-left: 3px solid #bbb;
+    line-height: 1.4em;
 }
 
 /* === NOTAS Y FOOTNOTES === */
