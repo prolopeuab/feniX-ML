@@ -153,6 +153,14 @@ def extract_text_with_italics(para):
             text += escape_xml(run.text)
     return text.strip()
 
+def uppercase_preserve_tags(text):
+    """
+    Convierte texto a mayúsculas preservando etiquetas XML.
+    Ejemplo: "<hi rend='italic'>palabra</hi>" → "<hi rend='italic'>PALABRA</hi>"
+    """
+    parts = re.split(r'(<[^>]+>)', text)
+    return ''.join(part.upper() if not part.startswith('<') else part for part in parts)
+
 def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, section):
     """
     Extrae el texto de un párrafo procesando anotaciones (@palabra) y cursivas.
@@ -1454,7 +1462,9 @@ def convert_docx_to_tei(
             
             # SIEMPRE insertar <speaker> en cada nuevo <sp>
             # Cada intervención es un <sp> separado y debe tener su propio <speaker>
-            tei.append(f'          <speaker>{processed}</speaker>')
+            # Convertir speaker a mayúsculas, preservando etiquetas XML
+            processed_upper = uppercase_preserve_tags(processed)
+            tei.append(f'          <speaker>{processed_upper}</speaker>')
             
             state["in_sp"] = True
 
