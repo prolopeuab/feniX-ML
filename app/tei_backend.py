@@ -1166,9 +1166,6 @@ def convert_docx_to_tei(
     # Notas introductorias
     footnotes_intro = extract_intro_footnotes(main_docx)
 
-    # Para el bucle de Personaje
-    ultimo_speaker_id = None
-
 
     # --- Construcción de <front> y apertura de <body> ---
     tei = [
@@ -1455,12 +1452,10 @@ def convert_docx_to_tei(
                 # No hay who_id (personaje no encontrado en dramatis personae)
                 tei.append('        <sp>')
             
-            # Insertar <speaker> solo si es diferente al anterior
-            if who_id != ultimo_speaker_id:
-                tei.append(f'          <speaker>{processed}</speaker>')
+            # SIEMPRE insertar <speaker> en cada nuevo <sp>
+            # Cada intervención es un <sp> separado y debe tener su propio <speaker>
+            tei.append(f'          <speaker>{processed}</speaker>')
             
-            # Actualizar el último speaker
-            ultimo_speaker_id = who_id
             state["in_sp"] = True
 
         elif style == "Prosa":
