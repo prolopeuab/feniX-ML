@@ -599,13 +599,13 @@ def main_gui():
                 result = task_func()
                 root.after(0, hide_progress)
                 if on_success:
-                    root.after(0, lambda: on_success(result))
+                    root.after(0, lambda r=result: on_success(r))
             except Exception as e:
                 root.after(0, hide_progress)
                 if on_error:
-                    root.after(0, lambda: on_error(e))
+                    root.after(0, lambda err=e: on_error(err))
                 else:
-                    root.after(0, lambda: messagebox.showerror("Error", str(e)))
+                    root.after(0, lambda err=e: messagebox.showerror("Error", str(err)))
         
         threading.Thread(target=worker, daemon=True).start()
 
