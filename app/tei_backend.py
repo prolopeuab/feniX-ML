@@ -830,9 +830,23 @@ def process_annotations_raw(raw_text, nota_notes, aparato_notes, annotation_coun
 def extract_notes_with_italics(docx_path: str) -> dict:
     """
     Extrae notas o aparato de un DOCX.
-    Devuelve un dict donde las claves pueden ser int (versos) o str (palabras normalizadas)
-    y los valores son SIEMPRE LISTAS de strings (para manejar múltiples notas secuencialmente).
-    Las claves de palabras se normalizan (sin acentos, minúsculas) para facilitar coincidencias.
+    Devuelve un dict donde las claves pueden ser:
+    - int: versos normales (ej: 329)
+    - str: palabras normalizadas (ej: "dedicatoria") o versos con sufijo alfabético (ej: "329a", "329b")
+    
+    Los valores son SIEMPRE LISTAS de strings (para manejar múltiples notas secuencialmente).
+    
+    SUFIJOS ALFABÉTICOS PARA VERSOS PARTIDOS:
+    - Los versos partidos usan sufijos: 329a (primera parte), 329b (segunda parte), etc.
+    - El sufijo se asigna secuencialmente según el orden de las partes
+    - Ejemplo: verso con 3 partes tendría "329a:", "329b:", "329c:" en el archivo de notas
+    - Funciona para cualquier número de partes (a-z soporta hasta 26 partes)
+    
+    FORMATO EN ARCHIVO DE NOTAS:
+    - Verso normal: "329: contenido de la nota"
+    - Verso partido parte 1: "329a: contenido de la nota"
+    - Verso partido parte 2: "329b: contenido de la nota"
+    - Palabra: "@dedicatoria: contenido de la nota"
     """
     notes: dict = {}
     if not docx_path or not os.path.exists(docx_path):
@@ -850,19 +864,28 @@ def extract_notes_with_italics(docx_path: str) -> dict:
     for para in doc.paragraphs:
         text = extract_text_with_italics(para).strip()
 
-        # Notas tipo verso: "1: contenido"
-        match_verse = re.match(r'^(\d+):\s*(.*)', text)
+        # Notas tipo verso: "1: contenido" o "329a: contenido" (con sufijo alfabético)
+        # El sufijo alfabético se usa para versos partidos: 329a, 329b, 329c, etc.
+        match_verse = re.match(r'^(\d+[a-z]?):\s*(.*)', text)
         # Notas tipo @palabra: "@palabra: contenido"
         match_single = re.match(r'^@([^@]+?):\s*(.*)', text)
 
         if match_verse:
-            verse_num = int(match_verse.group(1))
+            verse_key = match_verse.group(1)  # Puede ser "329" o "329a"
             content = match_verse.group(2).strip()
             
+            # Si tiene sufijo alfabético, usar como string; si no, convertir a int
+            if re.match(r'^\d+[a-z]$', verse_key):
+                # Tiene sufijo: usar string como clave (ej: "329a")
+                key = verse_key
+            else:
+                # Sin sufijo: convertir a int para retrocompatibilidad
+                key = int(verse_key)
+            
             # Siempre usar listas para facilitar el acceso secuencial
-            if verse_num not in notes:
-                notes[verse_num] = []
-            notes[verse_num].append(content)
+            if key not in notes:
+                notes[key] = []
+            notes[key].append(content)
                 
         elif match_single:
             key_original = match_single.group(1).strip()
@@ -1221,9 +1244,11 @@ def convert_docx_to_tei(
 
         elif style == "Acto":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
+            # Convertir a mayúsculas para mantener consistencia visual
+            processed_text_upper = processed_text.upper()
             act_counter += 1
             tei.append(f'        <div type="subsection" subtype="ACTO" n="{act_counter}" xml:id="acto{act_counter}">')
-            tei.append(f'          <head type="acto">{processed_text}</head>')
+            tei.append(f'          <head type="acto">{processed_text_upper}</head>')
             state["in_act"] = True
 
         elif style == "Prosa":
@@ -1270,52 +1295,137 @@ def convert_docx_to_tei(
                 tei.append(f'          <gap>{processed_text}</gap>')
 
         elif style == "Partido_inicial":
-            # Almacenar información del verso partido para procesamiento posterior
+            # Iniciar verso partido con sistema de sufijos alfabéticos
+            # El sufijo 'a' se asigna a la primera parte, 'b' a la segunda, etc.
             if not hasattr(state, "pending_split_verse"):
                 state["pending_split_verse"] = {}
             
             verse_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
             text_simple = para.text.strip()
             
+            # Inicializar estado del verso partido
+            state["current_split_verse"] = verse_counter
+            state["split_verse_part_index"] = 0
+            
+            # Calcular sufijo alfabético para esta parte (primera parte = 'a')
+            letra = chr(97 + state["split_verse_part_index"])  # 97 = 'a' en ASCII
+            verse_key_with_suffix = f"{verse_counter}{letra}"
+            
             state["pending_split_verse"] = {
                 "verse_number": verse_counter,
                 "initial_text": text_simple,
                 "parts": [text_simple],
-                "has_notes": verse_counter in nota_notes or verse_counter in aparato_notes
+                "has_notes": verse_counter in nota_notes or verse_counter in aparato_notes or verse_key_with_suffix in nota_notes or verse_key_with_suffix in aparato_notes
             }
             
-            # Procesar notas
-            if verse_counter in nota_notes:
+            # Procesar notas con clave que incluye sufijo (ej: "329a")
+            # Buscar primero con sufijo, luego sin sufijo para retrocompatibilidad
+            if verse_key_with_suffix in nota_notes:
+                note_list = nota_notes[verse_key_with_suffix]
+                for i, content in enumerate(note_list, 1):
+                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{verse_counter}{letra}_{i}">{content}</note>'
+            elif verse_counter in nota_notes:
+                # Retrocompatibilidad: buscar sin sufijo
                 note_list = nota_notes[verse_counter]
                 for i, content in enumerate(note_list, 1):
-                    verse_text += f'<note subtype="nota" n="{verse_counter}" xml:id="nota_{verse_counter}_{i}">{content}</note>'
+                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{verse_counter}{letra}_{i}">{content}</note>'
             
             # Mismo tratamiento para aparato
-            if verse_counter in aparato_notes:
+            if verse_key_with_suffix in aparato_notes:
+                aparato_list = aparato_notes[verse_key_with_suffix]
+                for i, content in enumerate(aparato_list, 1):
+                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{verse_counter}{letra}_{i}">{content}</note>'
+            elif verse_counter in aparato_notes:
+                # Retrocompatibilidad: buscar sin sufijo
                 aparato_list = aparato_notes[verse_counter]
                 for i, content in enumerate(aparato_list, 1):
-                    verse_text += f'<note subtype="aparato" n="{verse_counter}" xml:id="aparato_{verse_counter}_{i}">{content}</note>'
+                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{verse_counter}{letra}_{i}">{content}</note>'
             
-            tei.append(f'            <l part="I" n="{verse_counter}">{verse_text}</l>')
+            # Incrementar índice de parte para la siguiente parte del verso
+            state["split_verse_part_index"] += 1
+            
+            tei.append(f'            <l part="I" n="{verse_key_with_suffix}">{verse_text}</l>')
             verse_counter += 1
 
         elif style == "Partido_medio":
-            # Añadir parte media al verso partido pendiente
+            # Procesar parte media del verso partido con sufijo alfabético
             text_simple = para.text.strip()
             verse_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
+            
+            # Recuperar número base del verso partido
+            if state.get("current_split_verse") is not None:
+                base_verse = state["current_split_verse"]
+                part_index = state.get("split_verse_part_index", 1)
+            else:
+                # Fallback: si no hay estado, usar verso anterior
+                print(f"⚠️ Advertencia: Partido_medio sin Partido_inicial previo")
+                base_verse = verse_counter - 1
+                part_index = 1
+            
+            # Calcular sufijo alfabético para esta parte (segunda parte = 'b', tercera = 'c', etc.)
+            letra = chr(97 + part_index)  # 97 = 'a' en ASCII
+            verse_key_with_suffix = f"{base_verse}{letra}"
+            
             if hasattr(state, "pending_split_verse") and state.get("pending_split_verse"):
                 state["pending_split_verse"]["parts"].append(text_simple)
-            tei.append(f'            <l part="M">{verse_text}</l>')
+            
+            # Procesar notas con clave que incluye sufijo (ej: "329b", "329c")
+            if verse_key_with_suffix in nota_notes:
+                note_list = nota_notes[verse_key_with_suffix]
+                for i, content in enumerate(note_list, 1):
+                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{base_verse}{letra}_{i}">{content}</note>'
+            
+            if verse_key_with_suffix in aparato_notes:
+                aparato_list = aparato_notes[verse_key_with_suffix]
+                for i, content in enumerate(aparato_list, 1):
+                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{base_verse}{letra}_{i}">{content}</note>'
+            
+            # Incrementar índice de parte para la siguiente parte
+            if "split_verse_part_index" in state:
+                state["split_verse_part_index"] += 1
+            
+            tei.append(f'            <l part="M" n="{verse_key_with_suffix}">{verse_text}</l>')
 
         elif style == "Partido_final":
-            # Completar el verso partido y limpiar estado
+            # Completar el verso partido con sufijo alfabético y limpiar estado
             text_simple = para.text.strip()
             verse_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
+            
+            # Recuperar número base del verso partido
+            if state.get("current_split_verse") is not None:
+                base_verse = state["current_split_verse"]
+                part_index = state.get("split_verse_part_index", 1)
+            else:
+                # Fallback: si no hay estado, usar verso anterior
+                print(f"⚠️ Advertencia: Partido_final sin Partido_inicial previo")
+                base_verse = verse_counter - 1
+                part_index = 1
+            
+            # Calcular sufijo alfabético para esta parte final
+            letra = chr(97 + part_index)  # 97 = 'a' en ASCII
+            verse_key_with_suffix = f"{base_verse}{letra}"
+            
             if hasattr(state, "pending_split_verse") and state.get("pending_split_verse"):
                 state["pending_split_verse"]["parts"].append(text_simple)
                 # El verso partido está completo, limpiar estado
                 state["pending_split_verse"] = None
-            tei.append(f'            <l part="F">{verse_text}</l>')
+            
+            # Procesar notas con clave que incluye sufijo (ej: "329c", "329d")
+            if verse_key_with_suffix in nota_notes:
+                note_list = nota_notes[verse_key_with_suffix]
+                for i, content in enumerate(note_list, 1):
+                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{base_verse}{letra}_{i}">{content}</note>'
+            
+            if verse_key_with_suffix in aparato_notes:
+                aparato_list = aparato_notes[verse_key_with_suffix]
+                for i, content in enumerate(aparato_list, 1):
+                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{base_verse}{letra}_{i}">{content}</note>'
+            
+            # Limpiar estado del verso partido
+            state["current_split_verse"] = None
+            state["split_verse_part_index"] = None
+            
+            tei.append(f'            <l part="F" n="{verse_key_with_suffix}">{verse_text}</l>')
 
         elif style == "Acot":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "stage")
