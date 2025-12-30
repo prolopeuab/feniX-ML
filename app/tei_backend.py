@@ -1046,30 +1046,38 @@ def convert_docx_to_tei(
     header = tei_header if tei_header else tei_header_respaldo
 
     # Carga del DOCX principal
-    doc = Document(main_docx)
+    try:
+        doc = Document(main_docx)
+    except Exception as e:
+        raise RuntimeError(f"Error al abrir el archivo DOCX principal '{main_docx}': {e}")
 
     # --- SEPARACIÓN FRONT/BODY BASADA EN 'Titulo_comedia' ---
 
-    # 1) Busca la posición del primer párrafo con style 'Titulo_comedia'
-    title_idx = next(
-        (i for i, p in enumerate(doc.paragraphs)
-        if p.style and p.style.name == "Titulo_comedia"),
-        None
-    )
-    if title_idx is None:
+    # 1) Buscar todos los párrafos con estilo 'Titulo_comedia' (máximo 2: título y subtítulo)
+    title_paragraphs = []
+    for i, p in enumerate(doc.paragraphs):
+        if p.style and p.style.name == "Titulo_comedia":
+            title_paragraphs.append(i)
+            # Solo nos interesan los primeros 2 consecutivos
+            if len(title_paragraphs) == 2:
+                break
+        elif title_paragraphs:
+            # Si ya encontramos al menos uno y este no tiene el estilo, paramos
+            break
+    
+    if not title_paragraphs:
         raise RuntimeError("No se encontró ningún párrafo con estilo 'Titulo_comedia' en el documento")
 
+    title_idx = title_paragraphs[0]
+    subtitle_idx = title_paragraphs[1] if len(title_paragraphs) > 1 else None
+
     # 2) Divide la lista de párrafos en front y body
+    # El body comienza después del título (y subtítulo si existe)
+    body_start_idx = (subtitle_idx + 1) if subtitle_idx is not None else (title_idx + 1)
     front_paragraphs = list(doc.paragraphs[:title_idx])
-    body_paragraphs  = list(doc.paragraphs[title_idx:])
+    body_paragraphs  = list(doc.paragraphs[body_start_idx:])
 
-
-
-    # --- Extracción del título usando title_idx de la separación front/body ---
-    if title_idx is None:
-        # Ya habíamos detectado esto antes; si quisieras recuperar aquí:
-        raise RuntimeError("No se encontró ningún párrafo con estilo 'Titulo_comedia' para extraer el título.")
-
+    # --- Extracción del título ---
     raw_title = doc.paragraphs[title_idx].text.strip()
     # Generar la clave/slug a partir del título (sin marcadores @)
     clean_title_for_filename = re.sub(r'@', '', raw_title)
@@ -1120,6 +1128,18 @@ def convert_docx_to_tei(
         "head"
     )
 
+    # Subtítulo procesado (si existe)
+    processed_subtitle = None
+    if subtitle_idx is not None:
+        subtitle_para = doc.paragraphs[subtitle_idx]
+        processed_subtitle = extract_text_with_italics_and_annotations(
+            subtitle_para,
+            nota_notes,
+            aparato_notes,
+            annotation_counter,
+            "head"
+        )
+
     # Notas introductorias
     footnotes_intro = extract_intro_footnotes(main_docx)
 
@@ -1135,21 +1155,25 @@ def convert_docx_to_tei(
         '<TEI xmlns="http://www.tei-c.org/ns/1.0">',
         header,                       # ya generado arriba
         '  <text>',
-        '    <front>',
-        '      <div type="Introducción">'
+        '    <front xml:id="front">',
+        '      <div type="Introducción" xml:id="prologo">'
     ]
 
     # Inserta el contenido de <front>, incluyendo notas introductorias y tablas
     tei.append(process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro))
 
-    # Cerramos el front y abrimos el body con el título principal
+    # Cerramos el front y abrimos el body con el título principal (y subtítulo si existe)
     tei.extend([
         '      </div>',    # cierra <div type="Introducción">
         '    </front>',
-        '    <body>',
-        '      <div type="Texto" subtype="TEXTO">',
-        f'        <head type="mainTitle">{processed_title}</head>',
+        '    <body xml:id="body">',
+        '      <div type="Texto" subtype="TEXTO" xml:id="comedia">',
+        f'        <head type="mainTitle" xml:id="titulo">{processed_title}</head>',
     ])
+    
+    # Añadir subtítulo si existe
+    if processed_subtitle:
+        tei.append(f'        <head type="subTitle">{processed_subtitle}</head>')
 
 
     # Recorre todos los párrafos del cuerpo para identificar y procesar cada bloque estilístico
@@ -1172,13 +1196,13 @@ def convert_docx_to_tei(
 
         if style == "Epigr_Dedic":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
-            tei.append('        <div type="dedicatoria">')
+            tei.append('        <div type="dedicatoria" xml:id="dedicatoria">')
             tei.append(f'          <head>{processed_text}</head>')
             state["in_dedicatoria"] = True
 
         elif style == "Epigr_Dramatis":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
-            tei.append('        <div type="castList">')
+            tei.append('        <div type="castList" xml:id="personajes">')
             tei.append(f'            <head>{processed_text}</head>')
             tei.append('          <castList>')
             state["in_cast_list"] = True
@@ -1198,7 +1222,7 @@ def convert_docx_to_tei(
         elif style == "Acto":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
             act_counter += 1
-            tei.append(f'        <div type="subsection" subtype="ACTO" n="{act_counter}">')
+            tei.append(f'        <div type="subsection" subtype="ACTO" n="{act_counter}" xml:id="acto{act_counter}">')
             tei.append(f'          <head type="acto">{processed_text}</head>')
             state["in_act"] = True
 

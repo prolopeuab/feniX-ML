@@ -97,8 +97,6 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode=
             header_mode=header_mode
         )
 
-        ESTILOS_CSS = load_resource("resources/estilos.css")
-        CETEI_JS    = load_resource("resources/CETEIcean.js")
         html_template = f"""<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -109,6 +107,19 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode=
     </style>
 </head>
 <body>
+    <!-- Botón de toggle del menú -->
+    <button id="nav-toggle" class="nav-toggle-btn" title="Mostrar/Ocultar menú">☰</button>
+    
+    <!-- Menú de navegación lateral -->
+    <nav id="nav-menu">
+        <div class="nav-header">
+            <span class="nav-title">Navegación</span>
+        </div>
+        <ul id="nav-list">
+            <!-- Se llenará dinámicamente con JavaScript -->
+        </ul>
+    </nav>
+    
     <div id="tei"></div>
 
     <script>
@@ -120,7 +131,172 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode=
         const ceteiInstance = new CETEI();
         const htmlNode = ceteiInstance.makeHTML5(`{tei_content}`);
         document.getElementById("tei").appendChild(htmlNode);
+        
+        // Generar menú de navegación después de renderizar el TEI
+        setTimeout(buildNavigationMenu, 100);
     }});
+    
+    function buildNavigationMenu() {{
+        const navList = document.getElementById('nav-list');
+        const menuItems = [];
+        
+        // 1. Metadatos (teiHeader)
+        const teiHeader = document.querySelector('tei-teiheader, teiHeader');
+        if (teiHeader) {{
+            teiHeader.setAttribute('id', 'metadatos');
+            menuItems.push({{
+                id: 'metadatos',
+                text: 'Metadatos',
+                level: 1,
+                element: teiHeader
+            }});
+        }}
+        
+        // 2. Prólogo (front)
+        const prologo = document.querySelector('tei-div[type="Introducción"], [xml\\\\:id="prologo"]');
+        if (prologo) {{
+            menuItems.push({{
+                id: 'prologo',
+                text: 'Prólogo',
+                level: 1,
+                element: prologo
+            }});
+            
+            // Subsecciones del prólogo
+            const subsecciones = prologo.querySelectorAll('tei-div[type="subsection"]');
+            subsecciones.forEach((sub, idx) => {{
+                const head = sub.querySelector('tei-head');
+                if (head) {{
+                    const subId = 'prologo-sub-' + (idx + 1);
+                    sub.setAttribute('id', subId);
+                    // Clonar el head para eliminar notas y obtener texto limpio
+                    const cleanHead = head.cloneNode(true);
+                    cleanHead.querySelectorAll('tei-note, note').forEach(note => note.remove());
+                    const headText = cleanHead.textContent.trim();
+                    
+                    // Si el título empieza con "ACTO", es nivel 3 (argumento por actos)
+                    // Si no, es nivel 2 (subsección normal del prólogo)
+                    if (headText.match(/^Acto/i)) {{
+                        menuItems.push({{
+                            id: subId,
+                            text: headText,
+                            level: 3,
+                            element: sub
+                        }});
+                    }} else {{
+                        menuItems.push({{
+                            id: subId,
+                            text: headText,
+                            level: 2,
+                            element: sub
+                        }});
+                    }}
+                }}
+            }});
+        }}
+        
+        // 3. Título de la comedia
+        const titulo = document.querySelector('tei-head[type="mainTitle"]');
+        if (titulo) {{
+            titulo.setAttribute('id', 'titulo');
+            // Clonar para eliminar notas y obtener texto limpio
+            const cleanTitulo = titulo.cloneNode(true);
+            cleanTitulo.querySelectorAll('tei-note, note').forEach(note => note.remove());
+            menuItems.push({{
+                id: 'titulo',
+                text: cleanTitulo.textContent.trim(),
+                level: 1,
+                element: titulo
+            }});
+        }}
+        
+        // 4. Dedicatoria
+        const dedicatoria = document.querySelector('tei-div[type="dedicatoria"]');
+        if (dedicatoria) {{
+            dedicatoria.setAttribute('id', 'dedicatoria');
+            const head = dedicatoria.querySelector('tei-head');
+            let headText = 'Dedicatoria';
+            if (head) {{
+                const cleanHead = head.cloneNode(true);
+                cleanHead.querySelectorAll('tei-note, note').forEach(note => note.remove());
+                headText = cleanHead.textContent.trim();
+            }}
+            menuItems.push({{
+                id: 'dedicatoria',
+                text: headText,
+                level: 2,
+                element: dedicatoria
+            }});
+        }}
+        
+        // 5. Lista de personajes
+        const personajes = document.querySelector('tei-div[type="castList"]');
+        if (personajes) {{
+            personajes.setAttribute('id', 'personajes');
+            const head = personajes.querySelector('tei-head');
+            let headText = 'Personajes';
+            if (head) {{
+                const cleanHead = head.cloneNode(true);
+                cleanHead.querySelectorAll('tei-note, note').forEach(note => note.remove());
+                headText = cleanHead.textContent.trim();
+            }}
+            menuItems.push({{
+                id: 'personajes',
+                text: headText,
+                level: 2,
+                element: personajes
+            }});
+        }}
+        
+        // 6. Actos (nivel 2, igual que Dedicatoria y Personajes)
+        const actos = document.querySelectorAll('tei-div[subtype="ACTO"]');
+        actos.forEach((acto, idx) => {{
+            const actoId = 'acto' + (idx + 1);
+            acto.setAttribute('id', actoId);
+            const head = acto.querySelector('tei-head[type="acto"]');
+            let headText = 'Acto ' + (idx + 1);
+            if (head) {{
+                const cleanHead = head.cloneNode(true);
+                cleanHead.querySelectorAll('tei-note, note').forEach(note => note.remove());
+                headText = cleanHead.textContent.trim();
+            }}
+            menuItems.push({{
+                id: actoId,
+                text: headText,
+                level: 2,
+                element: acto
+            }});
+        }});
+        
+        // Construir el HTML del menú
+        menuItems.forEach(item => {{
+            const li = document.createElement('li');
+            li.className = 'nav-item nav-level-' + item.level;
+            
+            const a = document.createElement('a');
+            a.href = '#' + item.id;
+            a.textContent = item.text;
+            a.addEventListener('click', function(e) {{
+                e.preventDefault();
+                item.element.scrollIntoView({{ behavior: 'smooth', block: 'start' }});
+                
+                // Resaltar brevemente la sección
+                item.element.classList.add('nav-highlight');
+                setTimeout(() => item.element.classList.remove('nav-highlight'), 1500);
+            }});
+            
+            li.appendChild(a);
+            navList.appendChild(li);
+        }});
+        
+        // Toggle del menú
+        const navToggle = document.getElementById('nav-toggle');
+        const navMenu = document.getElementById('nav-menu');
+        navToggle.addEventListener('click', function() {{
+            navMenu.classList.toggle('nav-open');
+            document.body.classList.toggle('nav-open');
+        }});
+    }}
     </script>
 </body>
 </html>
