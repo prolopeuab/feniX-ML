@@ -12,6 +12,7 @@ import os
 import sys
 import tempfile
 import webbrowser
+import traceback
 import tkinter as tk
 from tkinter import messagebox, scrolledtext
 from tei_backend import convert_docx_to_tei
@@ -72,7 +73,9 @@ def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root, header_
         text_area.configure(state='disabled')
 
     except Exception as e:
-        messagebox.showerror("Error", f"Se ha producido un error:\n{e}")
+        error_details = traceback.format_exc()
+        print(f"Error en vista_previa_xml:\n{error_details}")
+        messagebox.showerror("Error", f"Se ha producido un error:\n{e}\n\nDetalles técnicos guardados en consola.")
 
 def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode="prolope"):
     """
@@ -309,4 +312,6 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode=
         webbrowser.open(f"file://{tmp_file.name}")
 
     except Exception as e:
-        messagebox.showerror("Error", f"Se ha producido un error:\n{e}")
+        error_details = traceback.format_exc()
+        print(f"Error en vista_previa_html:\n{error_details}")
+        messagebox.showerror("Error", f"Se ha producido un error:\n{e}\n\nDetalles técnicos guardados en consola.")

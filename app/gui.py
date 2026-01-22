@@ -15,6 +15,7 @@ import webbrowser
 import ctypes
 import json
 import threading
+import traceback
 from tkinter import filedialog, messagebox
 
 # Usar CustomTkinter para esquinas redondeadas verdaderas
@@ -536,7 +537,9 @@ def main_gui():
             messagebox.showinfo("Conversión a XML-TEI completada", f"Archivo TEI generado en:\n{guardado}")
         
         def on_error(e):
-            messagebox.showerror("Error en la conversión", f"Ocurrió un error durante la conversión:\n{str(e)}")
+            error_details = traceback.format_exc()
+            print(f"Error en conversión:\n{error_details}")
+            messagebox.showerror("Error en la conversión", f"Ocurrió un error durante la conversión:\n{str(e)}\n\nDetalles técnicos guardados en consola.")
         
         run_with_progress(do_conversion, "Generando archivo XML-TEI...", on_success, on_error)
 

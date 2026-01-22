@@ -245,6 +245,9 @@ def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, a
         
         # Obtener índice de ocurrencia
         occurrence_index = occurrence_counters.get(key, 0)
+        # Validación defensiva: asegurar que occurrence_index nunca sea None
+        if occurrence_index is None:
+            occurrence_index = 0
         occurrence_counters[key] = occurrence_index + 1
         
         # Construir las notas
@@ -811,6 +814,9 @@ def process_annotations_raw(raw_text, nota_notes, aparato_notes, annotation_coun
         
         # Obtener el índice de ocurrencia actual (0-indexed)
         occurrence_index = occurrence_counters.get(key, 0)
+        # Validación defensiva: asegurar que occurrence_index nunca sea None
+        if occurrence_index is None:
+            occurrence_index = 0
         occurrence_counters[key] = occurrence_index + 1
         
         # Construir las notas correspondientes a esta ocurrencia
@@ -986,6 +992,9 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
         
         # Obtener el índice de ocurrencia actual (0-indexed)
         occurrence_index = occurrence_counters.get(key, 0)
+        # Validación defensiva: asegurar que occurrence_index nunca sea None
+        if occurrence_index is None:
+            occurrence_index = 0
         occurrence_counters[key] = occurrence_index + 1
         
         # Construir las notas correspondientes a esta ocurrencia
@@ -1174,6 +1183,8 @@ def convert_docx_to_tei(
         annotation_counter,
         "head"
     )
+    # Convertir título a mayúsculas preservando etiquetas XML
+    processed_title = uppercase_preserve_tags(processed_title)
 
     # Subtítulo procesado (si existe)
     processed_subtitle = None
@@ -1186,6 +1197,8 @@ def convert_docx_to_tei(
             annotation_counter,
             "head"
         )
+        # Convertir subtítulo a mayúsculas preservando etiquetas XML
+        processed_subtitle = uppercase_preserve_tags(processed_subtitle)
 
     # Notas introductorias
     footnotes_intro = extract_intro_footnotes(main_docx)
@@ -1271,8 +1284,8 @@ def convert_docx_to_tei(
 
         elif style == "Acto":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
-            # Convertir a mayúsculas para mantener consistencia visual
-            processed_text_upper = processed_text.upper()
+            # Convertir a mayúsculas preservando etiquetas XML
+            processed_text_upper = uppercase_preserve_tags(processed_text)
             act_counter += 1
             tei.append(f'        <div type="subsection" subtype="ACTO" n="{act_counter}" xml:id="acto{act_counter}">')
             tei.append(f'          <head type="acto">{processed_text_upper}</head>')
@@ -1376,10 +1389,12 @@ def convert_docx_to_tei(
             # Recuperar número base del verso partido
             if state.get("current_split_verse") is not None:
                 base_verse = state["current_split_verse"]
-                part_index = state.get("split_verse_part_index", 1)
+                part_index = state.get("split_verse_part_index")
+                # Validación defensiva: asegurar que part_index nunca sea None
+                if part_index is None:
+                    part_index = 1
             else:
-                # Fallback: si no hay estado, usar verso anterior
-                print(f"⚠️ Advertencia: Partido_medio sin Partido_inicial previo")
+                # Fallback: si no hay estado, usar verso anterior (puede ocurrir en secuencias válidas)
                 base_verse = verse_counter - 1
                 part_index = 1
             
@@ -1402,8 +1417,11 @@ def convert_docx_to_tei(
                     verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{base_verse}{letra}_{i}">{content}</note>'
             
             # Incrementar índice de parte para la siguiente parte
-            if "split_verse_part_index" in state:
+            if "split_verse_part_index" in state and state["split_verse_part_index"] is not None:
                 state["split_verse_part_index"] += 1
+            else:
+                # Si no existe o es None, inicializar a 2 (ya procesamos la primera parte)
+                state["split_verse_part_index"] = 2
             
             tei.append(f'            <l part="M" n="{verse_key_with_suffix}">{verse_text}</l>')
 
@@ -1415,10 +1433,12 @@ def convert_docx_to_tei(
             # Recuperar número base del verso partido
             if state.get("current_split_verse") is not None:
                 base_verse = state["current_split_verse"]
-                part_index = state.get("split_verse_part_index", 1)
+                part_index = state.get("split_verse_part_index")
+                # Validación defensiva: asegurar que part_index nunca sea None
+                if part_index is None:
+                    part_index = 1
             else:
-                # Fallback: si no hay estado, usar verso anterior
-                print(f"⚠️ Advertencia: Partido_final sin Partido_inicial previo")
+                # Fallback: si no hay estado, usar verso anterior (puede ocurrir en secuencias válidas)
                 base_verse = verse_counter - 1
                 part_index = 1
             
