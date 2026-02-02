@@ -1275,15 +1275,24 @@ def convert_docx_to_tei(
             continue  # saltar el resto del procesamiento para este párrafo
 
         # 2) Antes de abrir un nuevo bloque estilístico, cerramos los que estén abiertos
-        if style in ["Epigr_Dramatis", "Acto", "Epigr_Dedic"]:
+        # Nota: Epigr_Dedic no cierra dedicatoria si ya está abierta (para permitir dos head consecutivos)
+        if style in ["Epigr_Dramatis", "Acto"]:
+            close_current_blocks(tei, state)
+        elif style == "Epigr_Dedic" and not state["in_dedicatoria"]:
+            # Solo cerrar bloques si no estamos ya en una dedicatoria
             close_current_blocks(tei, state)
 
 
         if style == "Epigr_Dedic":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
-            tei.append('        <div type="dedicatoria" xml:id="dedicatoria">')
-            tei.append(f'          <head>{processed_text}</head>')
-            state["in_dedicatoria"] = True
+            if not state["in_dedicatoria"]:
+                # Primer head de la dedicatoria: abrir div y usar mainTitle
+                tei.append('        <div type="dedicatoria" xml:id="dedicatoria">')
+                tei.append(f'          <head type="mainTitle">{processed_text}</head>')
+                state["in_dedicatoria"] = True
+            else:
+                # Segundo head consecutivo: usar subTitle (no abrir nuevo div)
+                tei.append(f'          <head type="subTitle">{processed_text}</head>')
 
         elif style == "Epigr_Dramatis":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
