@@ -195,8 +195,9 @@ def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, a
     if aparato_notes:
         all_keys.update(aparato_notes.keys())
     
-    # Contador de ocurrencias
-    occurrence_counters = annotation_counter.setdefault("_occurrences", {})
+    # Contadores de ocurrencias separados para notas y aparato
+    nota_counters = annotation_counter.setdefault("_occurrences_nota", {})
+    aparato_counters = annotation_counter.setdefault("_occurrences_aparato", {})
     
     # ==== PASO 1: Construir texto plano CON marcadores de cursiva ====
     # Insertar marcadores ANTES de procesar anotaciones
@@ -220,7 +221,7 @@ def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, a
     if prev_italic:
         marked_text += '<<<ITALIC_END>>>'
     
-    # ==== PASO 2: Procesar TODAS las @palabra ====
+    # ==== PASO 2: Procesar TODAS las @palabra, %palabra o @%palabra ====
     # Primero, reemplazar temporalmente los marcadores por placeholders únicos
     # que no interfieran con el regex pero sean fáciles de restaurar
     
@@ -232,52 +233,57 @@ def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, a
     text_with_placeholders = marked_text.replace('<<<ITALIC_START>>>', ITALIC_START_PLACEHOLDER)
     text_with_placeholders = text_with_placeholders.replace('<<<ITALIC_END>>>', ITALIC_END_PLACEHOLDER)
     
-    # Procesar @palabra en el texto con placeholders
-    # El regex debe ignorar los placeholders Unicode entre @ y la palabra
+    # Procesar @palabra, %palabra o @%palabra en el texto con placeholders
+    # El regex debe ignorar los placeholders Unicode entre el símbolo y la palabra
     def replace_at_word(match):
-        placeholders_before = match.group(1) if match.group(1) else ''  # Placeholders entre @ y palabra
-        word = match.group(2)  # palabra
+        symbol = match.group(1)  # '@', '%' o '@%'
+        placeholders_before = match.group(2) if match.group(2) else ''  # Placeholders entre símbolo y palabra
+        word = match.group(3)  # palabra
         key = normalize_word(word)
         
         if key not in all_keys:
-            # Sin notas, solo quitar el @ y mantener placeholders
+            # Sin notas, solo quitar el símbolo y mantener placeholders
             return placeholders_before + word
-        
-        # Obtener índice de ocurrencia
-        occurrence_index = occurrence_counters.get(key, 0)
-        # Validación defensiva: asegurar que occurrence_index nunca sea None
-        if occurrence_index is None:
-            occurrence_index = 0
-        occurrence_counters[key] = occurrence_index + 1
         
         # Construir las notas
         notes = []
         
-        # Notas filológicas
-        if key in nota_notes:
+        # Notas filológicas - solo si tiene @ (@ o @%)
+        if '@' in symbol and key in nota_notes:
+            nota_index = nota_counters.get(key, 0)
+            # Validación defensiva: asegurar que nota_index nunca sea None
+            if nota_index is None:
+                nota_index = 0
             nota_list = nota_notes[key] if isinstance(nota_notes[key], list) else [nota_notes[key]]
-            if occurrence_index < len(nota_list):
-                content = nota_list[occurrence_index]
-                xml_id = f"n_{key}_{section}_{occurrence_index + 1}"
+            if nota_index < len(nota_list):
+                content = nota_list[nota_index]
+                xml_id = f"n_{key}_{section}_{nota_index + 1}"
                 xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id).lower()
                 notes.append(f'<<<NOTE>>><note subtype="nota" xml:id="{xml_id}">{content}</note><<<ENDNOTE>>>')
+            nota_counters[key] = nota_index + 1
         
-        # Aparato crítico
-        if key in aparato_notes:
+        # Aparato crítico - solo si tiene % (% o @%)
+        if '%' in symbol and key in aparato_notes:
+            aparato_index = aparato_counters.get(key, 0)
+            # Validación defensiva: asegurar que aparato_index nunca sea None
+            if aparato_index is None:
+                aparato_index = 0
             aparato_list = aparato_notes[key] if isinstance(aparato_notes[key], list) else [aparato_notes[key]]
-            if occurrence_index < len(aparato_list):
-                content = aparato_list[occurrence_index]
-                xml_id = f"a_{key}_{section}_{occurrence_index + 1}"
+            if aparato_index < len(aparato_list):
+                content = aparato_list[aparato_index]
+                xml_id = f"a_{key}_{section}_{aparato_index + 1}"
                 xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id).lower()
                 notes.append(f'<<<NOTE>>><note subtype="aparato" xml:id="{xml_id}">{content}</note><<<ENDNOTE>>>')
+            aparato_counters[key] = aparato_index + 1
         
         # Devolver: placeholders + palabra + notas
         return placeholders_before + word + ''.join(notes)
     
-    # Regex que captura @ seguido de opcionalmente placeholders, seguido de palabra
-    # Grupo 1: placeholders opcionales (\u0001 o \u0002)
-    # Grupo 2: palabra alfanumérica
-    pattern = r'@([\u0001\u0002]*)(\w+)'
+    # Regex que captura @, % o @% seguido de opcionalmente placeholders, seguido de palabra
+    # Grupo 1: símbolo(s) (@, % o @%)
+    # Grupo 2: placeholders opcionales (\u0001 o \u0002)
+    # Grupo 3: palabra alfanumérica
+    pattern = r'(@%?|%)([\u0001\u0002]*)(\w+)'
     processed_text = re.sub(pattern, replace_at_word, text_with_placeholders)
     
     # ==== PASO 3: Restaurar marcadores de cursiva ====
@@ -783,7 +789,7 @@ def process_table_to_tei(table, footnotes_intro=None):
 
 def process_annotations_raw(raw_text, nota_notes, aparato_notes, annotation_counter, section):
     """
-    Procesa anotaciones @palabra en texto plano (sin tags XML de cursivas).
+    Procesa anotaciones @palabra, %palabra o @%palabra en texto plano (sin tags XML de cursivas).
     Esta función se ejecuta ANTES de aplicar las cursivas.
     Devuelve el texto con las anotaciones reemplazadas por: palabra<note>...</note>
     """
@@ -800,61 +806,60 @@ def process_annotations_raw(raw_text, nota_notes, aparato_notes, annotation_coun
     if aparato_notes:
         all_keys.update(aparato_notes.keys())
     
-    # Contador de ocurrencias para cada palabra
-    occurrence_counters = annotation_counter.setdefault("_occurrences", {})
+    # Contadores de ocurrencias separados para notas y aparato
+    nota_counters = annotation_counter.setdefault("_occurrences_nota", {})
+    aparato_counters = annotation_counter.setdefault("_occurrences_aparato", {})
     
     # Función de reemplazo
     def replace_annotation(match):
-        phrase = match.group(1)  # La palabra capturada (sin el @)
+        symbol = match.group(1)  # '@', '%' o '@%'
+        phrase = match.group(2)  # La palabra capturada (sin el símbolo)
         key = normalize_word(phrase)
         
         if key not in all_keys:
-            # No hay notas para esta palabra, solo eliminar el @
+            # Sin notas, simplemente quitar el símbolo y devolver la palabra
             return phrase
-        
-        # Obtener el índice de ocurrencia actual (0-indexed)
-        occurrence_index = occurrence_counters.get(key, 0)
-        # Validación defensiva: asegurar que occurrence_index nunca sea None
-        if occurrence_index is None:
-            occurrence_index = 0
-        occurrence_counters[key] = occurrence_index + 1
         
         # Construir las notas correspondientes a esta ocurrencia
         note_str = ""
         
-        # === NOTAS FILOLÓGICAS ===
-        if key in nota_notes:
-            nota_list = nota_notes[key]
-            if not isinstance(nota_list, list):
-                nota_list = [nota_list]
-            
-            if occurrence_index < len(nota_list):
-                content = nota_list[occurrence_index]
-                xml_id_nota = f"n_{key}_{section}_{occurrence_index + 1}"
+        # === NOTAS FILOLÓGICAS === solo si tiene @ (@ o @%)
+        if '@' in symbol and key in nota_notes:
+            nota_index = nota_counters.get(key, 0)
+            # Validación defensiva: asegurar que nota_index nunca sea None
+            if nota_index is None:
+                nota_index = 0
+            nota_list = nota_notes[key] if isinstance(nota_notes[key], list) else [nota_notes[key]]
+            if nota_index < len(nota_list):
+                content = nota_list[nota_index]
+                xml_id_nota = f"n_{key}_{section}_{nota_index + 1}"
                 xml_id_nota = re.sub(r'\s+', '_', xml_id_nota)
                 xml_id_nota = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_nota)
                 xml_id_nota = xml_id_nota.lower()
                 note_str += f'<note subtype="nota" xml:id="{xml_id_nota}">{content}</note>'
+            nota_counters[key] = nota_index + 1
         
-        # === APARATO CRÍTICO ===
-        if key in aparato_notes:
-            aparato_list = aparato_notes[key]
-            if not isinstance(aparato_list, list):
-                aparato_list = [aparato_list]
-            
-            if occurrence_index < len(aparato_list):
-                content = aparato_list[occurrence_index]
-                xml_id_aparato = f"a_{key}_{section}_{occurrence_index + 1}"
+        # === APARATO CRÍTICO === solo si tiene % (% o @%)
+        if '%' in symbol and key in aparato_notes:
+            aparato_index = aparato_counters.get(key, 0)
+            # Validación defensiva: asegurar que aparato_index nunca sea None
+            if aparato_index is None:
+                aparato_index = 0
+            aparato_list = aparato_notes[key] if isinstance(aparato_notes[key], list) else [aparato_notes[key]]
+            if aparato_index < len(aparato_list):
+                content = aparato_list[aparato_index]
+                xml_id_aparato = f"a_{key}_{section}_{aparato_index + 1}"
                 xml_id_aparato = re.sub(r'\s+', '_', xml_id_aparato)
                 xml_id_aparato = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_aparato)
                 xml_id_aparato = xml_id_aparato.lower()
                 note_str += f'<note subtype="aparato" xml:id="{xml_id_aparato}">{content}</note>'
+            aparato_counters[key] = aparato_index + 1
         
         # Devolver la palabra (ya escapada XML si fuera necesario) seguida de las notas
         return f'{escape_xml(phrase)}{note_str}'
     
-    # Patrón simple: @palabra (sin preocuparnos por cursivas aún)
-    processed_text = re.sub(r'@(\w+)', replace_annotation, raw_text)
+    # Patrón: @palabra, %palabra o @%palabra (captura símbolo y palabra)
+    processed_text = re.sub(r'(@%?|%)(\w+)', replace_annotation, raw_text)
     
     return processed_text
 
@@ -877,7 +882,16 @@ def extract_notes_with_italics(docx_path: str) -> dict:
     - Verso normal: "329: contenido de la nota"
     - Verso partido parte 1: "329a: contenido de la nota"
     - Verso partido parte 2: "329b: contenido de la nota"
-    - Palabra: "@dedicatoria: contenido de la nota"
+    - Palabra (nota filológica): "@dedicatoria: contenido de la nota"
+    - Palabra (aparato crítico): "%dedicatoria: contenido de la nota"
+    
+    SÍMBOLOS PARA ANOTACIONES:
+    - @ : para notas filológicas
+    - % : para aparato crítico
+    En el texto principal se usará:
+    - @palabra : solo nota filológica
+    - %palabra : solo aparato crítico
+    - @%palabra : ambos tipos de notas
     """
     notes: dict = {}
     if not docx_path or not os.path.exists(docx_path):
@@ -898,8 +912,8 @@ def extract_notes_with_italics(docx_path: str) -> dict:
         # Notas tipo verso: "1: contenido" o "329a: contenido" (con sufijo alfabético)
         # El sufijo alfabético se usa para versos partidos: 329a, 329b, 329c, etc.
         match_verse = re.match(r'^(\d+[a-z]?):\s*(.*)', text)
-        # Notas tipo @palabra: "@palabra: contenido"
-        match_single = re.match(r'^@([^@]+?):\s*(.*)', text)
+        # Notas tipo @palabra o %palabra: "@palabra: contenido" o "%palabra: contenido"
+        match_single = re.match(r'^[@%]([^@%]+?):\s*(.*)', text)
 
         if match_verse:
             verse_key = match_verse.group(1)  # Puede ser "329" o "329a"
@@ -968,14 +982,27 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
 
     new_text = text.strip()
     
-    # Contador global de ocurrencias (necesita ser accesible desde la función de reemplazo)
-    occurrence_counters = annotation_counter.setdefault("_occurrences", {})
+    # Contadores globales de ocurrencias separados para notas y aparato
+    nota_counters = annotation_counter.setdefault("_occurrences_nota", {})
+    aparato_counters = annotation_counter.setdefault("_occurrences_aparato", {})
     
     # Función de reemplazo para usar con re.sub
     def replace_annotation(match):
-        # Determinar qué patrón coincidió y extraer la palabra
-        phrase = match.group(1)  # Siempre está en el primer grupo de captura
+        # Determinar qué patrón coincidió y extraer el símbolo y la palabra
         full_match = match.group(0)  # El match completo
+        
+        # Extraer el símbolo (@, % o @%) del full_match
+        symbol = ''
+        if full_match.startswith('@%') or full_match.startswith('<hi rend="italic">@%'):
+            symbol = '@%'
+        elif full_match.startswith('@') or full_match.startswith('<hi rend="italic">@'):
+            symbol = '@'
+        elif full_match.startswith('%') or full_match.startswith('<hi rend="italic">%'):
+            symbol = '%'
+        
+        # El índice del grupo de captura puede variar según el patrón
+        # Para los 3 patrones usados, siempre es el último grupo el que tiene la palabra
+        phrase = match.group(match.lastindex)  # La palabra está en el último grupo
         
         # Determinar si la palabra debe estar en cursiva
         # Casos con cursiva: @<hi rend="italic">palabra</hi> o <hi rend="italic">@palabra</hi>
@@ -984,49 +1011,45 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
         key = normalize_word(phrase)
         
         if key not in all_keys:
-            # No hay notas para esta palabra, solo eliminar el @ y mantener cursiva si la tenía
+            # Sin notas, solo devolver la palabra con cursiva si la tenía
             if in_italic:
                 return f'<hi rend="italic">{phrase}</hi>'
-            else:
-                return phrase
-        
-        # Obtener el índice de ocurrencia actual (0-indexed)
-        occurrence_index = occurrence_counters.get(key, 0)
-        # Validación defensiva: asegurar que occurrence_index nunca sea None
-        if occurrence_index is None:
-            occurrence_index = 0
-        occurrence_counters[key] = occurrence_index + 1
+            return phrase
         
         # Construir las notas correspondientes a esta ocurrencia
         note_str = ""
         
-        # === NOTAS FILOLÓGICAS ===
-        if key in nota_notes:
-            nota_list = nota_notes[key]
-            if not isinstance(nota_list, list):
-                nota_list = [nota_list]
-            
-            if occurrence_index < len(nota_list):
-                content = nota_list[occurrence_index]
-                xml_id_nota = f"n_{key}_{section}_{occurrence_index + 1}"
+        # === NOTAS FILOLÓGICAS === solo si tiene @ (@ o @%)
+        if '@' in symbol and key in nota_notes:
+            nota_index = nota_counters.get(key, 0)
+            # Validación defensiva: asegurar que nota_index nunca sea None
+            if nota_index is None:
+                nota_index = 0
+            nota_list = nota_notes[key] if isinstance(nota_notes[key], list) else [nota_notes[key]]
+            if nota_index < len(nota_list):
+                content = nota_list[nota_index]
+                xml_id_nota = f'n_{key}_{section}_{nota_index + 1}'
                 xml_id_nota = re.sub(r'\s+', '_', xml_id_nota)
                 xml_id_nota = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_nota)
                 xml_id_nota = xml_id_nota.lower()
                 note_str += f'<note subtype="nota" xml:id="{xml_id_nota}">{content}</note>'
+            nota_counters[key] = nota_index + 1
         
-        # === APARATO CRÍTICO ===
-        if key in aparato_notes:
-            aparato_list = aparato_notes[key]
-            if not isinstance(aparato_list, list):
-                aparato_list = [aparato_list]
-            
-            if occurrence_index < len(aparato_list):
-                content = aparato_list[occurrence_index]
-                xml_id_aparato = f"a_{key}_{section}_{occurrence_index + 1}"
+        # === APARATO CRÍTICO === solo si tiene % (% o @%)
+        if '%' in symbol and key in aparato_notes:
+            aparato_index = aparato_counters.get(key, 0)
+            # Validación defensiva: asegurar que aparato_index nunca sea None
+            if aparato_index is None:
+                aparato_index = 0
+            aparato_list = aparato_notes[key] if isinstance(aparato_notes[key], list) else [aparato_notes[key]]
+            if aparato_index < len(aparato_list):
+                content = aparato_list[aparato_index]
+                xml_id_aparato = f'a_{key}_{section}_{aparato_index + 1}'
                 xml_id_aparato = re.sub(r'\s+', '_', xml_id_aparato)
                 xml_id_aparato = re.sub(r'[^a-zA-Z0-9_]', '', xml_id_aparato)
                 xml_id_aparato = xml_id_aparato.lower()
                 note_str += f'<note subtype="aparato" xml:id="{xml_id_aparato}">{content}</note>'
+            aparato_counters[key] = aparato_index + 1
         
         # Reconstruir el texto con la nota, manteniendo cursiva si la tenía
         if in_italic:
@@ -1035,23 +1058,23 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
             return f'{phrase}{note_str}'
     
     # Aplicar el reemplazo en múltiples pasadas para capturar todas las variantes:
-    # Pasada 1: @<hi rend="italic">palabra</hi> (@ fuera, palabra dentro)
-    def replace_at_before_hi(match):
+    # Pasada 1: @<hi rend="italic">palabra</hi> o %<hi> o @%<hi> (símbolo fuera, palabra dentro)
+    def replace_symbol_before_hi(match):
         return replace_annotation(match)
     
-    new_text = re.sub(r'@<hi rend="italic">(\w+)</hi>', replace_at_before_hi, new_text)
+    new_text = re.sub(r'(@%?|%)<hi rend="italic">(\w+)</hi>', replace_symbol_before_hi, new_text)
     
-    # Pasada 2: <hi rend="italic">@palabra</hi> (ambos dentro)
-    def replace_at_inside_hi(match):
+    # Pasada 2: <hi rend="italic">@palabra</hi> o <hi>%palabra</hi> o <hi>@%palabra</hi> (ambos dentro)
+    def replace_symbol_inside_hi(match):
         return replace_annotation(match)
     
-    new_text = re.sub(r'<hi rend="italic">@(\w+)</hi>', replace_at_inside_hi, new_text)
+    new_text = re.sub(r'<hi rend="italic">(@%?|%)(\w+)</hi>', replace_symbol_inside_hi, new_text)
     
-    # Pasada 3: @palabra (sin cursivas o @ antes de otros elementos)
-    def replace_plain_at(match):
+    # Pasada 3: @palabra, %palabra o @%palabra (sin cursivas)
+    def replace_plain_symbol(match):
         return replace_annotation(match)
     
-    new_text = re.sub(r'@(\w+)', replace_plain_at, new_text)
+    new_text = re.sub(r'(@%?|%)(\w+)', replace_plain_symbol, new_text)
 
     # Reagrupamos cursivas consecutivas
     new_text = merge_italic_text(new_text)
@@ -1786,9 +1809,11 @@ def analyze_notes(
         # Verificar si hay múltiples notas para la misma clave
         if isinstance(content, list) and len(content) > 1:
             if isinstance(key, str):
-                # Notas @palabra con múltiples entradas
+                # Determinar el símbolo correcto según el tipo de nota
+                symbol = '@' if note_type.lower() == 'nota' else '%'
+                # Notas @palabra o %palabra con múltiples entradas
                 warnings.append(
-                    f"⚠️ MÚLTIPLES {note_type.upper()}S PARA '@{key}' ({len(content)})\n"
+                    f"⚠️ MÚLTIPLES {note_type.upper()}S PARA '{symbol}{key}' ({len(content)})\n"
                     f"   Verifica que la asignación secuencial en el texto sea correcta."
                 )
             elif isinstance(key, int):
@@ -2080,7 +2105,8 @@ def validate_note_format(docx_path: str, note_type: str) -> list[str]:
     Valida que todas las entradas en el archivo de notas o aparato crítico
     sigan el formato correcto:
     - NÚMERO: contenido (ej: 6: 6 cursiva y van bien centradas...)
-    - @PALABRA: contenido (ej: @dedicatoria: Dedicatoria: Esta es una nota...)
+    - @PALABRA: contenido (para notas filológicas, ej: @dedicatoria: Esta es una nota...)
+    - %PALABRA: contenido (para aparato crítico, ej: %dedicatoria: Variante...)
     
     Devuelve una lista de warnings con las entradas que no cumplan el formato.
     """
@@ -2095,9 +2121,10 @@ def validate_note_format(docx_path: str, note_type: str) -> list[str]:
     doc = Document(docx_path)
     
     # Patrón para validar el formato correcto
-    # Debe comenzar con número: o @palabra:
+    # Debe comenzar con número:, @palabra: o %palabra:
     pattern_verse = re.compile(r'^\d+[a-z]?:\s*')  # Números seguidos opcionalmente de letra y :
-    pattern_word = re.compile(r'^@[^@\s]+:\s*')  # @palabra seguido de :
+    pattern_nota = re.compile(r'^@[^@%\s]+:\s*')  # @palabra seguido de :
+    pattern_aparato = re.compile(r'^%[^@%\s]+:\s*')  # %palabra seguido de :
     
     for i, para in enumerate(doc.paragraphs, 1):
         text = para.text.strip()
@@ -2108,14 +2135,15 @@ def validate_note_format(docx_path: str, note_type: str) -> list[str]:
         
         # Verificar si el párrafo cumple alguno de los formatos válidos
         is_verse_format = pattern_verse.match(text)
-        is_word_format = pattern_word.match(text)
+        is_nota_format = pattern_nota.match(text)
+        is_aparato_format = pattern_aparato.match(text)
         
-        if not is_verse_format and not is_word_format:
+        if not is_verse_format and not is_nota_format and not is_aparato_format:
             # El párrafo no cumple ninguno de los formatos válidos
             snippet = text[:80] + "..." if len(text) > 80 else text
             warnings.append(
                 f"❌ Formato incorrecto en archivo '{filename}' ({note_type}, párrafo {i}): "
-                f"Debe comenzar con 'NÚMERO:' o '@PALABRA:' → Texto: {snippet}"
+                f"Debe comenzar con 'NÚMERO:', '@PALABRA:' o '%PALABRA:' → Texto: {snippet}"
             )
     
     return warnings

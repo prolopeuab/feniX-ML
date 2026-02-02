@@ -603,7 +603,7 @@ function showNoteModal(content, noteType) {
 
     // Determina el texto de la cabecera según el tipo de nota
     let titleText;
-    if (noteType === "comentario") {
+    if (noteType === "nota") {
         titleText = "Nota filológica";
     } else if (noteType === "aparato") {
         titleText = "Aparato crítico";
