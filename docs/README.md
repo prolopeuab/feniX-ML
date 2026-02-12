@@ -1,4 +1,4 @@
-﻿# Documentación de feniX-ML (`docs/`)
+# Documentación de feniX-ML (`docs/`)
 
 Este directorio contiene la documentación publicada con Jekyll + Just the Docs para feniX-ML.
 

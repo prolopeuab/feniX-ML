@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: Créditos
 nav_order: 6

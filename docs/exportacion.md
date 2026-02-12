@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: 3. Exportación
 parent: Uso de la app

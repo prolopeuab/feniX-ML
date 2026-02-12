@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: Uso de la app
 nav_order: 4
@@ -34,9 +34,9 @@ Esta sección describe el flujo real de trabajo en la interfaz de feniX-ML, tal 
 
 ## Subpáginas de esta sección
 
-1. [1. Carga de archivos](./carga)
-2. [2. Validación](./validacion)
-3. [3. Exportación y vista previa](./exportacion)
+1. [1. Carga de archivos]({% link carga.md %})
+2. [2. Validación]({% link validacion.md %})
+3. [3. Exportación y vista previa]({% link exportacion.md %})
 
 ## Notas de uso importantes
 

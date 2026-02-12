@@ -3,7 +3,8 @@ description: Herramienta para transformar ediciones críticas de teatro del Sigl
 theme: just-the-docs
 
 # URL de tu sitio (opcional, se puede ajustar cuando esté publicado)
-url: https://prolopeuab.github.io/feniX-ML/
+url: https://prolopeuab.github.io
+baseurl: "/feniX-ML"
 
 logo: "/assets/images/logo.png"
 favicon_ico: "/assets/images/icon.ico"

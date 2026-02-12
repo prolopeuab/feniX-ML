@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: 2. Aparato crítico
 parent: Preparación de archivos DOCX

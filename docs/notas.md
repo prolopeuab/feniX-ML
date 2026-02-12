@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: 3. Notas explicativas
 parent: Preparación de archivos DOCX

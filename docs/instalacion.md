@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: Primeros pasos e instalación
 nav_order: 2

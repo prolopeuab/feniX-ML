@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: 4. Metadatos
 parent: Preparación de archivos DOCX

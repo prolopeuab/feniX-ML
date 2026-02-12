@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: 1. Prólogo y texto crítico
 parent: Preparación de archivos DOCX

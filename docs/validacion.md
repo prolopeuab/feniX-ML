@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: 2. Validación
 parent: Uso de la app

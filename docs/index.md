@@ -1,4 +1,4 @@
-﻿---
+---
 layout: default
 title: Inicio
 nav_order: 1
@@ -38,11 +38,11 @@ En archivos de notas/aparato:
 
 ## Estructura de esta guía
 
-- [Primeros pasos e instalación](./instalacion)
-- [Preparación de archivos DOCX](./preparar-docx)
-- [Uso de la app](./uso-app)
-- [Resolución de problemas](./resolucion-problemas)
-- [Créditos](./creditos)
+- [Primeros pasos e instalación]({% link instalacion.md %})
+- [Preparación de archivos DOCX]({% link preparar-docx.md %})
+- [Uso de la app]({% link uso-app.md %})
+- [Resolución de problemas]({% link resolucion-problemas.md %})
+- [Créditos]({% link creditos.md %})
 
 ## Acceso abierto
 
