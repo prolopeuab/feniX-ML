@@ -202,7 +202,9 @@ En este caso, la nota afecta a "Albante", por lo que se coloca antes del términ
 
 
 ### Formas estróficas
-Para indicar el comienzo de una nueva estrofa, escribe una línea que comience con `$` seguida del tipo de estrofa, sin espacios:
+Para indicar el comienzo de una nueva estrofa, escribe una línea que comience con `$` seguida del tipo de estrofa. Puede tener una o varias palabras.
+
+El valor se normaliza automáticamente para `@type`: se convierte a minúsculas, sin tildes y con guiones (`-`) en lugar de espacios.
 
 ```
 $redondilla
@@ -212,6 +214,18 @@ Esto se convertirá automáticamente en:
 
 ```
 <milestone unit="stanza" type="redondilla"/>
+```
+
+También puedes usar:
+
+```
+$endecasílabos sueltos
+```
+
+y se convertirá en:
+
+```
+<milestone unit="stanza" type="endecasilabos-sueltos"/>
 ```
 
 ### Casos particulares

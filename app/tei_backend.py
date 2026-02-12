@@ -168,6 +168,29 @@ def normalize_id(text):
     normalized = normalized.lower()
     return normalized
 
+def normalize_milestone_type(raw: str) -> str:
+    """
+    Normaliza el valor de milestone/@type a un slug XML-safe:
+    - sin tildes
+    - en minúsculas
+    - espacios y separadores -> guion
+    - sin caracteres fuera de [a-z0-9-]
+    """
+    # Limpieza inicial de extremos
+    normalized = raw.strip()
+    # Quitar diacríticos y limitar a ASCII
+    normalized = unicodedata.normalize("NFKD", normalized)
+    normalized = normalized.encode("ascii", "ignore").decode("utf-8")
+    # Forzar minúsculas
+    normalized = normalized.lower()
+    # Espacios consecutivos -> guion
+    normalized = re.sub(r"\s+", "-", normalized)
+    # Cualquier carácter no permitido -> guion
+    normalized = re.sub(r"[^a-z0-9-]+", "-", normalized)
+    # Colapsar guiones repetidos y recortar extremos
+    normalized = re.sub(r"-{2,}", "-", normalized).strip("-")
+    return normalized
+
 def uppercase_preserve_tags(text):
     """
     Convierte texto a mayúsculas preservando etiquetas XML.
@@ -1287,10 +1310,22 @@ def convert_docx_to_tei(
         # Para detección de milestones, usamos texto simple
         text_simple = para.text.strip()
         
-        # 1) Detección de estrofas marcadas con $nombreMilestone
-        milestone_match = re.match(r'^\$(\w+)', text_simple)
-        if milestone_match:
-            milestone_type = milestone_match.group(1)
+        # 1) Detección de estrofas marcadas con $tipo de estrofa
+        if text_simple.startswith("$"):
+            milestone_match = re.match(r'^\$\s*(.+?)\s*$', text_simple)
+            if not milestone_match:
+                raise ValueError(
+                    f"Marcador estrófico inválido: '{text_simple}'. "
+                    "Debe contener texto tras '$'."
+                )
+
+            raw_milestone_type = milestone_match.group(1)
+            milestone_type = normalize_milestone_type(raw_milestone_type)
+            if not milestone_type:
+                raise ValueError(
+                    f"Marcador estrófico inválido: '{text_simple}'. "
+                    "Debe contener al menos un carácter alfanumérico tras '$'."
+                )
             # Insertar el milestone inmediatamente en la posición actual
             if state["in_sp"]:
                 tei.append(f'            <milestone unit="stanza" type="{milestone_type}"/>')
@@ -1763,7 +1798,7 @@ def should_skip_paragraph(para, text: str, style: str) -> bool:
         return True
 
     # Milestones que empiezan con '$'
-    if re.match(r'^\$\S+', text):
+    if re.match(r'^\$\s*\S+', text):
         return True
 
     # Front-matter con almohadilla (títulos de sección del prólogo)
