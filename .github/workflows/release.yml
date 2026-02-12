@@ -24,11 +24,18 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
+          python -m pip install -r requirements.txt
 
-      - name: Build executable with spec file
-        run: pyinstaller --noconfirm feniXML.spec
+      - name: Build executable
+        run: >
+          python -m PyInstaller --onefile --windowed --name "feniXML"
+          --add-data "app\resources\CETEIcean.js;resources"
+          --add-data "app\resources\estilos.css;resources"
+          --add-data "app\resources\logo_prolope.png;resources"
+          --add-data "app\resources\logo.png;resources"
+          --add-data "app\resources\icon.ico;resources"
+          --icon="app\resources\icon.ico"
+          app\main.py
 
       - name: Generate SHA256 checksum
         shell: pwsh
