@@ -18,7 +18,7 @@ Cuando se hace push de un tag `v*` (por ejemplo `v1.0.0`), GitHub:
 
 La compilación usa el mismo comando de PyInstaller documentado en `README.md`.
 
-## Primera release estable
+## Proceso
 
 ### 1) Asegurar estado estable en `main`
 
