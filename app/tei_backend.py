@@ -1133,17 +1133,37 @@ def convert_docx_to_tei(
 
     # --- SEPARACIÓN FRONT/BODY BASADA EN 'Titulo_comedia' ---
 
-    # 1) Buscar todos los párrafos con estilo 'Titulo_comedia' (máximo 2: título y subtítulo)
+    # 1) Buscar todos los párrafos no vacíos con estilo 'Titulo_comedia' (máximo 2: título y subtítulo)
+    # Ignora líneas vacías (incluidas las que tengan estilo) y detiene en el primer
+    # párrafo no vacío fuera del bloque de título.
     title_paragraphs = []
+    found_first_title = False
     for i, p in enumerate(doc.paragraphs):
-        if p.style and p.style.name == "Titulo_comedia":
+        style_name = p.style.name if p.style else ""
+        is_empty_for_parse = is_parse_empty_paragraph(p)
+
+        if not found_first_title:
+            if style_name == "Titulo_comedia":
+                if is_empty_for_parse:
+                    continue
+                title_paragraphs.append(i)
+                found_first_title = True
+                if len(title_paragraphs) == 2:
+                    break
+            continue
+
+        # Tras encontrar el primer título, ignoramos líneas vacías entre título/subtítulo
+        if is_empty_for_parse:
+            continue
+
+        if style_name == "Titulo_comedia":
             title_paragraphs.append(i)
-            # Solo nos interesan los primeros 2 consecutivos
             if len(title_paragraphs) == 2:
                 break
-        elif title_paragraphs:
-            # Si ya encontramos al menos uno y este no tiene el estilo, paramos
-            break
+            continue
+
+        # Primer párrafo no vacío que no es Titulo_comedia: fin del bloque de títulos
+        break
     
     if not title_paragraphs:
         raise RuntimeError("No se encontró ningún párrafo con estilo 'Titulo_comedia' en el documento")
@@ -1151,9 +1171,10 @@ def convert_docx_to_tei(
     title_idx = title_paragraphs[0]
     subtitle_idx = title_paragraphs[1] if len(title_paragraphs) > 1 else None
 
-    # 2) Divide la lista de párrafos en front y body
-    # El body comienza después del título (y subtítulo si existe)
-    body_start_idx = (subtitle_idx + 1) if subtitle_idx is not None else (title_idx + 1)
+    # 2) Divide la lista de párrafos en front y body.
+    # El body comienza después del último título válido (título o subtítulo).
+    last_title_idx = title_paragraphs[-1]
+    body_start_idx = last_title_idx + 1
     front_paragraphs = list(doc.paragraphs[:title_idx])
     body_paragraphs  = list(doc.paragraphs[body_start_idx:])
 
@@ -1258,6 +1279,9 @@ def convert_docx_to_tei(
 
     # Recorre todos los párrafos del cuerpo para identificar y procesar cada bloque estilístico
     for para in body_paragraphs:
+        if is_parse_empty_paragraph(para):
+            continue
+
         style = para.style.name if para.style else "Normal"
         
         # Para detección de milestones, usamos texto simple
@@ -1618,16 +1642,16 @@ def count_verses_in_document(main_docx, include_dedication=False):
         # Determinar punto de inicio según parámetro
         if not found_start:
             start_style = "Titulo_comedia" if include_dedication else "Acto"
-            if style == start_style:
+            if style == start_style and not is_parse_empty_paragraph(para):
                 found_start = True
                 if not include_dedication:  # Si empezamos en Acto, reiniciar contador
                     verse_counter = 1
             continue
         
         # Aplicar los mismos filtros que en el procesamiento principal
-        if re.match(r'^\$\w+', text):  # Milestones
+        if is_parse_empty_paragraph(para):  # Párrafos vacíos para parseo
             continue
-        if is_empty_paragraph(para):  # Párrafos vacíos
+        if re.match(r'^\$\w+', text):  # Milestones
             continue
         if style in [
             "Personaje", "Acot", "Prosa", 
@@ -1677,6 +1701,28 @@ def get_verse_number_at_position(main_docx, target_para_index, include_dedicatio
             break
     
     return last_verse_number
+
+def is_parse_empty_paragraph(para) -> bool:
+    """
+    Determina si un párrafo debe considerarse vacío durante el parseo.
+    Solo considera vacíos los párrafos con blancos/caracteres invisibles.
+    La puntuación o cualquier otro carácter visible cuenta como contenido.
+    """
+    if para is None:
+        return True
+
+    # Para parseo, priorizamos runs concatenados; fallback a para.text
+    if para.runs:
+        raw_text = "".join((run.text or "") for run in para.runs)
+    else:
+        raw_text = para.text or ""
+
+    if not raw_text:
+        return True
+
+    # Espacios visibles, tabs/saltos y rango de espacios invisibles Unicode
+    invisible_pattern = r'^[\s\u00A0\u2000-\u200D\u2028-\u202F\u205F\u3000\uFEFF]*$'
+    return re.match(invisible_pattern, raw_text) is not None
 
 def is_empty_paragraph(para) -> bool:
     """
