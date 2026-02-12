@@ -220,7 +220,7 @@ tei-head[type="subTitle"] {
     display: block;
     font-size: 120%;
     font-weight: normal;
-    font-style: italic;
+    font-style: normal;
     text-align: center;
     margin-top: 0;
     margin-bottom: 1.5em;
