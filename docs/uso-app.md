@@ -1,4 +1,4 @@
----
+﻿---
 layout: default
 title: Uso de la app
 nav_order: 4
@@ -7,59 +7,39 @@ has_children: true
 
 # Uso de la aplicación de escritorio
 
-Una vez preparados los cuatro archivos DOCX (prólogo y texto crítico, aparato crítico, notas explicativas y metadatos), podrás generar tu edición digital en formato **XML-TEI** mediante la aplicación de escritorio **feniX-ML**.
+Esta sección describe el flujo real de trabajo en la interfaz de feniX-ML, tal como funciona actualmente.
 
-Esta sección explica cómo usar la herramienta paso a paso:  
-desde la carga de los archivos hasta la exportación final del XML, incluyendo la validación y los mensajes del programa.
+## Flujo general
 
----
+1. Cargar el archivo **Prólogo y comedia** (obligatorio).
+2. Cargar opcionalmente **Notas**, **Aparato crítico** y **Tabla de metadatos**.
+3. Elegir el tipo de encabezado en **Tipo de TEI-header**:
+   - `TEI-header PROLOPE`
+   - `TEI-header propio`
+4. Ejecutar **Validar marcado** para revisar incidencias.
+5. Revisar resultado con **Vista previa (XML)** y/o **Vista previa (HTML)**.
+6. Guardar el resultado con **Generar archivo XML-TEI**.
 
-## Flujo de trabajo
+![Pantalla principal de feniX-ML](assets/images/capturas/uso-app/01-pantalla-principal.png)
 
-El proceso se divide en tres etapas principales:
+*Captura pendiente de insertar.*
 
-1. **Carga de los archivos DOCX**  
-   Selecciona los documentos correspondientes a cada parte de la edición.  
-   feniX-ML comprueba su estructura antes de procesarlos.
+## Qué archivos son obligatorios
 
-2. **Validación y revisión del XML-TEI resultante**  
-   El programa analiza los archivos, muestra advertencias o errores, y te indica si el contenido puede procesarse correctamente.
+- Obligatorio: `Prólogo y comedia`.
+- Opcionales: `Notas`, `Aparato crítico`, `Tabla de metadatos`.
 
-3. **Generar y exportar el XML-TEI**  
-   Una vez validados los documentos, feniX-ML genera automáticamente el archivo final `edicion.xml`, que podrás abrir, revisar o visualizar en tu navegador.
-
----
-
-## Requisitos previos
-
-- Tener los cuatro archivos DOCX preparados según la sección [Preparar los archivos DOCX](./preparar-docx).  
-- Contar con el ejecutable `feniX-ML.exe` descargado en tu equipo.  
-- No es necesario tener Python instalado: la aplicación funciona de forma independiente (solo en Windows).
-
-> Si usas macOS o Linux, tienes que ejecutar los scripts Python directamente. Consulta las instrucciones en la [sección de instalación](./instalacion).
+> Si no cargas metadatos, la app genera un `teiHeader` de respaldo mínimo. Para una edición final, se recomienda siempre aportar el archivo de metadatos.
 {: .warning }
 
----
+## Subpáginas de esta sección
 
-## Archivos que genera la aplicación
+1. [1. Carga de archivos](./carga)
+2. [2. Validación](./validacion)
+3. [3. Exportación y vista previa](./exportacion)
 
-Tras ejecutar la aplicación, se crean los siguientes elementos:
+## Notas de uso importantes
 
-- **Archivo principal XML-TEI** (`edicion.xml`): contiene la estructura completa del texto marcado.  
-
----
-
-## Próximos pasos
-
-En las páginas siguientes encontrarás las instrucciones detalladas de cada etapa:
-
-1. [Cargar los archivos DOCX](./cargar-archivos)  
-2. [Validar y revisar mensajes](./validar-y-revisar)  
-3. [Generar y exportar el XML-TEI](./generar-y-exportar)
-
----
-
-> Recuerda que feniX-ML añade automáticamente algunos metadatos institucionales al archivo final (autor, grupo PROLOPE y créditos de codificación).  
-> 
-> Si vas a reutilizar el XML en otro contexto, puedes editarlos manualmente después.
-{: .important }
+- La app trabaja con DOCX y estilos de Word de la plantilla del proyecto.
+- El nombre final del XML no es fijo (no se genera siempre como `edicion.xml`).
+- Puedes abrir ayuda desde el menú **Ayuda** de la aplicación para acceder a documentación y plantillas.

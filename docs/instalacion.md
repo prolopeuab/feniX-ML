@@ -1,4 +1,4 @@
----
+﻿---
 layout: default
 title: Primeros pasos e instalación
 nav_order: 2
@@ -6,62 +6,50 @@ nav_order: 2
 
 # Primeros pasos e instalación
 
-## Descargar la aplicación
+## Descargar y ejecutar la app
 
-feniX-ML está disponible como **aplicación de escritorio para Windows** (formato `.exe`). Puedes descargar la última versión desde la página de [Releases del repositorio en GitHub](https://github.com/prolopeuab/feniX-ML/releases).
+feniX-ML se distribuye como ejecutable para Windows en la sección de [Releases del repositorio](https://github.com/prolopeuab/feniX-ML/releases).
 
+El nombre del archivo puede variar según versión (por ejemplo, `feniXML.exe`).
 
-> Descarga el archivo `feniX-ML.exe` y guárdalo en una carpeta de tu equipo.
-{: .tip }
-
-
-No es necesario instalar nada adicional: al hacer doble clic sobre el archivo, se abrirá la interfaz gráfica de la aplicación.
-
----
+1. Descarga el ejecutable.
+2. Guárdalo en una carpeta local.
+3. Ábrelo con doble clic.
 
 ## Requisitos del sistema
 
-- Sistema operativo **Windows 10 o superior**.
-- No se requiere instalación previa de Python ni conexión a Internet, pero sí es necesario disponer de un **navegador web** (Chrome, Edge, Firefox…) para poder visualizar correctamente las ediciones generadas.
+- **Windows 10 o superior**.
+- Navegador web (Chrome, Edge, Firefox u otro) para la **vista previa HTML**.
 
-> El ejecutable ha sido generado a partir de varios scripts Python. Funciona de forma completamente autónoma y no requiere conocimientos técnicos para su uso.  
-> 
-> No obstante, si tienes experiencia con Python, puedes trabajar directamente con los scripts o modificarlos según tus necesidades. Todo el código fuente está disponible en el [repositorio de GitHub](https://github.com/prolopeuab/feniX-ML).
-{: .note }
+No necesitas instalar Python para usar el ejecutable.
 
+## Seguridad y avisos del sistema
 
----
+Como ocurre con otros `.exe` distribuidos fuera de tiendas oficiales, algunos antivirus o SmartScreen pueden mostrar advertencias iniciales.
 
-## Seguridad y recomendaciones
+Si confías en la fuente del repositorio:
 
-Al tratarse de un archivo `.exe` creado por fuera de canales oficiales como Microsoft Store, es posible que **algunos antivirus muestren advertencias** al ejecutar el programa por primera vez.
-
-Si confías en la fuente (este repositorio), puedes seguir estas recomendaciones:
-
-- **Añadir el archivo a la lista de excepciones del antivirus.**
-- **Ejecutar como administrador solo si el sistema lo solicita.**
-
-> El archivo no modifica tu sistema ni accede a información personal. Solo procesa los archivos Word que el usuario selecciona manualmente.
-{: .important }
-
----
+- Añade excepción en antivirus si fuera necesario.
+- Ejecuta como administrador solo cuando el sistema lo pida.
 
 ## Archivos necesarios para trabajar
 
-Además del ejecutable, necesitarás:
+Para un flujo completo:
 
-- Una copia de la **plantilla DOCX con estilos** (`plantilla.docx`)
-- Los documentos que vas a convertir: prólogo o estudio introductorio, texto crítico, aparato crítico, notas explicativas y metadatos.
+- Archivo principal `Prólogo y comedia` (obligatorio).
+- `Notas` (opcional).
+- `Aparato crítico` (opcional).
+- `Metadatos` (opcional, recomendado).
 
-Puedes encontrar ejemplos de todos estos archivos en la carpeta de [ejemplos](https://github.com/prolopeuab/feniX-ML/ejemplos) del repositorio. En el próximo paso de esta documentación se explica la estructura de cada archivo y cómo usar correctamente las plantillas.
+Puedes revisar ejemplos en la carpeta [`ejemplos/`](https://github.com/prolopeuab/feniX-ML/tree/main/ejemplos).
 
----
+## Uso con Python (macOS/Linux o entorno técnico)
 
-## ¿Y si trabajo con Mac o Linux?
+La app está desarrollada en Python y el código fuente está en el repositorio. Si trabajas sin ejecutable de Windows, puedes ejecutar los scripts directamente con Python 3 y dependencias instaladas.
 
-Actualmente, feniX-ML solo está disponible como ejecutable para Windows.  
+Referencia rápida en Windows (desde la raíz del proyecto):
 
-> Sin embargo, si tienes conocimientos técnicos, puedes **descargar y ejecutar los scripts en Python** directamente desde el [repositorio del proyecto](https://github.com/prolopeuab/feniX-ML). La herramienta funciona correctamente en cualquier entorno donde esté instalado Python 3 y las dependencias necesarias.
-{: .tip }
-
----
+```powershell
+.\.venv\Scripts\Activate.ps1
+python app\main.py
+```

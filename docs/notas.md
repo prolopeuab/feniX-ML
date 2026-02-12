@@ -1,4 +1,4 @@
----
+﻿---
 layout: default
 title: 3. Notas explicativas
 parent: Preparación de archivos DOCX
@@ -7,50 +7,54 @@ nav_order: 3
 
 # 3. Notas explicativas
 
-Las **notas explicativas** recogen comentarios filológicos, históricos o culturales que acompañan al texto crítico.  
+El archivo de notas explicativas también es independiente. Cada párrafo representa una nota.
 
-Este archivo es independiente y se procesa para generar automáticamente las notas (`<note>`) de tipo explicativa en el archivo XML-TEI.
+## Formato de entrada
 
----
+Formato válido al inicio de cada párrafo:
 
-## Formato del documento
+- `NÚMERO:`
+- `NÚMERO+LETRA:` (ej. `329a:` para versos partidos)
+- `@PALABRA:` (referencia por término no numerado)
 
-- **Cada párrafo contiene una sola nota.**  
-- Si la nota se refiere a un verso, comienza con su **número** seguido de `:`.  
-- Si la nota se refiere a un elemento sin numeración (títulos, acotaciones, prólogo, dramatis personae), se marca el término afectado con `@` seguido de `:`.  
-- No se aplican estilos de Word, pero las cursivas se conservan.  
+## 3.1 Notas asociadas a verso
 
----
+Ejemplos:
 
-## 3.1 Notas asociadas a un verso numerado
+```text
+7: Niso: rey de Megara...
+329a: Primera nota para la primera parte del verso partido.
+329b: Segunda nota para la parte siguiente del mismo verso.
+```
 
-Comienzan con el número de verso, seguido de `:`, y después el contenido de la nota redactado según los [*Criterios de edición de PROLOPE*](https://prolope.uab.cat/wp-content/uploads/2023/12/criterios_edicion_prolope.pdf) o aquellos elegidos.
+## 3.2 Notas asociadas a término no numerado
 
-<div class="ejemplo">
-    <p>7: 7  <i>Niso</i>: rey de Megara, hermano de Egeo y padre de Escila. En la comedia de Lope no se menciona la ciudad de Megara sino que la acción se sitúa en Atenas, unificando así los episodios de Cila y Teseo (Sánchez Aguilar 2010:105).</p>
-</div>
+En el archivo de notas:
 
-> Al procesar el archivo, feniX-ML asocia cada nota al verso correspondiente y la inserta al final de dicho verso en el XML.
-{: .note }
+```text
+@Píramo: explicación filológica del término.
+@dedicatoria: comentario sobre el bloque de dedicatoria.
+```
 
----
+En el texto principal, marca el término con `@`:
 
-## 3.2 Notas asociadas a elementos no numerados
+```text
+El breve poema de Tisbe y @Píramo...
+```
 
-Cuando la nota se refiere a un elemento sin numeración de verso, se usa el símbolo `@` antes del término afectado o antes del último del conjunto, seguido de `:`.
+## Si hay nota y aparato en el mismo término
 
-<div class="ejemplo">
-    <p>@Píramo: <i>poema de Tisbe y Píramo</i>: se refiere a la <i>Fábula de Píramo y Tisbe</i> que escribió Juan de Vera y Figueroa, conde de la Roca.</p>
-    <p>@poeta: Ovidio narró en el libro IV de sus <i>Metamorfosis</i> la historia de Píramo y Tisbe (vv. 55-166).</p>
-</div>
+Usa `@%palabra` en el texto principal y reparte contenido en ambos archivos:
 
-> feniX-ML asocia estas notas al lugar del texto crítico donde se encuentra el mismo término marcado con `@`.
-{: .note }
+- Notas: `@palabra: ...`
+- Aparato: `%palabra: ...`
 
----
+## Recomendaciones
 
-## Consejos finales
-- No mezcles variantes y notas explicativas: cada tipo se gestiona en su archivo correspondiente.  
-- Si un mismo término tiene varias notas, feniX-ML asigna identificadores únicos para diferenciarlas.
+- No mezcles notas y aparato en un mismo DOCX.
+- Mantén una nota por párrafo.
+- Revisa la secuencia de entradas repetidas para una misma clave.
 
----
+![Ejemplo de archivo DOCX de notas](assets/images/capturas/preparar-docx/05-notas-docx.png)
+
+*Captura pendiente de insertar.*

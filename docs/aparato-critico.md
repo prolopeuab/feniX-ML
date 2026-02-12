@@ -1,4 +1,4 @@
----
+﻿---
 layout: default
 title: 2. Aparato crítico
 parent: Preparación de archivos DOCX
@@ -7,50 +7,58 @@ nav_order: 2
 
 # 2. Aparato crítico
 
-El **aparato crítico** recoge las variantes textuales del texto y las asocia al lugar correspondiente.
+El archivo de aparato crítico es independiente del texto principal. Cada párrafo del DOCX contiene una entrada.
 
-Este archivo es independiente y se procesa para generar automáticamente las notas (`<note>`) de tipo aparato en el archivo XML-TEI.
+## Formato de entrada
 
----
+Formato válido al inicio de cada párrafo:
 
-## Formato del documento
+- `NÚMERO:`
+- `NÚMERO+LETRA:` (ej. `329a:` para versos partidos)
+- `%PALABRA:` (referencia por término no numerado)
 
-El aparato crítico se redacta en un documento Word sencillo, siguiendo estas reglas:
+> Para aparato crítico por término no numerado, usa `%` (no `@`) en archivo y texto principal.
+{: .important }
 
-- **Cada línea contiene una sola entrada del aparato crítco**.  
-- Las entradas pueden ir en el orden lógico, tal y como preparas el documento para la edición *en papel*.
-- A cada entrada del aparato crítico se le añade al principio el número de verso o el símbolo `@` al término afectado, si no se trata de verso. 
-- No se aplican estilos de Word, que solo funcionan en el documento del texto crítico, pero sí se debe usar la cursiva cuando corresponda, que será procesada correctamente.
+## 2.1 Entradas asociadas a verso
 
----
+Ejemplos:
 
-## 2.1 Entradas del aparato asociadas a un verso numerado
+```text
+25: 25 quiero M FH : quiera ABCDEI Har Cot : querría G
+329a: 329a primer tramo del verso partido ...
+329b: 329b segundo tramo del verso partido ...
+```
 
-- Comienzan con el número del verso, seguido de `:`.
-- Después, la entrada del aparato tal y como se podrá leer en la nota, siguiendo los [*Criterios de edición de PROLOPE*](https://prolope.uab.cat/wp-content/uploads/2023/12/criterios_edicion_prolope.pdf) o aquellos elegidos.
+## 2.2 Entradas asociadas a término no numerado
 
-<div class="ejemplo">
-    <p>25: 25&nbsp;&nbsp;quiero <i>M</i> <i>FH</i> : quiera <i>ABCDEI</i> <i>Har</i> <i>Cot</i> : querría <i>G</i></p>
-    <p>76: 76&nbsp;&nbsp;Que no son <i>Cot</i> : Que son <i>AB</i></p>
-</div>
+En el archivo de aparato:
 
-> Al procesar los archivos, feniX-ML asocia cada entrada del aparato con su verso correspondiente gracias al número + `:` agregado, y genera una <note> al final de dicho verso en el XML-TEI con el contenido de la nota.
-{: .note }
+```text
+%tragicomedia: tragicomedia A : tragedia Men
+%dedicatoria: dedicatoria A : dedicación Men
+```
 
----
+En el texto principal, marca el mismo término con `%`:
 
-## 2.2 Entradas del aparato asociadas a otros elementos no numerados
+```text
+Título de la %tragicomedia de Lope de Vega.
+```
 
-Cuando la variante se refiere a un elemento sin numeración de verso (por ejemplo, títulos, acotaciones, prólogo o dramatis personae), se utiliza el símbolo `@` para indicar el punto de referencia.  
+## Compatibilidad con notas explicativas
 
-Este símbolo se coloca **antes del término afectado** (o del último término del conjunto) y va seguido de `:`.  
+Si un mismo término necesita aparato y nota explicativa:
 
-La entrada se redacta a continuación con el mismo formato habitual, respetando las cursivas donde corresponda.
+- En el texto principal: `@%palabra`
+- En notas: `@palabra: ...`
+- En aparato: `%palabra: ...`
 
-<div class="ejemplo">
-    <p>Dédalo@: 651<i>Acot</i>&nbsp;&nbsp;Sale Dédalo : <i>A</i> trae la acotación tras el verso 650 : <i>om</i> <i>Men</i></p>  
-    <p>tragicomedia@: tragicomedia&nbsp;&nbsp;<i>A</i> : tragedia <i>Men</i></p>
-</div>
+## Recomendaciones
 
-> Al procesar los archivos, feniX-ML asocia cada entrada del aparato marcada con `@` al lugar del texto crítico donde se encuentra el mismo término, también marcado con `@`.
-{: .note }
+- Mantén una entrada por párrafo.
+- Conserva cursivas cuando correspondan (se preservan en salida).
+- Evita mezclar aparato y notas en un mismo archivo.
+
+![Ejemplo de archivo DOCX de aparato](assets/images/capturas/preparar-docx/04-aparato-docx.png)
+
+*Captura pendiente de insertar.*

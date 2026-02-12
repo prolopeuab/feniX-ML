@@ -1,57 +1,49 @@
----
+﻿---
+layout: default
 title: Inicio
-layout: home
 nav_order: 1
 ---
 
 <p align="left">
-  <img src="assets/images/logo.png" alt="Logo feniX-ML" Width="200">
+  <img src="assets/images/logo.png" alt="Logo feniX-ML" width="200">
 </p>
 
-**feniX-ML** es una herramienta diseñada para facilitar la edición crítica digital de textos teatrales del Siglo de Oro a partir de documentos Word, sin necesidad de conocimientos técnicos en XML o TEI.
+**feniX-ML** es una herramienta para convertir ediciones críticas teatrales desde DOCX a XML-TEI sin necesidad de editar XML manualmente.
 
-Está pensada especialmente para investigadores y editores críticos que deseen transformar sus ediciones filológicas en archivos digitales reutilizables, de forma rápida, estructurada y sin abandonar el entorno de trabajo habitual.
+Está orientada a un flujo editorial en Word basado en estilos y marcadores simples, con validación previa y vistas de revisión antes de exportar.
 
-La herramienta se basa en un sistema de **plantillas DOCX con estilos personalizados**, que permiten aplicar marcas semánticas de forma visual. A partir de estos estilos, el ejecutable de feniX-ML genera automáticamente un archivo XML-TEI válido y funcional.
+## Qué puedes hacer con feniX-ML
 
-El flujo de trabajo que propone feniX-ML ha sido desarrollado en el contexto editorial del grupo PROLOPE de la Universitat Autònoma de Barcelona, pero está diseñado para ser fácilmente reutilizable por cualquier editor interesado en aplicar este modelo a sus propias ediciones.
+- Cargar el archivo principal (`Prólogo y comedia`) y, opcionalmente, `Notas`, `Aparato crítico` y `Metadatos`.
+- Seleccionar tipo de cabecera: `TEI-header PROLOPE` o `TEI-header propio`.
+- Validar marcado y detectar incidencias comunes antes de convertir.
+- Previsualizar el resultado en XML y HTML.
+- Generar el XML-TEI final.
 
----
+## Convenciones de marcado clave
 
-## ¿Qué puedo hacer con feniX-ML?
+En el texto principal:
 
-- Aplicar estilos a un archivo DOCX y generar automáticamente su versión en XML-TEI.
-- Cargar hasta cuatro archivos independientes: prólogo y texto crítico, aparato crítico, notas explicativas y metadatos de la edición.
-- Validar el resultado y corregir errores de forma sencilla.
-- Previsualizar tanto el XML como la visualización en HTML antes de exportar el archivo final.
+- `@palabra` -> nota explicativa.
+- `%palabra` -> aparato crítico.
+- `@%palabra` -> ambos tipos.
+- `$tipo de estrofa` -> marcador estrófico (`milestone`).
 
----
+En archivos de notas/aparato:
 
-## ¿Para quién está pensada esta herramienta?
+- `NÚMERO:`
+- `NÚMERO+LETRA:` (ej. `329a:`)
+- `@PALABRA:`
+- `%PALABRA:`
 
-feniX-ML está pensada para:
-
-- *Editores críticos* que trabajan con teatro áureo y desean publicar sus ediciones digitales.
-- *Investigadores* con conocimientos básicos de Word pero sin formación técnica en XML.
-- *Grupos de investigación* que busquen escalar la producción de ediciones digitales sin depender de equipos de desarrollo externos.
-
----
-
-## ¿Qué encontrarás en esta documentación?
-
-Esta guía está organizada por pasos, para acompañarte desde el inicio hasta la publicación de tu archivo XML-TEI:
+## Estructura de esta guía
 
 - [Primeros pasos e instalación](./instalacion)
 - [Preparación de archivos DOCX](./preparar-docx)
-  - Prólogo y texto crítico
-  - Aparato crítico
-  - Notas explicativas
-  - Metadatos de la edición
 - [Uso de la app](./uso-app)
-- [Resolver errores comunes](./resolucion-problemas)
+- [Resolución de problemas](./resolucion-problemas)
+- [Créditos](./creditos)
 
----
+## Acceso abierto
 
-## Acceso abierto y reutilización
-
-feniX-ML está disponible en acceso abierto. Puedes descargar el ejecutable, las plantillas y esta documentación desde el [repositorio en GitHub](https://github.com/prolopeuab/feniX-ML).
+Repositorio del proyecto: [https://github.com/prolopeuab/feniX-ML](https://github.com/prolopeuab/feniX-ML)

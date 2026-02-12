@@ -1,4 +1,4 @@
----
+﻿---
 layout: default
 title: 4. Metadatos
 parent: Preparación de archivos DOCX
@@ -7,52 +7,68 @@ nav_order: 4
 
 # 4. Metadatos de la edición
 
-El archivo de **metadatos** contiene la información descriptiva de la edición y de sus fuentes.  
-feniX-ML utiliza este archivo para generar automáticamente el bloque `<teiHeader>` del XML-TEI.
+El archivo de metadatos se usa para generar el bloque `<teiHeader>` durante la conversión.
 
----
+## Requisito estructural mínimo
 
-## Formato del documento
+El DOCX de metadatos debe contener **al menos 3 tablas**:
 
-- Se debe completar el documento Word con **las tablas incluidas en la [plantilla](https://github.com/prolopeuab/feniX-ML/ejemplos)**:  
-  - **Metadatos principales**: datos de la edición crítica digital que se está generando.  
-  - **Datos bibliográficos de la fuente**: información sobre la edición base.  
-  - **Siglas de los testimonios** utilizados para la edición crítica.
+1. Metadatos principales de la edición digital.
+2. Datos bibliográficos de la fuente.
+3. Lista de testimonios (`listWit`).
 
-- No es necesario aplicar estilos. 
-- No se debe modificar el formato de la tabla.
+Si faltan tablas, la conversión lanza error.
 
+## Campos que usa la app
 
-#### Ejemplo de estructura
+### Tabla 1 (metadatos principales)
 
-<div style="border: 1px solid #ccc; padding: 1em; background-color: #f9f9f9; font-family: 'Garamond', serif; font-size: 1.05em;">
-<table>
-<tr><td><b>Título comedia</b></td><td>El laberinto de Creta</td></tr>
-<tr><td><b>Autor</b></td><td>Félix Lope de Vega Carpio</td></tr>
-<tr><td><b>Editor</b></td><td>Sònia Boadas</td></tr>
-<tr><td><b>Publicado por</b></td><td>PROLOPE, Universitat Autònoma de Barcelona</td></tr>
-<tr><td><b>Fecha publicación</b></td><td>2025</td></tr>
-</table>
-</div>
+Campos esperados (según plantilla):
 
----
+- `Título comedia`
+- `Autor`
+- `Editor`
+- `Responsable/s revisión`
+- `Responsable marcado automático`
+- `Versión`
+- `Publicado por`
+- `Lugar publicación`
+- `Fecha publicación`
 
-### ℹ️ Metadatos añadidos automáticamente por feniX-ML
+### Tabla 2 (fuente bibliográfica)
 
-Además de los datos completados en el archivo de metadatos, feniX-ML incorpora automáticamente información fija en el `<teiHeader>`:
+Campos esperados:
 
-- **Autor**: siempre se añade “Félix Lope de Vega Carpio” como autor de la obra.  
-- **Referencia institucional**: se incluyen referencias al Grupo PROLOPE, a la Biblioteca Digital PROLOPE y al responsable de dirección.  
-- **Crédito de codificación**: se añade un párrafo indicando que el marcado ha sido realizado con la aplicación feniX-ML.
+- `Título comedia`
+- `Subtítulo`
+- `Título volumen`
+- `Parte`
+- `Coordinadores volumen`
+- `Publicado por`
+- `Lugar publicación`
+- `Fecha publicación`
+- `Volumen`
+- `Páginas`
 
-> Si el archivo se utiliza para ediciones que no pertenecen a PROLOPE, estos datos deberán modificarse manualmente en el XML generado o modificar previamente el script.
+### Tabla 3 (testimonios)
 
----
+- Primera fila: cabecera (se ignora como guía).
+- Filas siguientes: sigla + descripción de testimonio.
 
-## Consejos finales
+## Tipos de TEI-header
 
-- Completa **todas las casillas** de la tabla para evitar errores de validación.  
-- Respeta el formato de la plantilla: no cambies el diseño de las tablas.  
-- Puedes incluir tantos testimonios como sea necesario en la última sección.
+La GUI permite elegir:
 
----
+- **TEI-header PROLOPE** (`prolope`): incluye bloques institucionales y textos editoriales PROLOPE.
+- **TEI-header propio** (`minimo`): mantiene estructura funcional con metadatos del usuario y referencia a la app, sin los bloques institucionales extensos.
+
+## Si no cargas metadatos
+
+La conversión usa una cabecera de respaldo mínima.
+
+> Para XML final de trabajo editorial se recomienda cargar siempre el DOCX de metadatos.
+{: .warning }
+
+![Plantilla de metadatos con 3 tablas](assets/images/capturas/preparar-docx/06-metadatos-tablas.png)
+
+*Captura pendiente de insertar.*
