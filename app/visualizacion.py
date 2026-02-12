@@ -236,7 +236,7 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode=
         const personajes = document.querySelector('tei-div[type="castList"]');
         if (personajes) {{
             personajes.setAttribute('id', 'personajes');
-            const head = personajes.querySelector('tei-head');
+            const head = personajes.querySelector('tei-head[type="castListTitle"], tei-head');
             let headText = 'Personajes';
             if (head) {{
                 const cleanHead = head.cloneNode(true);

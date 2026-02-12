@@ -1321,7 +1321,7 @@ def convert_docx_to_tei(
         elif style == "Epigr_Dramatis":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
             tei.append('        <div type="castList" xml:id="personajes">')
-            tei.append(f'            <head>{processed_text}</head>')
+            tei.append(f'            <head type="castListTitle">{processed_text}</head>')
             tei.append('          <castList>')
             state["in_cast_list"] = True
 

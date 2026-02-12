@@ -246,6 +246,21 @@ tei-div[subtype*="acto"] > tei-head {
     color: #444;
 }
 
+/* Encabezado de dramatis personae:
+   - Semántica nueva: type="castListTitle"
+   - Retrocompatibilidad: XML antiguos sin type específico */
+tei-head[type="castListTitle"],
+tei-div[type="castList"] > tei-head {
+    display: block;
+    font-size: 130%;
+    font-weight: 600;
+    font-style: italic;
+    text-align: center;
+    margin-top: 1.2em;
+    margin-bottom: 0.8em;
+    color: #4a4a4a;
+}
+
 /* Portada con título más grande */
 tei-div[type="cover"] tei-head {
     font-size: 300%;
