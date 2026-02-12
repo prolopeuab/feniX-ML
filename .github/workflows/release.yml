@@ -15,6 +15,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Ensure tag commit is on main
+        shell: pwsh
+        run: |
+          git fetch origin main --no-tags
+          git merge-base --is-ancestor "$env:GITHUB_SHA" "origin/main"
+          if ($LASTEXITCODE -ne 0) {
+            throw "El tag $env:GITHUB_REF_NAME apunta a un commit fuera de origin/main. Crea el tag desde main."
+          }
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -43,6 +54,26 @@ jobs:
           $hash = Get-FileHash -Algorithm SHA256 "dist/feniXML.exe"
           "$($hash.Hash)  feniXML.exe" | Out-File -FilePath "dist/feniXML.exe.sha256.txt" -Encoding ascii
 
+      - name: Build release bundle (exe + plantillas)
+        shell: pwsh
+        run: |
+          $templates = Get-ChildItem -Path "plantillas" -Filter "*.docx" -File
+          if ($templates.Count -ne 4) {
+            throw "Se esperaban 4 plantillas DOCX en /plantillas y se encontraron $($templates.Count)."
+          }
+
+          New-Item -ItemType Directory -Path "dist/release/plantillas" -Force | Out-Null
+          Copy-Item -Path "dist/feniXML.exe" -Destination "dist/release/feniXML.exe" -Force
+          Copy-Item -Path "plantillas/*.docx" -Destination "dist/release/plantillas/" -Force
+
+          Compress-Archive -Path "dist/release/*" -DestinationPath "dist/feniXML+plantillas.zip" -Force
+
+      - name: Generate SHA256 checksum for bundle
+        shell: pwsh
+        run: |
+          $hash = Get-FileHash -Algorithm SHA256 "dist/feniXML+plantillas.zip"
+          "$($hash.Hash)  feniXML+plantillas.zip" | Out-File -FilePath "dist/feniXML+plantillas.zip.sha256.txt" -Encoding ascii
+
       - name: Publish GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
@@ -52,3 +83,5 @@ jobs:
           files: |
             dist/feniXML.exe
             dist/feniXML.exe.sha256.txt
+            dist/feniXML+plantillas.zip
+            dist/feniXML+plantillas.zip.sha256.txt

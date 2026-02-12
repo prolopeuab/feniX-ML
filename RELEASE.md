@@ -8,7 +8,13 @@ Cuando se hace push de un tag `v*` (por ejemplo `v1.0.0`), GitHub:
 
 1. compila `feniXML.exe` en Windows,
 2. genera `feniXML.exe.sha256.txt`,
-3. publica una Release con ambos archivos adjuntos.
+3. genera `feniXML+plantillas.zip` con:
+   - `feniXML.exe`
+   - `plantillas/plantilla_prologoycomedia.docx`
+   - `plantillas/plantilla_notas.docx`
+   - `plantillas/plantilla_aparato.docx`
+   - `plantillas/plantilla_metadatos.docx`
+4. publica una Release con los binarios y checksums adjuntos.
 
 La compilación usa el mismo comando de PyInstaller documentado en `README.md`.
 
@@ -54,6 +60,8 @@ En GitHub:
 - Verificar adjuntos:
   - `feniXML.exe`
   - `feniXML.exe.sha256.txt`
+  - `feniXML+plantillas.zip`
+  - `feniXML+plantillas.zip.sha256.txt`
 
 ## Verificación rápida del binario
 
@@ -76,4 +84,5 @@ En GitHub:
 ## Notas útiles
 
 - Si el tag contiene guion (ej. `v1.2.0-rc.1`), la release se marca como **pre-release** automáticamente.
+- El workflow valida que el commit del tag pertenezca a `main`; si no, la release falla.
 - Para rehacer una versión, crear un nuevo tag (`v1.0.1`) en lugar de reutilizar el mismo.
