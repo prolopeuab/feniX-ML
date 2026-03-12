@@ -18,7 +18,7 @@ except Exception:
 
 from gui import main_gui
 
-# ==== PUNTO DE ENTRADA DE LA APLICACIÓN ====
+# --- Punto de entrada de la aplicación
 if __name__ == "__main__":
     # Lanza la interfaz gráfica principal de feniX-ML
     main_gui()

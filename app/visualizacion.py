@@ -7,7 +7,7 @@
 # Este script debe utilizarse junto a tei_backend.py, gui.py y main.py.
 # ==========================================
 
-# ==== IMPORTACIONES ====
+# --- Importaciones
 import os
 import sys
 import tempfile
@@ -17,9 +17,20 @@ import tkinter as tk
 from tkinter import messagebox, scrolledtext
 from tei_backend import convert_docx_to_tei
 
-# ==== UTILIDADES DE RECURSOS ====
+# --- Utilidades de recursos
 def resource_path(relative_path):
-    """Obtiene la ruta absoluta del recurso, compatible con PyInstaller."""
+    """
+    Obtiene ruta absoluta compatible con PyInstaller usando _MEIPASS.
+    
+    Permite cargar recursos (JS, CSS, iconos) desde carpeta resources/ tanto en
+    modo desarrollo (script) como en modo empaquetado (PyInstaller).
+    
+    Args:
+        relative_path: Ruta relativa al recurso (p.ej. "resources/estilos.css").
+    
+    Returns:
+        str: Ruta absoluta válida en el sistema operativo actual.
+    """
     try:
         # Si está empaquetado con PyInstaller
         base_path = sys._MEIPASS
@@ -29,19 +40,38 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 def load_resource(filename):
-    """Carga un fichero de resources/ como texto UTF-8."""
+    """
+    Carga archivo de texto desde carpeta resources/ codificado en UTF-8.
+    
+    Args:
+        filename: Nombre del archivo relativo a resources/ (p.ej. "CETEIcean.js").
+    
+    Returns:
+        str: Contenido del archivo codificado en UTF-8.
+    """
     path = resource_path(filename)
     with open(path, "r", encoding="utf-8") as f:
         return f.read()
 
-# ==== CARGA DE RECURSOS ESTÁTICOS (JS y CSS) ====
+# --- Carga de recursos estáticos (JS y CSS)
 CETEI_JS    = load_resource("resources/CETEIcean.js")
 ESTILOS_CSS = load_resource("resources/estilos.css")
 
-# ==== VISTAS DE PREVISUALIZACIÓN ====
+# --- Vistas de previsuálización
 def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root, header_mode="prolope"):
     """
-    Muestra una ventana con la previsualización del XML TEI generado.
+    Abre ventana con previsualización en vivo del XML-TEI generado.
+    
+    Convierte los archivos DOCX seleccionados y muestra el resultado en una ventana con
+    texto desplazable. Útil para verificación rápida de estructura antes de exportar.
+    
+    Args:
+        entry_main: Entry con ruta al DOCX principal (prólogo + comedia).
+        entry_com: Entry con ruta al DOCX de comentarios/notas (opcional).
+        entry_apa: Entry con ruta al DOCX de aparato crítico (opcional).
+        entry_meta: Entry con ruta al DOCX de metadatos (opcional).
+        root: Ventana padre de Tkinter.
+        header_mode: Modo de encabezado ("prolope" por defecto).
     """
     main_file = entry_main.get()
     com_file  = entry_com.get()
@@ -79,7 +109,17 @@ def vista_previa_xml(entry_main, entry_com, entry_apa, entry_meta, root, header_
 
 def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode="prolope"):
     """
-    Genera un archivo HTML temporal para previsualizar el TEI renderizado con CETEIcean.
+    Genera y abre previsualización HTML renderizada con CETEIcean en navegador.
+    
+    Convierte archivos DOCX a TEI-XML e integra recursos JS/CSS para visualizar la edición
+    digital con menú navegable. Abre en navegador predeterminado del sistema.
+    
+    Args:
+        entry_main: Entry con ruta al DOCX principal.
+        entry_com: Entry con ruta al DOCX de comentarios (opcional).
+        entry_apa: Entry con ruta al DOCX de aparato crítico (opcional).
+        entry_meta: Entry con ruta al DOCX de metadatos (opcional).
+        header_mode: Modo de encabezado ("prolope" por defecto).
     """
     main_file = entry_main.get()
     com_file  = entry_com.get()

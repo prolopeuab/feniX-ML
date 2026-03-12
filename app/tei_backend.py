@@ -6,7 +6,7 @@
 # Este script debe utilizarse junto a visualizacion.py, gui.py y main.py.
 # ==========================================
 
-# ==== IMPORTACIONES ====
+# --- Importaciones
 import os
 import re
 import unicodedata
@@ -18,7 +18,7 @@ from difflib import get_close_matches
 from typing import Optional
 
 
-# ==== FUNCIONES DE ESCAPE XML ====
+# --- Funciones de escape XML
 def escape_xml(text):
     """
     Escapa caracteres especiales de XML en el texto.
@@ -34,7 +34,7 @@ def escape_xml(text):
     return text
 
 
-# ==== EXTRACCIÓN Y PROCESAMIENTO DE NOTAS EN EL PRÓLOGO ====
+# --- Extracción y procesamiento de notas en el prólogo
 # Funciones para extraer y procesar notas a pie de página del prólogo o introducción.
 
 def extract_intro_footnotes(docx_path):
@@ -98,10 +98,17 @@ def extract_text_with_intro_notes(para, footnotes_intro):
                 text += escape_xml(run.text)
     return text.strip()
 
-# ==== MANEJO DE BLOQUES ESTRUCTURALES TEI ====
+# --- Manejo de bloques estructurales TEI
 def close_current_blocks(tei, state):
     """
-    Cierra los bloques abiertos en el estado actual del documento TEI.
+    Cierra todos los bloques TEI abiertos según el estado actual.
+    
+    Valida y cierra: <sp> (diálogos), <castList> (reparto), <div> (dedicatorias y actos).
+    Requiere que el diccionario `state` tenga claves: in_sp, in_cast_list, in_dedicatoria, in_act.
+    
+    Args:
+        tei: Lista de líneas TEI donde se añaden los cierres.
+        state: Dict con flags de bloques abiertos {in_sp: bool, in_cast_list: bool, ...}.
     """
     # Cierra los bloques abiertos en el estado actual
     if state.get("in_sp"):
@@ -118,7 +125,7 @@ def close_current_blocks(tei, state):
         tei.append('        </div>')
         state["in_act"] = False
 
-# ==== FUNCIONES DE SOPORTE PARA TEXTO ====
+# --- Funciones de soporte para texto
 def extract_text_with_italics(para):
     """
     Extrae el texto de un párrafo, preservando las cursivas.
@@ -201,29 +208,40 @@ def uppercase_preserve_tags(text):
 
 def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, section):
     """
-    Extrae el texto de un párrafo procesando anotaciones (@palabra) y cursivas.
-    ESTRATEGIA FINAL: Usar marcadores para cursivas ANTES de procesar anotaciones.
+    Extrae texto de un párrafo preservando cursivas y procesando anotaciones (@palabra, %palabra, @%palabra).
+    
+    Utiliza marcadores internos para cursivas antes de procesar anotaciones, evitando interferencias
+    entre símbolos de anotación y marcas de formato. Genera referencias XML con IDs únicos.
+    
+    Args:
+        para: Párrafo de python-docx con texto y formato.
+        nota_notes: Dict con notas filológicas {palabra_normalizada: contenido}.
+        aparato_notes: Dict con notas de aparato crítico {palabra_normalizada: contenido}.
+        annotation_counter: Dict para mantener sincronización de índices de notas.
+        section: Identificador de sección para generar xml:ids únicos.
+    
+    Returns:
+        str: Texto con etiquetas XML de cursiva (<hi rend="italic">) y notas (<note>) integradas.
     """
     
-    # Función para normalizar palabras
+    # Función interna para normalizar palabras
     def normalize_word(word):
         normalized = unicodedata.normalize('NFKD', word)
         normalized = normalized.encode('ASCII', 'ignore').decode('utf-8').lower().strip()
         return normalized
     
-    # Crear conjunto de todas las claves
+    # Crear conjunto de todas las palabras que tienen anotaciones
     all_keys = set()
     if nota_notes:
         all_keys.update(nota_notes.keys())
     if aparato_notes:
         all_keys.update(aparato_notes.keys())
     
-    # Contadores de ocurrencias separados para notas y aparato
+    # Mantener contadores separados de notas filológicas y aparato crítico para sincronización secuencial
     nota_counters = annotation_counter.setdefault("_occurrences_nota", {})
     aparato_counters = annotation_counter.setdefault("_occurrences_aparato", {})
     
-    # ==== PASO 1: Construir texto plano CON marcadores de cursiva ====
-    # Insertar marcadores ANTES de procesar anotaciones
+    # PASO 1: Construir texto con placeholders de cursiva antes de procesar anotaciones
     marked_text = ""
     prev_italic = False
     
@@ -244,20 +262,19 @@ def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, a
     if prev_italic:
         marked_text += '<<<ITALIC_END>>>'
     
-    # ==== PASO 2: Procesar TODAS las @palabra, %palabra o @%palabra ====
-    # Primero, reemplazar temporalmente los marcadores por placeholders únicos
-    # que no interfieran con el regex pero sean fáciles de restaurar
+    # PASO 2: Procesar anotaciones (@palabra, %palabra, @%palabra)
+    # Usar placeholders Unicode para no interferir con regex mientras se preservan cursivas
     
-    # Usar caracteres Unicode raros como placeholders
-    ITALIC_START_PLACEHOLDER = '\u0001'  # SOH (Start of Heading)
-    ITALIC_END_PLACEHOLDER = '\u0002'    # STX (Start of Text)
+    # Usar caracteres Unicode de control que no aparecen en texto normal
+    ITALIC_START_PLACEHOLDER = '\u0001'  # SOH - no causa conflicto con regex
+    ITALIC_END_PLACEHOLDER = '\u0002'    # STX - no causa conflicto con regex
     
-    # Reemplazar marcadores por placeholders
+    # Reemplazar marcadores temporales por placeholders para protegerlos del regex
     text_with_placeholders = marked_text.replace('<<<ITALIC_START>>>', ITALIC_START_PLACEHOLDER)
     text_with_placeholders = text_with_placeholders.replace('<<<ITALIC_END>>>', ITALIC_END_PLACEHOLDER)
     
-    # Procesar @palabra, %palabra o @%palabra en el texto con placeholders
-    # El regex debe ignorar los placeholders Unicode entre el símbolo y la palabra
+    # Función para reemplazar anotaciones (@palabra, %palabra, @%palabra) con notas XML
+    # Maneja sincronización de múltiples notas por palabra (lista de anotaciones)
     def replace_at_word(match):
         symbol = match.group(1)  # '@', '%' o '@%'
         placeholders_before = match.group(2) if match.group(2) else ''  # Placeholders entre símbolo y palabra
@@ -302,20 +319,20 @@ def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, a
         # Devolver: placeholders + palabra + notas
         return placeholders_before + word + ''.join(notes)
     
-    # Regex que captura @, % o @% seguido de opcionalmente placeholders, seguido de palabra
-    # Grupo 1: símbolo(s) (@, % o @%)
-    # Grupo 2: placeholders opcionales (\u0001 o \u0002)
-    # Grupo 3: palabra alfanumérica
+    # Regex para capturar anotaciones: símbolo(s), placeholders opcionales, palabra
+    # Grupo 1: @, % o @%  (símbolos de anotación)
+    # Grupo 2: \u0001|\u0002 opcionales (placeholders de cursiva entre símbolo y palabra)
+    # Grupo 3: \w+ (la palabra a anotar)
     pattern = r'(@%?|%)([\u0001\u0002]*)(\w+)'
     processed_text = re.sub(pattern, replace_at_word, text_with_placeholders)
     
-    # ==== PASO 3: Restaurar marcadores de cursiva ====
-    # Convertir placeholders de vuelta a marcadores
+    # PASO 3: Restaurar marcadores de cursiva
+    # Convertir placeholders de vuelta a marcadores legibles
     processed_text = processed_text.replace(ITALIC_START_PLACEHOLDER, '<<<ITALIC_START>>>')
     processed_text = processed_text.replace(ITALIC_END_PLACEHOLDER, '<<<ITALIC_END>>>')
     
-    # ==== PASO 4: Escapar XML (excepto notas y marcadores) ====
-    # Primero separar notas
+    # PASO 4: Escapar XML (excepto notas y marcadores)
+    # Separar notas para no escapar su contenido XML ya procesado
     parts = re.split(r'(<<<NOTE>>>.*?<<<ENDNOTE>>>)', processed_text, flags=re.DOTALL)
     escaped_parts = []
     for part in parts:
@@ -335,11 +352,11 @@ def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, a
     
     processed_text = ''.join(escaped_parts)
     
-    # ==== PASO 5: Convertir marcadores a XML ====
-    # Primero, limpiar marcadores de notas
+    # PASO 5: Convertir marcadores internos a etiquetas XML
+    # Limpiar marcadores de delimitación de notas y convertir cursivas a <hi>
     processed_text = processed_text.replace('<<<NOTE>>>', '').replace('<<<ENDNOTE>>>', '')
     
-    # Convertir TODOS los marcadores de cursiva a XML (dentro y fuera de notas)
+    # Convertir todos los marcadores de cursiva a etiquetas XML válidas
     processed_text = processed_text.replace('<<<ITALIC_START>>>', '<hi rend="italic">')
     processed_text = processed_text.replace('<<<ITALIC_END>>>', '</hi>')
     
@@ -407,7 +424,7 @@ def find_who_id(speaker, characters):
     return ""
 
 
-# ==== PROCESAMIENTO DE METADATOS Y FRONT-MATTER ====
+# --- Procesamiento de metadatos y front-matter
 def parse_metadata_docx(path, header_mode="prolope"):
     """
     Extrae metadatos de un archivo .docx estructurado en tablas y construye un teiHeader TEI/XML.
@@ -610,7 +627,18 @@ def parse_metadata_docx(path, header_mode="prolope"):
 
 def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro):
     """
-    Procesa los párrafos del front-matter, incluyendo tablas, generando el bloque <front> del TEI.
+    Procesa párrafos del front-matter generando secciones TEI <front> con soporte para tablas.
+    
+    Maneja diálogos (<sp>), citas (<cit>), versos (<l>), párrafos (<p>) y tablas especiales
+    en la sección de sinopsis. Usa marcas de estilo (# prefijo, "Quote", "Personaje", "Verso").
+    
+    Args:
+        doc: Documento python-docx completo (para acceder a tablas).
+        front_paragraphs: Lista de párrafos del front-matter.
+        footnotes_intro: Dict de notas al pie del prólogo {id: contenido_html}.
+    
+    Returns:
+        str: Líneas de XML TEI para el bloque <front>, listas para ser unidas con \\n.
     """
     tei_front = []
     subsection_open = False
@@ -808,13 +836,25 @@ def process_table_to_tei(table, footnotes_intro=None):
     tei.append('</table>')
     return "\n".join(tei)
 
-# ==== EXTRACCIÓN DE NOTAS DE notas Y APARATO ====
+# --- Extracción de notas de notas y aparato
 
 def process_annotations_raw(raw_text, nota_notes, aparato_notes, annotation_counter, section):
     """
-    Procesa anotaciones @palabra, %palabra o @%palabra en texto plano (sin tags XML de cursivas).
-    Esta función se ejecuta ANTES de aplicar las cursivas.
-    Devuelve el texto con las anotaciones reemplazadas por: palabra<note>...</note>
+    Procesa anotaciones en texto plano: @palabra, %palabra o @%palabra.
+    
+    Busca símbolos de anotación en el texto y genera elementos XML <note> con IDs únicos
+    y sincronización de índices. Mantiene sincronización secuencial entre anotaciones
+    filológicas y críticas.
+    
+    Args:
+        raw_text: Texto plano con anotaciones sin marcas XML.
+        nota_notes: Dict con notas filológicas {palabra_normalizada: contenido o [lista]}.
+        aparato_notes: Dict con notas de aparato crítico {palabra_normalizada: contenido o [lista]}.
+        annotation_counter: Dict para mantener contadores de cada palabra procesada.
+        section: Identificador de sección para generar xml:ids únicos.
+    
+    Returns:
+        str: Texto con anotaciones reemplazadas por palabra + elementos <note> XML integrados.
     """
     # Función para normalizar palabras (sin acentos, minúsculas)
     def normalize_word(word):
@@ -833,20 +873,20 @@ def process_annotations_raw(raw_text, nota_notes, aparato_notes, annotation_coun
     nota_counters = annotation_counter.setdefault("_occurrences_nota", {})
     aparato_counters = annotation_counter.setdefault("_occurrences_aparato", {})
     
-    # Función de reemplazo
+    # Función de reemplazo para procesar cada anotación encontrada
     def replace_annotation(match):
         symbol = match.group(1)  # '@', '%' o '@%'
-        phrase = match.group(2)  # La palabra capturada (sin el símbolo)
+        phrase = match.group(2)  # Palabra sin el símbolo
         key = normalize_word(phrase)
         
         if key not in all_keys:
             # Sin notas, simplemente quitar el símbolo y devolver la palabra
             return phrase
         
-        # Construir las notas correspondientes a esta ocurrencia
+        # Construir elementos <note> para esta anotación
         note_str = ""
         
-        # === NOTAS FILOLÓGICAS === solo si tiene @ (@ o @%)
+        # Procesar notas filológicas si el símbolo tiene @ (@ o @%)
         if '@' in symbol and key in nota_notes:
             nota_index = nota_counters.get(key, 0)
             # Validación defensiva: asegurar que nota_index nunca sea None
@@ -881,7 +921,8 @@ def process_annotations_raw(raw_text, nota_notes, aparato_notes, annotation_coun
         # Devolver la palabra (ya escapada XML si fuera necesario) seguida de las notas
         return f'{escape_xml(phrase)}{note_str}'
     
-    # Patrón: @palabra, %palabra o @%palabra (captura símbolo y palabra)
+    # Patrón regex: @palabra, %palabra o @%palabra
+    # Captura: Grupo 1 = símbolo(s), Grupo 2 = palabra
     processed_text = re.sub(r'(@%?|%)(\w+)', replace_annotation, raw_text)
     
     return processed_text
@@ -970,7 +1011,7 @@ def extract_notes_with_italics(docx_path: str) -> dict:
     return notes
 
 
-# ==== PROCESAMIENTO DE NOTAS Y APARATO ====
+# --- Procesamiento de notas y aparato
 
 def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_counter, section):
     """
@@ -1039,10 +1080,10 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
                 return f'<hi rend="italic">{phrase}</hi>'
             return phrase
         
-        # Construir las notas correspondientes a esta ocurrencia
+        # Construir elementos <note> para cada anotación encontrada
         note_str = ""
         
-        # === NOTAS FILOLÓGICAS === solo si tiene @ (@ o @%)
+        # Procesar notas filológicas si el símbolo tiene @ (@ o @%)
         if '@' in symbol and key in nota_notes:
             nota_index = nota_counters.get(key, 0)
             # Validación defensiva: asegurar que nota_index nunca sea None
@@ -1058,7 +1099,7 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
                 note_str += f'<note subtype="nota" xml:id="{xml_id_nota}">{content}</note>'
             nota_counters[key] = nota_index + 1
         
-        # === APARATO CRÍTICO === solo si tiene % (% o @%)
+        # Procesar aparato crítico si el símbolo tiene % (% o @%)
         if '%' in symbol and key in aparato_notes:
             aparato_index = aparato_counters.get(key, 0)
             # Validación defensiva: asegurar que aparato_index nunca sea None
@@ -1104,7 +1145,7 @@ def process_annotations_with_ids(text, nota_notes, aparato_notes, annotation_cou
     return new_text
 
 
-# ==== FUNCIÓN PRINCIPAL DE CONVERSIÓN DOCX → TEI ====
+# --- Función principal de conversión DOCX → TEI
 def convert_docx_to_tei(
     main_docx: str,
     notas_docx: Optional[str] = None,
@@ -1653,7 +1694,7 @@ def convert_docx_to_tei(
     return None
 
 
-# ==== VALIDACIÓN Y ANÁLISIS DE LOS DOCUMENTOS ====
+# --- Validación y análisis de los documentos
 def count_verses_in_document(main_docx, include_dedication=False):
     """
     Cuenta los versos en un documento DOCX usando la misma lógica que el procesamiento principal.

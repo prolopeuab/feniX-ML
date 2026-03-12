@@ -7,7 +7,7 @@
 # Este script debe utilizarse junto a tei_backend.py, visualizacion.py y main.py.
 # ==========================================
 
-# ==== IMPORTACIONES ====
+# --- Importaciones
 import os
 import sys
 import tkinter as tk
@@ -46,12 +46,12 @@ def save_config(config):
     except:
         pass
 
-# ==== FUNCIONES DE UTILIDAD PARA MENSAJES Y AYUDA ====
+# --- Funciones de utilidad para mensajes y ayuda
 def show_info(message):
     """Muestra un mensaje de ayuda en un cuadro de diálogo."""
     messagebox.showinfo("Información", message)
 
-# ==== FUNCIÓN PRINCIPAL DE LA INTERFAZ ====
+# --- Función principal de la interfaz
 def main_gui():
     """
     Inicializa y ejecuta la interfaz gráfica principal de feniX-ML.
@@ -255,7 +255,7 @@ def main_gui():
         # Sin scroll, usar root directamente
         main_parent = root
 
-    # ==== SECCIÓN 1: SELECCIÓN DE ARCHIVOS DOCX ====
+    # --- Sección 1: Selección de archivos DOCX
     main_frame = ctk.CTkFrame(main_parent, fg_color="transparent")
     main_frame.pack(fill="both", expand=True, padx=0, pady=(5, 5))
     
@@ -365,7 +365,7 @@ def main_gui():
                                        font=("Segoe UI", label_font))
     radio_minimo.grid(row=0, column=2, sticky="w", padx=10, pady=8)
 
-    # ==== SECCIÓN 2: VALIDACIÓN Y VISTA PREVIA (columna izquierda) ====
+    # --- Sección 2: Validación y vista previa (columna izquierda)
     frame_output = ctk.CTkFrame(main_frame, corner_radius=10)
     frame_output.grid(row=2, column=0, sticky="nsew", padx=(10,5), pady=(0,8))
     
@@ -466,7 +466,7 @@ def main_gui():
     frame_output.columnconfigure(0, weight=1) 
     frame_output.columnconfigure(1, weight=1)
 
-    # ==== SECCIÓN 3: CONFIGURACIÓN DEL OUTPUT Y GUARDADO (columna derecha) ====
+    # --- Sección 3: Configuración del output y guardado (columna derecha)
     frame_conversion = ctk.CTkFrame(main_frame, corner_radius=10)
     frame_conversion.grid(row=2, column=1, sticky="nsew", padx=(5,10), pady=(0,8))
 
@@ -564,7 +564,7 @@ def main_gui():
     main_frame.columnconfigure(0, weight=1, uniform="cols")
     main_frame.columnconfigure(1, weight=2, uniform="cols")
 
-    # ==== BARRA DE PROGRESO ====
+    # --- Barra de progreso
     progress_frame = ctk.CTkFrame(main_parent, fg_color="transparent")
     progress_frame.pack(fill="x", padx=10, pady=(0, 5))
     
@@ -578,42 +578,55 @@ def main_gui():
 
     def run_with_progress(task_func, message, on_success=None, on_error=None):
         """
-        Ejecuta una tarea en un thread secundario mostrando barra de progreso.
-        - task_func: función que ejecuta la tarea y retorna el resultado
-        - message: texto a mostrar durante la ejecución
-        - on_success: callback(result) al completar exitosamente
-        - on_error: callback(exception) en caso de error
+        Ejecuta una tarea en thread secundario mostrando barra de progreso indeterminada.
+        
+        Mantiene la GUI responsiva durante operaciones largas (conversión, validación).
+        Usa root.after() para actualizar UI de forma thread-safe desde el worker.
+        
+        Args:
+            task_func: Función sin argumentos que ejecuta la tarea, retorna un resultado.
+            message: Texto a mostrar en la barra de progreso durante ejecución.
+            on_success: Callback(result) opcional, ejecutado en thread principal si la tarea completa.
+            on_error: Callback(exception) opcional, ejecutado en thread principal si hay error.
         """
         def show_progress():
+            # Mostrar barra de progreso en modo indeterminado (sin valor específico)
             progress_frame.pack(fill="x", padx=10, pady=(0, 5), before=footer_frame)
             progress_label.configure(text=message)
             progress_bar.configure(mode="indeterminate")
             progress_bar.start()
         
         def hide_progress():
+            # Detener animación y ocultar barra de progreso
             progress_bar.stop()
             progress_bar.configure(mode="determinate")
             progress_bar.set(0)
             progress_frame.pack_forget()
         
         def worker():
+            # Ejecutar tarea en thread secundario manteniendo GUI responsiva
             try:
+                # Mostrar barra de progreso en thread principal usando root.after()
                 root.after(0, show_progress)
                 result = task_func()
+                # Ocultar barra y ejecutar callback de éxito en thread principal
                 root.after(0, hide_progress)
                 if on_success:
                     root.after(0, lambda r=result: on_success(r))
             except Exception as e:
+                # Ocultar barra y ejecutar callback de error en thread principal
                 root.after(0, hide_progress)
                 if on_error:
                     root.after(0, lambda err=e: on_error(err))
                 else:
+                    # Mostrar cuadro de error por defecto si no hay callback personalizado
                     root.after(0, lambda err=e: messagebox.showerror("Error", str(err)))
         
+        # Iniciar thread daemon (no bloquea cierre de aplicación)
         threading.Thread(target=worker, daemon=True).start()
 
-    # ==== PIE DE PÁGINA ====
-    try:
+        # --- Pie de página
+        try:
         root_bg = root.cget("background")
     except:
         root_bg = "#ffffff"
