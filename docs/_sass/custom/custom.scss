@@ -21,17 +21,17 @@
 /* Callouts */
 
 .simple-highlight {
-  border-left: 4px solid #6c63ff;
+  border: 1px solid #6c63ff;
   background: #f3f0ff;
   padding: 0.75rem 1rem;
-  border-radius: 4px;
+  border-radius: 15px;
 }
 
 .tip {
-  border-left: 4px solid #28a745;
+  border: 1px solid #28a745;
   background: #f6fffa;
   padding: 0.75rem 1rem;
-  border-radius: 4px;
+  border-radius: 15px;
 }
 .tip::before {
   content: "CONSEJO";
@@ -41,10 +41,10 @@
 }
 
 .note {
-  border-left: 4px solid #17a2b8;
+  border: 1px solid #17a2b8;
   background: #f5fcff;
   padding: 0.75rem 1rem;
-  border-radius: 4px;
+  border-radius: 15px;
 }
 .note::before {
   content: "NOTA";
@@ -54,10 +54,10 @@
 }
 
 .important {
-  border-left: 4px solid #ffc107;
+  border: 1px solid #ffc107;
   background: #fffbea;
   padding: 0.75rem 1rem;
-  border-radius: 4px;
+  border-radius: 15px;
 }
 .important::before {
   content: "IMPORTANTE";
@@ -67,10 +67,10 @@
 }
 
 .warning {
-  border-left: 4px solid #dc3545;
+  border: 1px solid #dc3545;
   background: #fff5f5;
   padding: 0.75rem 1rem;
-  border-radius: 4px;
+  border-radius: 15px;
 }
 .warning::before {
   content: "ADVERTENCIA";
@@ -79,8 +79,14 @@
   margin-right: 0.5em;
 }
 
+.caution {
+  border: 1px solid #fd7e14;
+  background: #fff8f1;
+  padding: 0.75rem 1rem;
+  border-radius: 15px;
+}
 .caution::before {
-  content: "Precaución: ";
+  content: "PRECAUCIÓN";
   font-weight: bold;
   color: #fd7e14;
   margin-right: 0.5em;
@@ -178,4 +184,49 @@
   line-height: 1.4;
   margin: 0;
   padding: 0;
+}
+
+/* Utilidad para imágenes en Markdown */
+.img-50 {
+  display: block;
+  max-width: 50%;
+  height: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+.img-70 {
+  display: block;
+  max-width: 70%;
+  height: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+.img-100 {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+/* Dos imágenes en la misma fila (Markdown + class en párrafo) */
+.img-row-2 {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  justify-content: center;
+  align-items: flex-start;
+
+  img {
+    width: calc(50% - 0.5rem);
+    max-width: 100%;
+    height: auto;
+    margin: 0;
+  }
+}
+
+@media (max-width: 768px) {
+  .img-row-2 img {
+    width: 100%;
+  }
 }

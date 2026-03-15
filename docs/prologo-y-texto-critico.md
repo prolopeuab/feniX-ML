@@ -16,15 +16,9 @@ La app convierte este archivo según estilos de Word y marcadores textuales. Par
 
 ## Estructura general del documento
 
-Orden recomendado:
-
 1. Prólogo (con secciones `#...`)
 2. Título de la comedia (`Titulo_comedia`)
 3. Resto del texto crítico (dedicatoria, dramatis personae, actos, intervenciones, etc.)
-
-![Estructura general del DOCX principal](assets/images/capturas/preparar-docx/01-estructura-prologo-comedia.png)
-
-*Captura pendiente de insertar.*
 
 ## 1.1 El prólogo
 
@@ -42,21 +36,24 @@ Texto...
 
 Estas líneas se interpretan como encabezados de subsección en el bloque `<front>`.
 
-### Citas en el prólogo
-
-Para citas extensas usa el estilo de Word **`Quote`**. Se transforma en bloque de cita TEI.
+### Citas y versos en el prólogo
+Además de párrafos de texto, el prólogo puede incluir elementos especiales como citas textuales de otros textos o de la propia obra editada. En el primer caso, usa el estilo cita (`quote`), en el segundo, puedes usar los estilos para personajes, versos y acotaciones con normalidad, como harías en el texto crítico (descrito más abajo).
 
 ### Notas del prólogo
 
-Las notas del prólogo se insertan como **notas al pie de Word**. La app las transforma en notas TEI de tipo introductorio.
+Las notas del prólogo se insertan como notas al pie de Word. La app las transforma en notas TEI de tipo introductorio (`<note type="intro"`).
 
 ### Tabla de sinopsis
 
 La sección de sinopsis puede incluir tabla. La app procesa tablas en el front (especialmente en la sección de sinopsis).
 
+![El prólogo en el documento Word]({{ '/assets/images/capturas/preparar-docx/prologo-docx.png' | relative_url }}){: .img-100 }
+
 ## 1.2 El texto crítico
 
 Desde el primer `Titulo_comedia`, la app procesa el cuerpo principal (`<body>`).
+
+![El inicio del texto crítico]({{ '/assets/images/capturas/preparar-docx/comedia-docx.png' | relative_url }}){: .img-100 }
 
 ### Estilos reconocidos y salida TEI
 
@@ -77,22 +74,21 @@ Desde el primer `Titulo_comedia`, la app procesa el cuerpo principal (`<body>`).
 | `Laguna` | Laguna de extensión incierta | `<gap>` |
 | `Epigr_final` | Cierre/epígrafe final | `<trailer>` |
 
-> `Laguna` no incrementa la numeración de versos.
-{: .note }
+![Aplicación de estilos en Word]({{ '/assets/images/capturas/preparar-docx/estilos-docx.png' | relative_url }}){: .img-50 }
 
-![Aplicación de estilos en Word](assets/images/capturas/preparar-docx/02-estilos-word.png)
+## Marcadores que debes usar en este archivo
 
-*Captura pendiente de insertar.*
+Además de estilos de Word, feniX-ML usa marcadores inline en el **texto principal**.
 
-## Símbolos y marcadores en el texto principal
+### 1) Marcadores de nota y aparato (`@`, `%`, `@%`)
 
-Además de estilos, feniX-ML usa marcadores inline.
+- `@palabra` -> marca un término con nota explicativa.
+- `%palabra` -> marca un término con aparato crítico.
+- `@%palabra` -> marca un término con nota y aparato a la vez.
 
-### Anotaciones por palabra
-
-- `@palabra` -> nota explicativa (archivo de notas).
-- `%palabra` -> aparato crítico (archivo de aparato).
-- `@%palabra` -> ambas notas sobre el mismo término.
+> Usa `@`, `%` y `@%` solo en elementos no numerados (títulos, dedicatoria, acotaciones, etc.).
+> En versos numerados no hace falta usar estos símbolos: notas y aparato se vinculan por número de verso en sus archivos correspondientes.
+{: .important }
 
 Ejemplo:
 
@@ -100,45 +96,51 @@ Ejemplo:
 Salen @Teseo y %Albante en silencio.
 ```
 
-### Cambio de forma estrófica
+Para el formato completo de notas y aparato, consulta:
 
-Para indicar inicio de nueva forma estrófica, usa una línea que empiece por `$`:
+- [2. Aparato crítico]({% link aparato-critico.md %})
+- [3. Notas explicativas]({% link notas.md %})
+
+### 2) Marcadores de cambio estrófico (`$`)
+
+Usa una línea que empiece por `$` para marcar un cambio de forma métrica.
 
 ```text
 $redondilla
 $endecasílabos sueltos
 ```
 
-Se convierte en:
+> Puedes usar `$` en cada cambio de segmento métrico o en cada estrofa, según el nivel de detalle que necesites.
+{: .tip }
 
-```xml
-<milestone unit="stanza" type="redondilla"/>
-<milestone unit="stanza" type="endecasilabos-sueltos"/>
-```
+### Versos partidos
 
-![Marcadores @ % @% y $](assets/images/capturas/preparar-docx/03-marcadores-anotaciones.png)
+Para versos partidos, usa la secuencia de estilos `Partido_inicial` -> `Partido_medio` -> `Partido_final`.
 
-*Captura pendiente de insertar.*
+![Ejemplo de versos partidos]({{ '/assets/images/capturas/preparar-docx/partidos-docx.png' | relative_url }}){: .img-70 }
 
-## Notas y aparato por verso
-
-Para versos numerados, las notas y variantes se vinculan por número de verso en archivos separados (`notas.docx` y `aparato.docx`), usando formatos como:
-
-- `25:`
-- `329a:` (verso partido, parte con sufijo)
 
 ## Casos particulares
 
 ### Dedicatoria
 
-En dedicatoria usa `Epigr_Dedic` para encabezado y aplica estilo `Prosa` o `Verso` según corresponda en el contenido. No se recomienda dejar texto de dedicatoria en `Normal`.
+En dedicatoria usa `Epigr_Dedic` para encabezado y aplica estilo `Prosa` o `Verso` según corresponda en el contenido. No dejar texto `Normal` (sin estilo).
 
 ### Verso interrumpido por acotación
 
-Si un personaje continúa tras una acotación, repite `Personaje` para abrir una nueva intervención de forma explícita.
+Si un personaje continúa tras una acotación, no es necesario reabrir `Personaje` de forma explícita, el sistema incluirá el `<stage>` dentro de ese `<sp>`.
 
-### Errores que conviene evitar
+### Versos omitidos o lagunas textuales
+Cuando hay pérdida de texto, elige el estilo según cómo quieras tratar la numeración:
 
-- Estilos con nombre mal escrito (ej. `Partido_incial`).
-- Párrafos en `Normal` dentro del cuerpo.
-- Secuencias de verso partido sin cierre (`Partido_final`).
+- Usa `Verso` si conoces los versos omitidos y quieres mantener su numeración en la secuencia.
+- Usa `Laguna` si no conoces cuántos versos faltan o no quieres que computen en la numeración.
+
+![Versos omitidos o lagunas textuales]({{ '/assets/images/capturas/preparar-docx/laguna-docx.png' | relative_url }}){: .img-50 }
+
+## Antes de pasar al siguiente archivo
+
+> - Revisa que no queden estilos mal escritos (por ejemplo, `Partido_incial`).
+> - Comprueba que no haya párrafos en `Normal` dentro del cuerpo.
+> - Verifica que toda secuencia de verso partido cierre con `Partido_final`.
+{: .tip }

@@ -7,20 +7,16 @@ nav_order: 2
 
 # 2. Aparato crítico
 
-El archivo de aparato crítico es independiente del texto principal. Cada párrafo del DOCX contiene una entrada.
+Usa este archivo para registrar **solo variantes del aparato crítico**. Es independiente del texto principal y cada párrafo del DOCX corresponde a una entrada.
 
 ## Formato de entrada
 
-Formato válido al inicio de cada párrafo:
+### 2.1 Entradas asociadas a verso
+
+Formato válido al inicio del párrafo:
 
 - `NÚMERO:`
 - `NÚMERO+LETRA:` (ej. `329a:` para versos partidos)
-- `%PALABRA:` (referencia por término no numerado)
-
-> Para aparato crítico por término no numerado, usa `%` (no `@`) en archivo y texto principal.
-{: .important }
-
-## 2.1 Entradas asociadas a verso
 
 Ejemplos:
 
@@ -30,7 +26,14 @@ Ejemplos:
 329b: 329b segundo tramo del verso partido ...
 ```
 
-## 2.2 Entradas asociadas a término no numerado
+### 2.2 Entradas asociadas a término no numerado
+
+Formato válido:
+
+- `%palabra:`
+
+> Para aparato por término no numerado, usa `%` (no `@`) en el archivo y en el texto principal.
+{: .important }
 
 En el archivo de aparato:
 
@@ -39,11 +42,23 @@ En el archivo de aparato:
 %dedicatoria: dedicatoria A : dedicación Men
 ```
 
+> Puedes usar cursiva en el contenido del aparato (por ejemplo, siglas o testimonios). No uses etiquetas HTML (`<i>`) ni Markdown (`*...*`) en el DOCX: aplica cursiva de Word, que se transformará en `<hi rend="italic">`.
+{: .tip }
+
 En el texto principal, marca el mismo término con `%`:
 
 ```text
 Título de la %tragicomedia de Lope de Vega.
 ```
+
+Si la entrada afecta a una frase o unidad mayor (por ejemplo, una acotación completa), coloca la marca en el **último término** del segmento:
+
+```text
+Primera acotación con una entrada de %aparato.
+```
+
+> Usa una clave de **una sola palabra**, preferiblemente en minúsculas. El script normaliza, pero mantener una forma consistente evita confusiones.
+{: .tip }
 
 ## Compatibilidad con notas explicativas
 
@@ -53,12 +68,12 @@ Si un mismo término necesita aparato y nota explicativa:
 - En notas: `@palabra: ...`
 - En aparato: `%palabra: ...`
 
-## Recomendaciones
+![Ejemplo de archivo DOCX de aparato]({{ '/assets/images/capturas/preparar-docx/aparato-docx.png' | relative_url }}){: .img-100 }
 
-- Mantén una entrada por párrafo.
-- Conserva cursivas cuando correspondan (se preservan en salida).
-- Evita mezclar aparato y notas en un mismo archivo.
+## Antes de pasar al siguiente archivo
 
-![Ejemplo de archivo DOCX de aparato](assets/images/capturas/preparar-docx/04-aparato-docx.png)
-
-*Captura pendiente de insertar.*
+> - Usa `%palabra` (no `@palabra`) para entradas por término no numerado.
+> - Mantén una entrada por párrafo y no mezcles notas y aparato en el mismo DOCX.
+> - Si la entrada afecta a un segmento amplio, marca el último término del segmento en el texto principal.
+> - Revisa que cada clave `%palabra` tenga su marca correspondiente y conserva cursivas cuando correspondan.
+{: .tip }

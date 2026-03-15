@@ -9,21 +9,28 @@ nav_order: 4
 
 El archivo de metadatos se usa para generar el bloque `<teiHeader>` durante la conversión.
 
-## Requisito estructural mínimo
+## Checklist rápido
 
-El DOCX de metadatos debe contener **al menos 3 tablas**:
+1. El DOCX contiene **3 tablas** en este orden: metadatos principales, fuente bibliográfica y testimonios.
+2. La **primera fila** de la tabla de testimonios es cabecera (la app la ignora).
+3. Cada fila representa una única entrada (clave + valor).
 
-1. Metadatos principales de la edición digital.
-2. Datos bibliográficos de la fuente.
-3. Lista de testimonios (`listWit`).
+> Si faltan tablas (menos de 3), la conversión falla.
+{: .important }
 
-Si faltan tablas, la conversión lanza error.
+## Estructura mínima obligatoria
 
-## Campos que usa la app
+El único requisito estrictamente obligatorio es la estructura de 3 tablas.
+
+Aunque algunos campos pueden quedar vacíos, se recomienda completarlos para evitar un `teiHeader` incompleto.
+
+## Campos que reconoce la app (coincidencia exacta)
+
+Usa los nombres de campo tal como aparecen en la plantilla. Si cambias etiquetas, la app puede dejar datos sin mapear.
 
 ### Tabla 1 (metadatos principales)
 
-Campos esperados (según plantilla):
+Campos reconocidos:
 
 - `Título comedia`
 - `Autor`
@@ -37,7 +44,7 @@ Campos esperados (según plantilla):
 
 ### Tabla 2 (fuente bibliográfica)
 
-Campos esperados:
+Campos reconocidos:
 
 - `Título comedia`
 - `Subtítulo`
@@ -50,25 +57,32 @@ Campos esperados:
 - `Volumen`
 - `Páginas`
 
-### Tabla 3 (testimonios)
+### Tabla 3 (testimonios / `listWit`)
 
-- Primera fila: cabecera (se ignora como guía).
-- Filas siguientes: sigla + descripción de testimonio.
+- `sigla` + descripción del testimonio.
+
+> La sigla se usa como `xml:id`. Recomendación: sin espacios, sin símbolos raros y mejor comenzar por letra.
+{: .tip }
 
 ## Tipos de TEI-header
 
 La GUI permite elegir:
 
-- **TEI-header PROLOPE** (`prolope`): incluye bloques institucionales y textos editoriales PROLOPE.
-- **TEI-header propio** (`minimo`): mantiene estructura funcional con metadatos del usuario y referencia a la app, sin los bloques institucionales extensos.
+- **TEI-header PROLOPE** (`prolope`): incluye datos propios del proyecto.
+- **TEI-header propio** (`minimo`): mantiene estructura funcional con metadatos del usuario y referencia a la app.
 
 ## Si no cargas metadatos
 
 La conversión usa una cabecera de respaldo mínima.
 
-> Para XML final de trabajo editorial se recomienda cargar siempre el DOCX de metadatos.
-{: .warning }
+> Se recomienda cargar siempre el DOCX de metadatos para evitar correcciones manuales posteriores en el XML.
+{: .tip }
 
-![Plantilla de metadatos con 3 tablas](assets/images/capturas/preparar-docx/06-metadatos-tablas.png)
+![Archivo de metadatos]({{ '/assets/images/capturas/preparar-docx/metadatos-docx.png' | relative_url }})
 
-*Captura pendiente de insertar.*
+## Antes de continuar
+
+> - Comprueba que el DOCX mantiene las 3 tablas en el orden correcto.
+> - Verifica que los nombres de campo coinciden exactamente con la plantilla.
+> - En `Carga de archivos`, sube este DOCX en `Tabla de metadatos` y revisa `Tipo de TEI-header`.
+{: .tip }

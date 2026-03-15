@@ -11,9 +11,16 @@ has_children: false
 
 - Anna Abate
 - Emanuele Leboffe
-- David Merino Recalde
+- [David Merino Recalde](https://dxvidmr.github.io)
 
-En el marco del grupo de investigación **PROLOPE** (Universitat Autònoma de Barcelona).
+Con la colaboración de Khatereh Gorji.
+
+En el marco del proyecto [*La integral dramática de Lope de Vega: textos, métodos, problemas, proyección*](https://portalrecerca.uab.cat/ca/projects/la-integral-dramatica-de-lope-de-vega-textos-metodos-problemas-pr-2/) del grupo de investigación **PROLOPE** (Universitat Autònoma de Barcelona).
+
+## Presentaciones
+
+- 22-24 de octubre de 2025, **VII Congreso Humanidades Digitales Hispánicas** (HDH 2025), Universitat de València,  *Una estrategia sostenible para la edición crítica digital del teatro del Siglo de Oro: el caso de PROLOPE*.
+- 17 de marzo de 2026, **Compartir Pantalla** (HDH), *feniX-ML: Marcado XML-TEI semiautomático para la edición digital del teatro del Siglo de Oro*, [enlace](https://humanidadesdigitaleshispanicas.es/compartir-pantalla-con-anna-abate-khatereh-gorji-y-david-merino-recalde-17-de-marzo-de-2026/).
 
 ## Contacto
 

@@ -7,32 +7,18 @@ has_children: true
 
 # Preparación de archivos DOCX
 
-Para generar una edición completa en feniX-ML, prepara estos documentos:
+## Qué vas a preparar
 
 1. **Prólogo y texto crítico** (obligatorio)
 2. **Aparato crítico** (opcional)
 3. **Notas explicativas** (opcional)
 4. **Metadatos** (opcional, recomendado)
 
-## Reglas transversales importantes
+## Antes de empezar
 
-- Trabaja sobre la plantilla de estilos del proyecto.
-- Usa formato de entrada estricto en notas/aparato:
-  - `NÚMERO:`
-  - `NÚMERO+LETRA:` (ej. `329a:`)
-  - `@PALABRA:`
-  - `%PALABRA:`
-- En el texto principal:
-  - `@palabra` para notas.
-  - `%palabra` para aparato.
-  - `@%palabra` para ambos.
+- Trabaja siempre sobre la plantilla de estilos del proyecto.
+- Cada archivo se carga por separado en feniX-ML.
+- La sintaxis de cada archivo se explica en cada página específica.
 
-## Guía por archivo
-
-- [1. Prólogo y texto crítico]({% link prologo-y-texto-critico.md %})
-- [2. Aparato crítico]({% link aparato-critico.md %})
-- [3. Notas explicativas]({% link notas.md %})
-- [4. Metadatos]({% link metadatos.md %})
-
-> Cada archivo se carga por separado en la interfaz de feniX-ML.
-{: .note }
+> Si partes de archivos Word anteriores, copia y pega el contenido a la plantilla o crea estilos con los mismos nombres antes de cargar.
+{: .tip }

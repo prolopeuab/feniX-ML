@@ -1,47 +1,57 @@
 ---
 layout: default
-title: Primeros pasos e instalación
+title: Instalación
 nav_order: 2
 ---
 
-# Primeros pasos e instalación
+# Instalación
 
 ## Descargar y ejecutar la app
 
 feniX-ML se distribuye como ejecutable para Windows en la sección de [Releases del repositorio](https://github.com/prolopeuab/feniX-ML/releases).
 
-El nombre del archivo puede variar según versión (por ejemplo, `feniXML.exe`).
+> Descarga siempre desde los releases del repositorio oficial para evitar ejecutables alterados.
+{: .important }
 
-1. Descarga el ejecutable.
-2. Guárdalo en una carpeta local.
-3. Ábrelo con doble clic.
+Encontrarás dos opciones:
+
+- `feniXML.exe` (ejecutable directo).
+- `.zip` (incluye ejecutable y plantillas necesarias).
+
+![Releases en GitHub]({{ '/assets/images/capturas/releases.png' | relative_url }}){: .img-50 }
+
+1. Descarga el ejecutable o el `.zip`.
+2. Guárdalo en una carpeta local y descomprime si es necesario.
+3. Abre `feniXML.exe`.
 
 ## Requisitos del sistema
 
 - **Windows 10 o superior**.
 - Navegador web (Chrome, Edge, Firefox u otro) para la **vista previa HTML**.
 
-No necesitas instalar Python para usar el ejecutable.
+> No necesitas instalar Python para usar el ejecutable.
+{: .tip }
+
+## Verificación rápida tras instalar
+
+- La aplicación abre sin errores.
+- Puedes cargar un DOCX de ejemplo de [`ejemplos/`](https://github.com/prolopeuab/feniX-ML/tree/main/ejemplos).
+- Puedes generar la vista previa HTML local.
 
 ## Seguridad y avisos del sistema
 
 Como ocurre con otros `.exe` distribuidos fuera de tiendas oficiales, algunos antivirus o SmartScreen pueden mostrar advertencias iniciales.
 
-Si confías en la fuente del repositorio:
+> Si aparece SmartScreen, comprueba que el archivo proviene del repositorio oficial antes de continuar.
+> Ejecuta como administrador solo cuando Windows lo solicite de forma explícita.
+{: .warning }
 
-- Añade excepción en antivirus si fuera necesario.
-- Ejecuta como administrador solo cuando el sistema lo pida.
+## Qué necesitarás después
 
-## Archivos necesarios para trabajar
+Para el flujo completo de trabajo, consulta:
 
-Para un flujo completo:
-
-- Archivo principal `Prólogo y comedia` (obligatorio).
-- `Notas` (opcional).
-- `Aparato crítico` (opcional).
-- `Metadatos` (opcional, recomendado).
-
-Puedes revisar ejemplos en la carpeta [`ejemplos/`](https://github.com/prolopeuab/feniX-ML/tree/main/ejemplos).
+- [Preparación de archivos DOCX]({% link preparar-docx.md %})
+- [Uso de la app]({% link uso-app.md %})
 
 ## Uso con Python (macOS/Linux o entorno técnico)
 
