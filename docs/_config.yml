@@ -2,6 +2,14 @@ title: feniX-ML
 description: Herramienta para transformar ediciones críticas de teatro del Siglo de Oro de DOCX a XML-TEI.
 theme: just-the-docs
 
+# Reduce el ruido de warnings deprecados de Sass del tema/dependencias en local
+sass:
+  quiet_deps: true
+  silence_deprecations:
+    - import
+    - global-builtin
+    - color-functions
+
 # URL de tu sitio (opcional, se puede ajustar cuando esté publicado)
 url: https://prolopeuab.github.io
 baseurl: "/feniX-ML"
