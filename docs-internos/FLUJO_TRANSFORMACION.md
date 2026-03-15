@@ -304,7 +304,7 @@ Siempre se genera `<speaker>...</speaker>` en cada `sp`.
 
 Nota de render:
 
-- en `speaker`, el nombre del personaje se mayusculiza;
+- en `speaker`, el nombre del personaje se transforma a mayúsculas;
 - si hay `<note>` dentro de `speaker`, su contenido no se fuerza a mayúsculas.
 
 ### 4.2.3 Casos límite relevantes
