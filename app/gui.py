@@ -625,8 +625,8 @@ def main_gui():
         # Iniciar thread daemon (no bloquea cierre de aplicación)
         threading.Thread(target=worker, daemon=True).start()
 
-        # --- Pie de página
-        try:
+    # --- Pie de página
+    try:
         root_bg = root.cget("background")
     except:
         root_bg = "#ffffff"

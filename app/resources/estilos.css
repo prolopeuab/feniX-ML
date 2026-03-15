@@ -326,6 +326,7 @@ tei-l::before {
     font-weight: normal;
     font-size: 0.7em;
     color: #333;
+    pointer-events: none;
 }
 tei-l[part="M"] {
     padding-left: 275px;
@@ -510,6 +511,8 @@ tei-milestone[unit="stanza"].show-line::after {
   margin-left: 0.15em;
   vertical-align: baseline;
   line-height: 1;
+  position: relative;
+  z-index: 2;
 }
 
 /* Íconos SVG (círculo y cuadrado) con dimensiones ajustadas */
@@ -522,6 +525,7 @@ tei-milestone[unit="stanza"].show-line::after {
   stroke-width: 12 !important;
   transform: translateY(-0.40em);
   overflow: visible;
+  pointer-events: none;
 }
 
 /* Colores diferenciados */

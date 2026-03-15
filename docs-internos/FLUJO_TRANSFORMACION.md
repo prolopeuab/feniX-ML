@@ -111,7 +111,7 @@ Antes de procesar contenido:
 
 También:
 
-- procesa título/subtítulo con anotaciones y mayúsculas preservando etiquetas;
+- procesa título/subtítulo con anotaciones y mayúsculas preservando etiquetas y contenido de `<note>`;
 - extrae notas introductorias del DOCX principal con `extract_intro_footnotes(main_docx)`.
 
 ## 3.4 Construcción de `front`
@@ -245,6 +245,15 @@ Ejemplo 4, cursiva mezclada:
 
 - si símbolo/palabra está en run cursiva, la función conserva `<hi rend="italic">...</hi>` alrededor del texto visible.
 
+### 4.1.5 Mayúsculas con protección de notas
+
+En bloques que se muestran en mayúsculas (`mainTitle`, `subTitle`, `acto`, `speaker`), la conversión usa una capa de protección para preservar intacto el contenido de `<note>...</note>`.
+
+Regla operativa:
+
+- el texto visible del bloque se convierte a mayúsculas;
+- el contenido interno de notas (incluyendo `<hi rend="italic">`) conserva su capitalización/formato original.
+
 ## 4.2 Cadena de `who` e IDs de personajes
 
 Este flujo es crítico para enlazar voz dramática con reparto.
@@ -292,6 +301,11 @@ Si no hay match:
 ```
 
 Siempre se genera `<speaker>...</speaker>` en cada `sp`.
+
+Nota de render:
+
+- en `speaker`, el nombre del personaje se mayusculiza;
+- si hay `<note>` dentro de `speaker`, su contenido no se fuerza a mayúsculas.
 
 ### 4.2.3 Casos límite relevantes
 
@@ -413,7 +427,7 @@ Estrategia:
 | `Epigr_Dramatis` | `<div type="castList"...><head...><castList>` | Abre bloque de reparto. |
 | `Dramatis_lista` | `<castItem><role xml:id="...">...</role></castItem>` | Actualiza `characters`. |
 | `Acto` | `<div type="subsection" subtype="ACTO"...>` | Cierra bloques previos. |
-| `Personaje` | `<sp who="#...">` o `<sp>` + `<speaker>` | Depende de `find_who_id`. |
+| `Personaje` | `<sp who="#...">` o `<sp>` + `<speaker>` | Depende de `find_who_id`; `speaker` en mayúsculas con contenido de `<note>` preservado. |
 | `Verso` | `<l n="...">` o `<l>` | Numerado solo en `sp`. |
 | `Partido_inicial` | `<l part="I" n="...a">` | Crea y avanza secuencia. |
 | `Partido_medio` | `<l part="M" n="...b">` | Conserva base de verso. |
@@ -580,6 +594,7 @@ No incluye comparativas históricas ni referencias a versiones previas.
 - `convert_docx_to_tei(...)`
 - `validate_documents(...)`
 - `extract_text_with_italics_and_annotations(...)`
+- `uppercase_preserve_tags_and_note_content(...)`
 - `find_who_id(...)`
 - `normalize_id(...)`
 - `parse_metadata_docx(...)`

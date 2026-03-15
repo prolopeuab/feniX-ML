@@ -206,6 +206,35 @@ def uppercase_preserve_tags(text):
     parts = re.split(r'(<[^>]+>)', text)
     return ''.join(part.upper() if not part.startswith('<') else part for part in parts)
 
+
+def uppercase_preserve_tags_and_note_content(text):
+    """
+    Convierte texto a mayúsculas preservando etiquetas XML, pero sin alterar
+    el contenido interno de bloques <note ...>...</note>.
+
+    Útil para secciones que se muestran en mayúsculas (speaker, títulos, actos)
+    donde las notas editoriales deben conservar su capitalización original.
+    """
+    if not text:
+        return text
+
+    # Proteger temporalmente las notas completas para no alterar su contenido.
+    note_pattern = re.compile(r'(<note\b[^>]*>.*?</note>)', flags=re.IGNORECASE | re.DOTALL)
+    protected_notes = []
+
+    def _protect_note(match):
+        protected_notes.append(match.group(1))
+        return f"<<<NOTE_BLOCK_{len(protected_notes) - 1}>>>"
+
+    protected_text = note_pattern.sub(_protect_note, text)
+    uppercased = uppercase_preserve_tags(protected_text)
+
+    # Restaurar las notas exactamente como estaban.
+    for idx, note_block in enumerate(protected_notes):
+        uppercased = uppercased.replace(f"<<<NOTE_BLOCK_{idx}>>>", note_block)
+
+    return uppercased
+
 def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, section):
     """
     Extrae texto de un párrafo preservando cursivas y procesando anotaciones (@palabra, %palabra, @%palabra).
@@ -1292,7 +1321,7 @@ def convert_docx_to_tei(
         "head"
     )
     # Convertir título a mayúsculas preservando etiquetas XML
-    processed_title = uppercase_preserve_tags(processed_title)
+    processed_title = uppercase_preserve_tags_and_note_content(processed_title)
 
     # Subtítulo procesado (si existe)
     processed_subtitle = None
@@ -1306,7 +1335,7 @@ def convert_docx_to_tei(
             "head"
         )
         # Convertir subtítulo a mayúsculas preservando etiquetas XML
-        processed_subtitle = uppercase_preserve_tags(processed_subtitle)
+        processed_subtitle = uppercase_preserve_tags_and_note_content(processed_subtitle)
 
     # Notas introductorias
     footnotes_intro = extract_intro_footnotes(main_docx)
@@ -1417,7 +1446,7 @@ def convert_docx_to_tei(
         elif style == "Acto":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
             # Convertir a mayúsculas preservando etiquetas XML
-            processed_text_upper = uppercase_preserve_tags(processed_text)
+            processed_text_upper = uppercase_preserve_tags_and_note_content(processed_text)
             act_counter += 1
             tei.append(f'        <div type="subsection" subtype="ACTO" n="{act_counter}" xml:id="acto{act_counter}">')
             tei.append(f'          <head type="acto">{processed_text_upper}</head>')
@@ -1631,7 +1660,7 @@ def convert_docx_to_tei(
             # SIEMPRE insertar <speaker> en cada nuevo <sp>
             # Cada intervención es un <sp> separado y debe tener su propio <speaker>
             # Convertir speaker a mayúsculas, preservando etiquetas XML
-            processed_upper = uppercase_preserve_tags(processed)
+            processed_upper = uppercase_preserve_tags_and_note_content(processed)
             tei.append(f'          <speaker>{processed_upper}</speaker>')
             
             state["in_sp"] = True
