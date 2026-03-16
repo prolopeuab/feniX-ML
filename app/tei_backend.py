@@ -657,15 +657,15 @@ def parse_metadata_docx(path, header_mode="prolope"):
 def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro):
     """
     Procesa párrafos del front-matter generando secciones TEI <front> con soporte para tablas.
-    
-    Maneja diálogos (<sp>), citas (<cit>), versos (<l>), párrafos (<p>) y tablas especiales
-    en la sección de sinopsis. Usa marcas de estilo (# prefijo, "Quote", "Personaje", "Verso").
-    
+
+    Maneja diálogos (<sp>), citas (<cit>), versos (<l>), párrafos (<p>) y tablas en cualquier
+    sección del prólogo. Usa marcas de estilo (# prefijo, "Quote", "Personaje", "Verso").
+
     Args:
         doc: Documento python-docx completo (para acceder a tablas).
         front_paragraphs: Lista de párrafos del front-matter.
         footnotes_intro: Dict de notas al pie del prólogo {id: contenido_html}.
-    
+
     Returns:
         str: Líneas de XML TEI para el bloque <front>, listas para ser unidas con \\n.
     """
@@ -683,54 +683,58 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
         nonlocal paragraph_buffer, in_sp_front
         for p in paragraph_buffer:
             text = extract_text_with_intro_notes(p, footnotes_intro)
-            # Obtener el estilo del párrafo
             style = ""
             if p.style:
                 style = p.style.name
-            
+
             if style == "Quote":
-                # Cerrar <sp> si está abierto antes de <cit>
                 if in_sp_front:
                     tei_front.append('          </sp>')
                     in_sp_front = False
                 tei_front.append(f'          <cit rend="blockquote">')
                 tei_front.append(f'            <quote>{text}</quote>')
                 tei_front.append(f'          </cit>')
+
             elif style == "Personaje":
-                # Cerrar <sp> anterior si existe
                 if in_sp_front:
                     tei_front.append('          </sp>')
-                # Abrir nuevo <sp> sin atributo who (personajes no declarados aún)
                 tei_front.append('          <sp>')
                 tei_front.append(f'            <speaker>{text}</speaker>')
                 in_sp_front = True
+
             elif style == "Verso":
                 if text.strip():
-                    # Los versos van dentro de <sp> si está abierto
                     if in_sp_front:
                         tei_front.append(f'            <l>{text.strip()}</l>')
                     else:
                         tei_front.append(f'          <l>{text.strip()}</l>')
+
             elif text.strip():
-                # Cerrar <sp> si está abierto antes de <p>
                 if in_sp_front:
                     tei_front.append('          </sp>')
                     in_sp_front = False
                 tei_front.append(f'          <p>{text.strip()}</p>')
+
         paragraph_buffer.clear()
-        # Cerrar <sp> al final del buffer si quedó abierto
+
         if in_sp_front:
             tei_front.append('          </sp>')
             in_sp_front = False
 
+
     def process_tables_for_current_section():
-        """Procesa las tablas para la sección actual."""
+        """
+        Procesa todas las tablas que aparezcan en el prólogo,
+        independientemente de la sección.
+        """
         nonlocal tables_processed_in_current_section
-        if current_section and "sinopsis" in current_section and not tables_processed_in_current_section:
+
+        if current_section and not tables_processed_in_current_section:
             for table_idx, table in enumerate(doc.tables):
                 if table_idx not in processed_tables:
                     tei_front.append(process_table_to_tei(table, footnotes_intro))
                     processed_tables.add(table_idx)
+
             tables_processed_in_current_section = True
 
     for i, para in enumerate(front_paragraphs):
