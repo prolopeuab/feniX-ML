@@ -43,6 +43,8 @@ En el prólogo, tanto `Verso` como `Partido_inicial` / `Partido_medio` / `Partid
 
 El estilo `Acot` también puede usarse en el prólogo. Se convierte en `<stage>` y, si hay un `Personaje` abierto, queda dentro del mismo `<sp>`; si no, se emite como acotación independiente.
 
+Los enlaces del prólogo deben crearse como hipervínculos normales de Word, seleccionando la palabra o frase enlazada y añadiendo el vínculo. La app los convierte en XML-TEI como `<ref target="URL">texto visible</ref>`. Este soporte se aplica al prólogo, incluidas sus citas, acotaciones y tablas.
+
 ### Notas del prólogo
 
 Las notas del prólogo se insertan como notas al pie de Word. La app las transforma en notas TEI de tipo introductorio (`<note type="intro"`).

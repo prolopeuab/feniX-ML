@@ -17,7 +17,9 @@ from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.ns import qn
 from docx.table import Table
+from docx.text.hyperlink import Hyperlink
 from docx.text.paragraph import Paragraph
+from docx.text.run import Run
 from difflib import get_close_matches
 from typing import Any, Optional, TypedDict, cast
 
@@ -83,24 +85,54 @@ def extract_text_with_intro_notes(para, footnotes_intro):
     """
     Extrae el texto de un párrafo, insertando las notas en el lugar correspondiente.
     """
-    text = ""
-    for run in para.runs:
-        run_element = run._element
-        refs = run_element.findall(".//w:footnoteReference", namespaces=run_element.nsmap)
-        if refs:
-            for ref in refs:
-                note_id = ref.get(qn("w:id"))
-                note_text = footnotes_intro.get(note_id, "")
-                # note_text ya viene escapado de extract_intro_footnotes
-                text += f'<note type="intro" n="{note_id}">{note_text}</note>'
+    def flush_intro_text_buffer(parts: list[str], buffer: list[str], italic: bool) -> None:
+        if not buffer:
+            return
+
+        text_chunk = escape_xml("".join(buffer))
+        if italic:
+            parts.append(f'<hi rend="italic">{text_chunk}</hi>')
         else:
-            if run.italic:
-                # Escapar el texto dentro de la cursiva
-                text += f'<hi rend="italic">{escape_xml(run.text)}</hi>'
-            else:
-                # Escapar el texto normal
-                text += escape_xml(run.text)
-    return text.strip()
+            parts.append(text_chunk)
+        buffer.clear()
+
+    def extract_intro_run(run: Run) -> str:
+        parts: list[str] = []
+        text_buffer: list[str] = []
+
+        for child in run._element.iterchildren():
+            if child.tag == qn("w:t"):
+                if child.text:
+                    text_buffer.append(child.text)
+            elif child.tag == qn("w:tab"):
+                text_buffer.append("\t")
+            elif child.tag in (qn("w:br"), qn("w:cr")):
+                text_buffer.append("\n")
+            elif child.tag == qn("w:footnoteReference"):
+                flush_intro_text_buffer(parts, text_buffer, bool(run.italic))
+                note_id = child.get(qn("w:id"))
+                if note_id:
+                    note_text = footnotes_intro.get(note_id, "")
+                    parts.append(f'<note type="intro" n="{note_id}">{note_text}</note>')
+
+        flush_intro_text_buffer(parts, text_buffer, bool(run.italic))
+        return "".join(parts)
+
+    def extract_intro_hyperlink(hyperlink: Hyperlink) -> str:
+        content = "".join(extract_intro_run(run) for run in hyperlink.runs)
+        target = hyperlink.url or hyperlink.address
+        if target:
+            return f'<ref target="{escape_xml(target)}">{content}</ref>'
+        return content
+
+    parts: list[str] = []
+    for item in para.iter_inner_content():
+        if isinstance(item, Hyperlink):
+            parts.append(extract_intro_hyperlink(item))
+        else:
+            parts.append(extract_intro_run(item))
+
+    return "".join(parts).strip()
 
 # --- Manejo de bloques estructurales TEI
 def close_cast_list(tei, state):
