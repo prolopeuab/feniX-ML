@@ -13,14 +13,13 @@ import unicodedata
 import zipfile
 from lxml import etree
 from docx import Document
-from docx.document import Document as DocxDocument
 from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
 from docx.oxml.ns import qn
 from docx.table import Table
 from docx.text.paragraph import Paragraph
 from difflib import get_close_matches
-from typing import Optional
+from typing import Any, Optional, TypedDict, cast
 
 
 # --- Funciones de escape XML
@@ -220,7 +219,21 @@ def normalize_text_for_matching(text: str) -> str:
     return normalized
 
 
-def iter_document_blocks(doc: DocxDocument):
+class PendingSplitVerse(TypedDict):
+    verse_number: int
+    initial_text: str
+    parts: list[str]
+    has_notes: bool
+
+
+def get_pending_split_verse(state: dict[str, Any]) -> Optional[PendingSplitVerse]:
+    """
+    Devuelve el estado tipado del verso partido pendiente, si existe.
+    """
+    return cast(Optional[PendingSplitVerse], state.get("pending_split_verse"))
+
+
+def iter_document_blocks(doc: Any):
     """
     Itera por los bloques de primer nivel del documento en su orden real:
     párrafos y tablas.
@@ -232,7 +245,7 @@ def iter_document_blocks(doc: DocxDocument):
             yield Table(child, doc)
 
 
-def get_front_blocks(doc: DocxDocument, title_paragraph: Paragraph):
+def get_front_blocks(doc: Any, title_paragraph: Paragraph):
     """
     Devuelve los bloques del front-matter (párrafos y tablas) hasta el
     primer párrafo con estilo Titulo_comedia.
@@ -1363,11 +1376,14 @@ def convert_docx_to_tei(
     
     # Contadores y estado
     annotation_counter = {}
-    state = {
+    state: dict[str, Any] = {
         "in_sp": False,
         "in_cast_list": False,
         "in_dedicatoria": False,
-        "in_act": False
+        "in_act": False,
+        "pending_split_verse": None,
+        "current_split_verse": None,
+        "split_verse_part_index": None,
     }
     
     # El diccionario de personajes se llenará durante el procesamiento
@@ -1517,11 +1533,6 @@ def convert_docx_to_tei(
             tei.append(f'          <head type="acto">{processed_text_upper}</head>')
             state["in_act"] = True
 
-        elif style == "Prosa":
-            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "p")
-            if processed_text.strip():
-                tei.append(f'          <p>{processed_text}</p>')
-
         elif style == "Verso":
             if state["in_dedicatoria"]:
                 processed_verse = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
@@ -1557,9 +1568,6 @@ def convert_docx_to_tei(
         elif style == "Partido_inicial":
             # Iniciar verso partido con sistema de sufijos alfabéticos
             # El sufijo 'a' se asigna a la primera parte, 'b' a la segunda, etc.
-            if not hasattr(state, "pending_split_verse"):
-                state["pending_split_verse"] = {}
-            
             verse_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "l")
             text_simple = para.text.strip()
             
@@ -1571,12 +1579,13 @@ def convert_docx_to_tei(
             letra = chr(97 + state["split_verse_part_index"])  # 97 = 'a' en ASCII
             verse_key_with_suffix = f"{verse_counter}{letra}"
             
-            state["pending_split_verse"] = {
+            pending_split_verse: PendingSplitVerse = {
                 "verse_number": verse_counter,
                 "initial_text": text_simple,
                 "parts": [text_simple],
                 "has_notes": verse_counter in nota_notes or verse_counter in aparato_notes or verse_key_with_suffix in nota_notes or verse_key_with_suffix in aparato_notes
             }
+            state["pending_split_verse"] = pending_split_verse
             
             # Procesar notas con clave que incluye sufijo (ej: "329a")
             # Buscar primero con sufijo, luego sin sufijo para retrocompatibilidad
@@ -1628,8 +1637,9 @@ def convert_docx_to_tei(
             letra = chr(97 + part_index)  # 97 = 'a' en ASCII
             verse_key_with_suffix = f"{base_verse}{letra}"
             
-            if hasattr(state, "pending_split_verse") and state.get("pending_split_verse"):
-                state["pending_split_verse"]["parts"].append(text_simple)
+            pending = get_pending_split_verse(state)
+            if pending is not None:
+                pending["parts"].append(text_simple)
             
             # Procesar notas con clave que incluye sufijo (ej: "329b", "329c")
             if verse_key_with_suffix in nota_notes:
@@ -1672,8 +1682,9 @@ def convert_docx_to_tei(
             letra = chr(97 + part_index)  # 97 = 'a' en ASCII
             verse_key_with_suffix = f"{base_verse}{letra}"
             
-            if hasattr(state, "pending_split_verse") and state.get("pending_split_verse"):
-                state["pending_split_verse"]["parts"].append(text_simple)
+            pending = get_pending_split_verse(state)
+            if pending is not None:
+                pending["parts"].append(text_simple)
                 # El verso partido está completo, limpiar estado
                 state["pending_split_verse"] = None
             
@@ -1754,8 +1765,8 @@ def convert_docx_to_tei(
     close_current_blocks(tei, state)
 
     # Verificar si hay versos partidos incompletos al final del procesamiento
-    if hasattr(state, "pending_split_verse") and state.get("pending_split_verse"):
-        pending = state["pending_split_verse"]
+    pending = get_pending_split_verse(state)
+    if pending is not None:
         print(f"⚠️ Advertencia: Verso partido incompleto detectado durante procesamiento:")
         print(f"   Verso {pending['verse_number']}: '{pending['initial_text'][:50]}...'")
         print(f"   - Falta Partido_final para completar el verso")
@@ -1806,7 +1817,7 @@ def count_verses_in_document(main_docx, include_dedication=False):
     verse_counter = 1
     
     for para_idx, para in enumerate(doc.paragraphs):
-        style = para.style.name if para.style else ""
+        style: str = para.style.name if para.style else ""
         text = para.text.strip() if para.text else ""
         
         # Determinar punto de inicio según parámetro
@@ -1924,7 +1935,7 @@ def is_empty_paragraph(para) -> bool:
     
     return False
 
-def should_skip_paragraph(para, text: str, style: str) -> bool:
+def should_skip_paragraph(para: Paragraph, text: str, style: str) -> bool:
     """
     Determina si un párrafo debe ser omitido durante la validación.
     """
@@ -1978,7 +1989,7 @@ def analyze_main_text(main_docx) -> list[str]:
             continue
 
         # 3) Solo revisamos estilos 'Normal' o None para párrafos sin estilo
-        if style in ["Normal", "", None]:
+        if style in ["Normal", ""]:
             # Obtener número del último verso antes de esta posición
             last_verse = get_verse_number_at_position(main_docx, para_idx, include_dedication=False)
             
@@ -2252,7 +2263,7 @@ def validate_Laguna(main_docx) -> list[str]:
     found_body = False
     
     for para_idx, para in enumerate(doc.paragraphs):
-        style = para.style.name if para.style else ""
+        style: str = para.style.name if para.style else ""
         text = para.text.strip() if para.text else ""
         
         # Esperar hasta el inicio del cuerpo principal
