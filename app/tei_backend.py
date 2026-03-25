@@ -308,15 +308,26 @@ def is_versification_act_heading(texts) -> bool:
     return bool(re.match(r"^acto\s+\w+", first) or re.match(r"^\w+(?:\s+\w+)?\s+acto$", first))
 
 
-def is_versification_summary_row(texts) -> bool:
+def is_versification_summary_header_row(texts) -> bool:
     """
-    Detecta filas especiales de resumen en la sinopsis de versificación.
+    Detecta la fila-cabecera del bloque de resumen en la sinopsis de versificación.
     """
     if not texts or not texts[0].strip():
         return False
 
     first = normalize_text_for_matching(texts[0])
-    return first in {"total", "resumen"}
+    return first == "resumen"
+
+
+def is_versification_total_row(texts) -> bool:
+    """
+    Detecta filas de cierre con el literal "Total" en la sinopsis de versificación.
+    """
+    if not texts or not texts[0].strip():
+        return False
+
+    first = normalize_text_for_matching(texts[0])
+    return first == "total"
 
 def uppercase_preserve_tags(text):
     """
@@ -907,35 +918,58 @@ def process_table_to_tei(table, footnotes_intro=None, current_section=None):
     for row_idx, row in enumerate(table.rows):
         texts = [cell.text.strip() for cell in row.cells]
         non_empty = [text for text in texts if text]
-        row_attrs = ' rend="summary"' if versification_table and is_versification_summary_row(texts) else ""
-
-        tei.append(f'            <row{row_attrs}>')
 
         if row_idx == 0:
+            tei.append('            <row role="label">')
             for cell in row.cells:
                 append_tei_cell(
                     tei,
                     extract_table_cell_contents(cell, footnotes_intro),
-                    '              '
+                    '              ',
+                    attrs=' role="label"'
                 )
             tei.append('            </row>')
             continue
 
         if versification_table and is_versification_act_heading(texts) and len(non_empty) == 1:
+            tei.append('            <row role="label">')
             append_tei_cell(
                 tei,
                 extract_table_cell_contents(row.cells[0], footnotes_intro),
                 '              ',
-                attrs=f' cols="{ncols}"'
+                attrs=f' role="label" cols="{ncols}"'
             )
             tei.append('            </row>')
             continue
 
-        for cell in row.cells:
+        if versification_table and is_versification_summary_header_row(texts):
+            tei.append('            <row role="label">')
+            for cell in row.cells:
+                append_tei_cell(
+                    tei,
+                    extract_table_cell_contents(cell, footnotes_intro),
+                    '              ',
+                    attrs=' role="label"'
+                )
+            tei.append('            </row>')
+            continue
+
+        total_row = versification_table and is_versification_total_row(texts)
+        row_attrs = ' role="data"'
+        if total_row:
+            row_attrs += ' rend="summary"'
+
+        tei.append(f'            <row{row_attrs}>')
+
+        for cell_idx, cell in enumerate(row.cells):
+            cell_attrs = ' role="data"'
+            if total_row and cell_idx == 0:
+                cell_attrs = ' role="label"'
             append_tei_cell(
                 tei,
                 extract_table_cell_contents(cell, footnotes_intro),
-                '              '
+                '              ',
+                attrs=cell_attrs
             )
         tei.append('            </row>')
 

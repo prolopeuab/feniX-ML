@@ -1,4 +1,5 @@
 import sys
+import re
 import unittest
 from pathlib import Path
 
@@ -37,10 +38,27 @@ class FrontTablesTest(unittest.TestCase):
         self.assertNotIn('type="sinopsisversificacion"', generic_table_xml)
         self.assertNotIn('cols="3"', generic_table_xml)
         self.assertNotIn('rend="summary"', generic_table_xml)
+        self.assertIn('<row role="label">', generic_table_xml)
+        self.assertIn('<cell role="label">', generic_table_xml)
 
         versification_table_xml = xml[versification_pos:xml.index('          </table>', versification_pos) + len('          </table>')]
+        self.assertIn('<row role="label">', versification_table_xml)
+        self.assertIn('<row role="data">', versification_table_xml)
         self.assertIn('cols="3"', versification_table_xml)
+        self.assertIn('<cell role="label" cols="3">', versification_table_xml)
         self.assertIn('rend="summary"', versification_table_xml)
+        self.assertRegex(
+            versification_table_xml,
+            r'<row role="label">\s*<cell role="label">\s*<hi rend="italic">Resumen</hi>'
+        )
+        self.assertNotRegex(
+            versification_table_xml,
+            r'<row[^>]*rend="summary"[^>]*>\s*<cell[^>]*>\s*<hi rend="italic">Resumen</hi>'
+        )
+        self.assertRegex(
+            versification_table_xml,
+            r'<row role="data" rend="summary">\s*<cell role="label">\s*<hi rend="italic">Total</hi>'
+        )
 
 
 if __name__ == "__main__":

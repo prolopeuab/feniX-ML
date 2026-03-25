@@ -619,42 +619,98 @@ tei-row:first-of-type > tei-cell {
 /* Tabla de sinopsis de versificación */
 tei-table[type="sinopsisversificacion"] {
     width: 100%;
+    background-color: #fcfbf7;
+    border: 1px solid #d8d1c4;
+    border-collapse: separate;
+    border-spacing: 0;
 }
 tei-table[type="sinopsisversificacion"] tei-cell {
-    border: 1px solid #ccc;
-    padding: 0.5em;
+    border: none;
+    padding: 0.55em 0.8em;
+    color: #3f3a34;
+    vertical-align: middle;
 }
-tei-table[type="sinopsisversificacion"] tei-row:first-of-type > tei-cell {
-    background-color: #ddd;
-    border-bottom: 2px solid #999;
+tei-table[type="sinopsisversificacion"] tei-row[role="label"]:first-of-type > tei-cell[role="label"] {
+    background-color: #e8e3d8;
+    border-bottom: 1px solid #c9c1b3;
+    color: #4b463f;
+    font-weight: 600;
     text-align: center;
 }
-tei-table[type="sinopsisversificacion"] tei-row > tei-cell[cols] {
-    font-weight: bold;
+tei-table[type="sinopsisversificacion"] tei-row[role="label"] > tei-cell[role="label"][cols] {
+    font-weight: 600;
     font-style: italic;
-    background-color: #f0ece2;
+    background-color: #f2ece0;
+    border-top: 1px solid #d8d1c4;
+    border-bottom: 1px solid #ddd5c8;
+    color: #5a5143;
     text-align: center;
-    padding: 0.75em;
+    padding: 0.9em 0.75em 0.8em;
     font-size: 1.1em;
-    text-transform: uppercase;
+    font-variant: small-caps;
+    letter-spacing: 0.06em;
+}
+tei-table[type="sinopsisversificacion"] tei-row[role="label"]:not(:first-of-type) > tei-cell[role="label"]:not([cols]) {
+    background-color: #efe8db;
+    border-top: 1px solid #d4ccbe;
+    border-bottom: 1px solid #ddd5c8;
+    color: #514a41;
+    font-weight: 600;
+    text-align: center;
 }
 /* Primera columna (números de verso) */
-tei-table[type="sinopsisversificacion"] tei-row:not(:first-of-type) > tei-cell:first-child {
-    font-style: italic;
-    color: #555;
+tei-table[type="sinopsisversificacion"] tei-row[role="data"] > tei-cell:first-child {
+    color: #5c564c;
     text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+}
+tei-table[type="sinopsisversificacion"] tei-row[role="data"] > tei-cell:nth-child(2) {
+    text-align: left;
+}
+tei-table[type="sinopsisversificacion"] tei-row[role="data"] > tei-cell:last-child {
+    text-align: right;
+    white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+}
+tei-table[type="sinopsisversificacion"] tei-row[role="data"]:not([rend="summary"]):nth-of-type(even) > tei-cell[role="data"] {
+    background-color: #f8f5ee;
+}
+tei-table[type="sinopsisversificacion"] tei-row[role="data"]:not([rend="summary"]) > tei-cell[role="data"] {
+    border-bottom: 1px solid #e6e0d4;
 }
 /* Filas de total y resumen */
 tei-table[type="sinopsisversificacion"] tei-row[rend="summary"] > tei-cell {
-    font-weight: bold;
-    background-color: #ececec;
-    border-bottom: 2px solid #999;
-    text-transform: uppercase;
+    font-weight: 600;
+    background-color: #ebe5da;
+    border-top: 1px solid #cfc7b8;
+    border-bottom: 1px solid #d8d1c4;
+    color: #464039;
     text-align: center;
 }
 tei-table[type="sinopsisversificacion"] tei-row[rend="summary"] > tei-cell:first-child {
     color: inherit;
     text-align: left;
+}
+tei-table[type="sinopsisversificacion"] tei-row:last-of-type[rend="summary"] > tei-cell:nth-child(2),
+tei-table[type="sinopsisversificacion"] tei-row:last-of-type[rend="summary"] > tei-cell:last-child {
+    color: #342f29;
+    font-weight: 700;
+}
+
+@media (max-width: 768px) {
+    tei-table[type="sinopsisversificacion"] tei-cell {
+        padding: 0.4em 0.55em;
+    }
+
+    tei-table[type="sinopsisversificacion"] tei-row > tei-cell[cols] {
+        padding: 0.75em 0.55em 0.65em;
+    }
+
+    tei-table[type="sinopsisversificacion"] tei-row[role="data"] > tei-cell:nth-child(2) {
+        min-width: 8.5em;
+    }
 }
 
 
