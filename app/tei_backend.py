@@ -103,7 +103,25 @@ def extract_text_with_intro_notes(para, footnotes_intro):
     return text.strip()
 
 # --- Manejo de bloques estructurales TEI
-def close_current_blocks(tei, state):
+def close_cast_list(tei, state):
+    """
+    Cierra un bloque <div type="castList"> abierto, respetando su indentación.
+    """
+    if not state.get("in_cast_list"):
+        return
+
+    cast_list_indent = state.get("cast_list_indent", "          ")
+    cast_list_div_indent = state.get("cast_list_div_indent", "        ")
+    tei.append(f'{cast_list_indent}</castList>')
+    tei.append(f'{cast_list_div_indent}</div>')
+    state["in_cast_list"] = False
+    state["cast_list_div_indent"] = None
+    state["cast_list_indent"] = None
+    state["cast_item_indent"] = None
+    state["cast_list_scope"] = None
+
+
+def close_current_blocks(tei, state, current_act_characters=None):
     """
     Cierra todos los bloques TEI abiertos según el estado actual.
     
@@ -118,16 +136,15 @@ def close_current_blocks(tei, state):
     if state.get("in_sp"):
         tei.append('        </sp>')
         state["in_sp"] = False
-    if state.get("in_cast_list"):
-        tei.append('          </castList>')
-        tei.append('        </div>')
-        state["in_cast_list"] = False
+    close_cast_list(tei, state)
     if state.get("in_dedicatoria"):
         tei.append('        </div>')
         state["in_dedicatoria"] = False
     if state.get("in_act"):
         tei.append('        </div>')
         state["in_act"] = False
+        if current_act_characters is not None:
+            current_act_characters.clear()
 
 # --- Funciones de soporte para texto
 def extract_text_with_italics(para):
@@ -584,6 +601,186 @@ def find_who_id(speaker, characters):
     return ""
 
 
+def find_who_id_with_fallback(speaker, primary_characters, fallback_characters):
+    """
+    Busca primero en el dramatis activo del acto y, si no encuentra coincidencia,
+    recurre al dramatis global.
+    """
+    who_id = find_who_id(speaker, primary_characters)
+    if who_id:
+        return who_id
+    return find_who_id(speaker, fallback_characters)
+
+
+def get_paragraph_style_name(para) -> str:
+    """
+    Devuelve el nombre de estilo del párrafo o 'Normal' si no existe.
+    """
+    return para.style.name if para.style else "Normal"
+
+
+def collect_consecutive_title_paragraphs(paragraphs, start_idx):
+    """
+    Recoge un bloque consecutivo de párrafos con estilo Titulo_comedia.
+    """
+    title_paragraphs = []
+    idx = start_idx
+
+    while idx < len(paragraphs) and get_paragraph_style_name(paragraphs[idx]) == "Titulo_comedia":
+        title_paragraphs.append(paragraphs[idx])
+        idx += 1
+
+    return title_paragraphs, idx
+
+
+def collect_dramatis_block(paragraphs, start_idx):
+    """
+    Recoge un bloque de dramatis personae: cabecera Epigr_Dramatis y sus entradas.
+    """
+    if start_idx >= len(paragraphs) or get_paragraph_style_name(paragraphs[start_idx]) != "Epigr_Dramatis":
+        return None, [], start_idx
+
+    header_para = paragraphs[start_idx]
+    item_paragraphs = []
+    idx = start_idx + 1
+
+    while idx < len(paragraphs) and get_paragraph_style_name(paragraphs[idx]) in ["Dramatis_lista", "Prosa"]:
+        item_paragraphs.append(paragraphs[idx])
+        idx += 1
+
+    return header_para, item_paragraphs, idx
+
+
+def looks_like_pre_act_sequence(paragraphs, start_idx, require_dramatis=False):
+    """
+    Detecta si desde una posición arranca un bloque de acto del tipo
+    Titulo_comedia (+ opcional segundo Titulo_comedia) + dramatis opcional + Acto.
+    """
+    idx = start_idx
+    saw_title = False
+
+    while idx < len(paragraphs):
+        para = paragraphs[idx]
+        if is_parse_empty_paragraph(para):
+            idx += 1
+            continue
+        if get_paragraph_style_name(para) != "Titulo_comedia":
+            break
+        saw_title = True
+        idx += 1
+
+    if not saw_title:
+        return False
+
+    while idx < len(paragraphs) and is_parse_empty_paragraph(paragraphs[idx]):
+        idx += 1
+
+    dramatis_head, _, after_dramatis_idx = collect_dramatis_block(paragraphs, idx)
+    if require_dramatis and dramatis_head is None:
+        return False
+    if dramatis_head is not None:
+        idx = after_dramatis_idx
+        while idx < len(paragraphs) and is_parse_empty_paragraph(paragraphs[idx]):
+            idx += 1
+
+    return idx < len(paragraphs) and get_paragraph_style_name(paragraphs[idx]) == "Acto"
+
+
+def append_repeated_title_heads(tei, title_paragraphs, nota_notes, aparato_notes, annotation_counter):
+    """
+    Inserta títulos repetidos de acto como heads anidados dentro del div del acto.
+    """
+    for idx, title_para in enumerate(title_paragraphs):
+        processed_title = extract_text_with_italics_and_annotations(
+            title_para,
+            nota_notes,
+            aparato_notes,
+            annotation_counter,
+            "head"
+        )
+        processed_title = uppercase_preserve_tags_and_note_content(processed_title)
+        head_type = "mainTitle" if idx == 0 else "subTitle"
+        tei.append(f'          <head type="{head_type}" subtype="repeated">{processed_title}</head>')
+
+
+def open_act_block(tei, state, act_counter):
+    """
+    Abre el div del acto actual sin imponer todavía el orden interno de sus hijos.
+    """
+    tei.append(f'        <div type="subsection" subtype="ACTO" n="{act_counter}" xml:id="acto{act_counter}">')
+    state["in_act"] = True
+
+
+def append_act_head(tei, act_para, nota_notes, aparato_notes, annotation_counter):
+    """
+    Inserta el encabezado del acto respetando el momento en que aparece en Word.
+    """
+    processed_text = extract_text_with_italics_and_annotations(
+        act_para, nota_notes, aparato_notes, annotation_counter, "head"
+    )
+    processed_text_upper = uppercase_preserve_tags_and_note_content(processed_text)
+    tei.append(f'          <head type="acto">{processed_text_upper}</head>')
+
+
+def append_dramatis_entries(
+    tei,
+    entry_paragraphs,
+    state,
+    nota_notes,
+    aparato_notes,
+    annotation_counter,
+    global_characters,
+    current_act_characters,
+    act_counter,
+):
+    """
+    Inserta las entradas de un dramatis abierto, reutilizando la lógica normal de castList.
+    """
+    for para in entry_paragraphs:
+        style = get_paragraph_style_name(para)
+        if style == "Dramatis_lista":
+            processed_role_name = extract_text_with_italics_and_annotations(
+                para, nota_notes, aparato_notes, annotation_counter, "role"
+            )
+            role_name = para.text.strip()
+            if not role_name:
+                continue
+            role_name_clean = re.sub(r'@', '', role_name)
+            role_slug = normalize_id(role_name_clean)
+            if state.get("cast_list_scope") == "act" and state["in_act"]:
+                role_id = f"acto{act_counter}_{role_slug}"
+                current_act_characters[role_name_clean] = role_id
+            else:
+                role_id = role_slug
+                global_characters[role_name_clean] = role_id
+            item_indent = state.get("cast_item_indent", "            ")
+            tei.append(f'{item_indent}<castItem><role xml:id="{role_id}">{processed_role_name}</role></castItem>')
+        elif style == "Prosa":
+            processed_text = extract_text_with_italics_and_annotations(
+                para, nota_notes, aparato_notes, annotation_counter, "p"
+            )
+            item_indent = state.get("cast_item_indent", "            ")
+            tei.append(f'{item_indent}<p>{processed_text}</p>')
+
+
+def open_cast_list_block(tei, state, processed_text, xml_id, inside_act=False):
+    """
+    Abre un bloque de dramatis personae, ya sea global o asociado al acto actual.
+    """
+    div_indent = '          ' if inside_act else '        '
+    content_indent = '            ' if inside_act else '          '
+    item_indent = '              ' if inside_act else '            '
+
+    tei.append(f'{div_indent}<div type="castList" xml:id="{xml_id}">')
+    tei.append(f'{content_indent}<head type="castListTitle">{processed_text}</head>')
+    tei.append(f'{content_indent}<castList>')
+    state["in_cast_list"] = True
+    state["cast_list_div_indent"] = div_indent
+    state["cast_list_indent"] = content_indent
+    state["cast_item_indent"] = item_indent
+    state["cast_list_scope"] = "act" if inside_act else "global"
+
+
 # --- Procesamiento de metadatos y front-matter
 def parse_metadata_docx(path, header_mode="prolope"):
     """
@@ -790,7 +987,8 @@ def process_front_paragraphs_with_tables(front_blocks, footnotes_intro):
     Procesa bloques del front-matter generando secciones TEI <front> con soporte para tablas.
 
     Maneja diálogos (<sp>), citas (<cit>), versos (<l>), párrafos (<p>) y tablas en cualquier
-    sección del prólogo. Usa marcas de estilo (# prefijo, "Quote", "Personaje", "Verso").
+    sección del prólogo. Usa marcas de estilo (# prefijo, "Quote", "Personaje", "Verso",
+    "Partido_inicial", "Partido_medio" y "Partido_final").
 
     Args:
         front_blocks: Lista de bloques del front-matter (párrafos y tablas) en orden real.
@@ -830,12 +1028,20 @@ def process_front_paragraphs_with_tables(front_blocks, footnotes_intro):
                 tei_front.append(f'            <speaker>{text}</speaker>')
                 in_sp_front = True
 
-            elif style == "Verso":
+            elif style in ["Verso", "Partido_inicial", "Partido_medio", "Partido_final"]:
                 if text.strip():
+                    part_attr = ""
+                    if style == "Partido_inicial":
+                        part_attr = ' part="I"'
+                    elif style == "Partido_medio":
+                        part_attr = ' part="M"'
+                    elif style == "Partido_final":
+                        part_attr = ' part="F"'
+
                     if in_sp_front:
-                        tei_front.append(f'            <l>{text.strip()}</l>')
+                        tei_front.append(f'            <l{part_attr}>{text.strip()}</l>')
                     else:
-                        tei_front.append(f'          <l>{text.strip()}</l>')
+                        tei_front.append(f'          <l{part_attr}>{text.strip()}</l>')
 
             elif text.strip():
                 if in_sp_front:
@@ -1361,6 +1567,8 @@ def convert_docx_to_tei(
             continue
 
         if style_name == "Titulo_comedia":
+            if looks_like_pre_act_sequence(doc.paragraphs, i, require_dramatis=True):
+                break
             title_paragraphs.append(i)
             if len(title_paragraphs) == 2:
                 break
@@ -1415,13 +1623,18 @@ def convert_docx_to_tei(
         "in_cast_list": False,
         "in_dedicatoria": False,
         "in_act": False,
+        "cast_list_div_indent": None,
+        "cast_list_indent": None,
+        "cast_item_indent": None,
+        "cast_list_scope": None,
         "pending_split_verse": None,
         "current_split_verse": None,
         "split_verse_part_index": None,
     }
     
-    # El diccionario de personajes se llenará durante el procesamiento
-    characters = {}
+    # Dramatis global y dramatis específico del acto actual
+    global_characters = {}
+    current_act_characters = {}
     
     act_counter = 0
     verse_counter = 1
@@ -1485,16 +1698,102 @@ def convert_docx_to_tei(
         tei.append(f'        <head type="subTitle">{processed_subtitle}</head>')
 
 
-    # Recorre todos los párrafos del cuerpo para identificar y procesar cada bloque estilístico
-    for para in body_paragraphs:
-        if is_parse_empty_paragraph(para):
-            continue
+    # Recorre los párrafos significativos del cuerpo con lookahead para detectar
+    # títulos repetidos pegados al encabezado de acto.
+    significant_body_paragraphs = [para for para in body_paragraphs if not is_parse_empty_paragraph(para)]
+    i = 0
+    while i < len(significant_body_paragraphs):
+        para = significant_body_paragraphs[i]
+        style = get_paragraph_style_name(para)
 
-        style = para.style.name if para.style else "Normal"
-        
         # Para detección de milestones, usamos texto simple
         text_simple = para.text.strip()
-        
+
+        if style == "Titulo_comedia":
+            repeated_titles, next_idx = collect_consecutive_title_paragraphs(significant_body_paragraphs, i)
+            if next_idx < len(significant_body_paragraphs):
+                dramatis_head, dramatis_entries, after_dramatis_idx = collect_dramatis_block(
+                    significant_body_paragraphs, next_idx
+                )
+                if (
+                    dramatis_head is not None
+                    and after_dramatis_idx < len(significant_body_paragraphs)
+                    and get_paragraph_style_name(significant_body_paragraphs[after_dramatis_idx]) == "Acto"
+                ):
+                    act_para = significant_body_paragraphs[after_dramatis_idx]
+                    close_current_blocks(tei, state, current_act_characters)
+                    act_counter += 1
+                    open_act_block(tei, state, act_counter)
+                    append_repeated_title_heads(
+                        tei, repeated_titles, nota_notes, aparato_notes, annotation_counter
+                    )
+
+                    processed_dramatis_head = extract_text_with_italics_and_annotations(
+                        dramatis_head, nota_notes, aparato_notes, annotation_counter, "head"
+                    )
+                    open_cast_list_block(
+                        tei,
+                        state,
+                        processed_dramatis_head,
+                        f'personajes_acto{act_counter}',
+                        inside_act=True
+                    )
+                    append_dramatis_entries(
+                        tei,
+                        dramatis_entries,
+                        state,
+                        nota_notes,
+                        aparato_notes,
+                        annotation_counter,
+                        global_characters,
+                        current_act_characters,
+                        act_counter,
+                    )
+                    close_cast_list(tei, state)
+                    append_act_head(
+                        tei, act_para, nota_notes, aparato_notes, annotation_counter
+                    )
+                    i = after_dramatis_idx + 1
+                    continue
+
+            if next_idx < len(significant_body_paragraphs) and get_paragraph_style_name(significant_body_paragraphs[next_idx]) == "Acto":
+                act_para = significant_body_paragraphs[next_idx]
+                close_current_blocks(tei, state, current_act_characters)
+                act_counter += 1
+                open_act_block(tei, state, act_counter)
+                append_repeated_title_heads(
+                    tei, repeated_titles, nota_notes, aparato_notes, annotation_counter
+                )
+                append_act_head(
+                    tei, act_para, nota_notes, aparato_notes, annotation_counter
+                )
+                i = next_idx + 1
+                continue
+
+            if state.get("in_cast_list"):
+                close_cast_list(tei, state)
+            i = next_idx
+            continue
+
+        if style == "Acto":
+            close_current_blocks(tei, state, current_act_characters)
+            act_counter += 1
+            open_act_block(tei, state, act_counter)
+            append_act_head(
+                tei, para, nota_notes, aparato_notes, annotation_counter
+            )
+            i += 1
+
+            if i < len(significant_body_paragraphs) and get_paragraph_style_name(significant_body_paragraphs[i]) == "Titulo_comedia":
+                repeated_titles, i = collect_consecutive_title_paragraphs(significant_body_paragraphs, i)
+                append_repeated_title_heads(
+                    tei, repeated_titles, nota_notes, aparato_notes, annotation_counter
+                )
+            continue
+
+        if state.get("in_cast_list") and style not in ["Dramatis_lista", "Epigr_Dramatis"]:
+            close_cast_list(tei, state)
+
         # 1) Detección de estrofas marcadas con $tipo de estrofa
         if text_simple.startswith("$"):
             milestone_match = re.match(r'^\$\s*(.+?)\s*$', text_simple)
@@ -1516,15 +1815,22 @@ def convert_docx_to_tei(
                 tei.append(f'            <milestone unit="stanza" type="{milestone_type}"/>')
             elif state["in_dedicatoria"]:
                 tei.append(f'          <milestone unit="stanza" type="{milestone_type}"/>')
+            i += 1
             continue  # saltar el resto del procesamiento para este párrafo
 
         # 2) Antes de abrir un nuevo bloque estilístico, cerramos los que estén abiertos
         # Nota: Epigr_Dedic no cierra dedicatoria si ya está abierta (para permitir dos head consecutivos)
-        if style in ["Epigr_Dramatis", "Acto"]:
-            close_current_blocks(tei, state)
+        if style == "Epigr_Dramatis":
+            if state["in_sp"]:
+                tei.append('        </sp>')
+                state["in_sp"] = False
+            close_cast_list(tei, state)
+            if state["in_dedicatoria"]:
+                tei.append('        </div>')
+                state["in_dedicatoria"] = False
         elif style == "Epigr_Dedic" and not state["in_dedicatoria"]:
             # Solo cerrar bloques si no estamos ya en una dedicatoria
-            close_current_blocks(tei, state)
+            close_current_blocks(tei, state, current_act_characters)
 
 
         if style == "Epigr_Dedic":
@@ -1540,32 +1846,30 @@ def convert_docx_to_tei(
 
         elif style == "Epigr_Dramatis":
             processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
-            tei.append('        <div type="castList" xml:id="personajes">')
-            tei.append(f'            <head type="castListTitle">{processed_text}</head>')
-            tei.append('          <castList>')
-            state["in_cast_list"] = True
+            cast_list_id = f'personajes_acto{act_counter}' if state["in_act"] else "personajes"
+            open_cast_list_block(
+                tei,
+                state,
+                processed_text,
+                cast_list_id,
+                inside_act=state["in_act"]
+            )
 
 
         elif style == "Dramatis_lista":
             processed_role_name = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "role")
-            role_name = para.text.strip()  # Para el ID usamos el texto sin procesar
+            role_name = para.text.strip()
             if role_name:
-                # Eliminar @ para el nombre limpio
                 role_name_clean = re.sub(r'@', '', role_name)
-                # Normalizar el ID: eliminar tildes, espacios y caracteres especiales
-                role_id = normalize_id(role_name_clean)
-                tei.append(f'            <castItem><role xml:id="{role_id}">{processed_role_name}</role></castItem>')
-                # Llenar el diccionario de personajes aquí
-                characters[role_name_clean] = role_id
-
-        elif style == "Acto":
-            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "head")
-            # Convertir a mayúsculas preservando etiquetas XML
-            processed_text_upper = uppercase_preserve_tags_and_note_content(processed_text)
-            act_counter += 1
-            tei.append(f'        <div type="subsection" subtype="ACTO" n="{act_counter}" xml:id="acto{act_counter}">')
-            tei.append(f'          <head type="acto">{processed_text_upper}</head>')
-            state["in_act"] = True
+                role_slug = normalize_id(role_name_clean)
+                if state.get("cast_list_scope") == "act" and state["in_act"]:
+                    role_id = f"acto{act_counter}_{role_slug}"
+                    current_act_characters[role_name_clean] = role_id
+                else:
+                    role_id = role_slug
+                    global_characters[role_name_clean] = role_id
+                item_indent = state.get("cast_item_indent", "            ")
+                tei.append(f'{item_indent}<castItem><role xml:id="{role_id}">{processed_role_name}</role></castItem>')
 
         elif style == "Verso":
             if state["in_dedicatoria"]:
@@ -1578,15 +1882,15 @@ def convert_docx_to_tei(
                 if verse_counter in nota_notes:
                     note_list = nota_notes[verse_counter]
                     # note_list siempre es una lista
-                    for i, content in enumerate(note_list, 1):
-                        verse_text += f'<note subtype="nota" n="{verse_counter}" xml:id="nota_{verse_counter}_{i}">{content}</note>'
+                    for note_idx, content in enumerate(note_list, 1):
+                        verse_text += f'<note subtype="nota" n="{verse_counter}" xml:id="nota_{verse_counter}_{note_idx}">{content}</note>'
                 
                 # Mismo tratamiento para aparato
                 if verse_counter in aparato_notes:
                     aparato_list = aparato_notes[verse_counter]
                     # aparato_list siempre es una lista
-                    for i, content in enumerate(aparato_list, 1):
-                        verse_text += f'<note subtype="aparato" n="{verse_counter}" xml:id="aparato_{verse_counter}_{i}">{content}</note>'
+                    for note_idx, content in enumerate(aparato_list, 1):
+                        verse_text += f'<note subtype="aparato" n="{verse_counter}" xml:id="aparato_{verse_counter}_{note_idx}">{content}</note>'
                 
                 tei.append(f'            <l n="{verse_counter}">{verse_text}</l>')
                 verse_counter += 1
@@ -1625,24 +1929,24 @@ def convert_docx_to_tei(
             # Buscar primero con sufijo, luego sin sufijo para retrocompatibilidad
             if verse_key_with_suffix in nota_notes:
                 note_list = nota_notes[verse_key_with_suffix]
-                for i, content in enumerate(note_list, 1):
-                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{verse_counter}{letra}_{i}">{content}</note>'
+                for note_idx, content in enumerate(note_list, 1):
+                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{verse_counter}{letra}_{note_idx}">{content}</note>'
             elif verse_counter in nota_notes:
                 # Retrocompatibilidad: buscar sin sufijo
                 note_list = nota_notes[verse_counter]
-                for i, content in enumerate(note_list, 1):
-                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{verse_counter}{letra}_{i}">{content}</note>'
+                for note_idx, content in enumerate(note_list, 1):
+                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{verse_counter}{letra}_{note_idx}">{content}</note>'
             
             # Mismo tratamiento para aparato
             if verse_key_with_suffix in aparato_notes:
                 aparato_list = aparato_notes[verse_key_with_suffix]
-                for i, content in enumerate(aparato_list, 1):
-                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{verse_counter}{letra}_{i}">{content}</note>'
+                for note_idx, content in enumerate(aparato_list, 1):
+                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{verse_counter}{letra}_{note_idx}">{content}</note>'
             elif verse_counter in aparato_notes:
                 # Retrocompatibilidad: buscar sin sufijo
                 aparato_list = aparato_notes[verse_counter]
-                for i, content in enumerate(aparato_list, 1):
-                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{verse_counter}{letra}_{i}">{content}</note>'
+                for note_idx, content in enumerate(aparato_list, 1):
+                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{verse_counter}{letra}_{note_idx}">{content}</note>'
             
             # Incrementar índice de parte para la siguiente parte del verso
             state["split_verse_part_index"] += 1
@@ -1678,13 +1982,13 @@ def convert_docx_to_tei(
             # Procesar notas con clave que incluye sufijo (ej: "329b", "329c")
             if verse_key_with_suffix in nota_notes:
                 note_list = nota_notes[verse_key_with_suffix]
-                for i, content in enumerate(note_list, 1):
-                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{base_verse}{letra}_{i}">{content}</note>'
+                for note_idx, content in enumerate(note_list, 1):
+                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{base_verse}{letra}_{note_idx}">{content}</note>'
             
             if verse_key_with_suffix in aparato_notes:
                 aparato_list = aparato_notes[verse_key_with_suffix]
-                for i, content in enumerate(aparato_list, 1):
-                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{base_verse}{letra}_{i}">{content}</note>'
+                for note_idx, content in enumerate(aparato_list, 1):
+                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{base_verse}{letra}_{note_idx}">{content}</note>'
             
             # Incrementar índice de parte para la siguiente parte
             if "split_verse_part_index" in state and state["split_verse_part_index"] is not None:
@@ -1725,13 +2029,13 @@ def convert_docx_to_tei(
             # Procesar notas con clave que incluye sufijo (ej: "329c", "329d")
             if verse_key_with_suffix in nota_notes:
                 note_list = nota_notes[verse_key_with_suffix]
-                for i, content in enumerate(note_list, 1):
-                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{base_verse}{letra}_{i}">{content}</note>'
+                for note_idx, content in enumerate(note_list, 1):
+                    verse_text += f'<note subtype="nota" n="{verse_key_with_suffix}" xml:id="nota_{base_verse}{letra}_{note_idx}">{content}</note>'
             
             if verse_key_with_suffix in aparato_notes:
                 aparato_list = aparato_notes[verse_key_with_suffix]
-                for i, content in enumerate(aparato_list, 1):
-                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{base_verse}{letra}_{i}">{content}</note>'
+                for note_idx, content in enumerate(aparato_list, 1):
+                    verse_text += f'<note subtype="aparato" n="{verse_key_with_suffix}" xml:id="aparato_{base_verse}{letra}_{note_idx}">{content}</note>'
             
             # Limpiar estado del verso partido
             state["current_split_verse"] = None
@@ -1750,7 +2054,7 @@ def convert_docx_to_tei(
 
         elif style == "Personaje":
             text_simple = para.text.strip()
-            who_id = find_who_id(text_simple, characters)
+            who_id = find_who_id_with_fallback(text_simple, current_act_characters, global_characters)
             processed = extract_text_with_italics_and_annotations(
                 para, nota_notes, aparato_notes, annotation_counter, "speaker"
             )
@@ -1781,7 +2085,8 @@ def convert_docx_to_tei(
             if state["in_dedicatoria"]:
                 tei.append(f'          <p>{processed_text}</p>')
             elif state["in_cast_list"]:
-                tei.append(f'            <p>{processed_text}</p>')
+                item_indent = state.get("cast_item_indent", "            ")
+                tei.append(f'{item_indent}<p>{processed_text}</p>')
             elif state["in_sp"]:
                 tei.append(f'            <p>{processed_text}</p>')
             else:
@@ -1793,10 +2098,12 @@ def convert_docx_to_tei(
             if processed_text.strip():
                 tei.append(f'          <trailer>{processed_text}</trailer>')
 
+        i += 1
+
 
 
     # Cierre final de todos los bloques aún abiertos
-    close_current_blocks(tei, state)
+    close_current_blocks(tei, state, current_act_characters)
 
     # Verificar si hay versos partidos incompletos al final del procesamiento
     pending = get_pending_split_verse(state)

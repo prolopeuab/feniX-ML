@@ -235,13 +235,33 @@ tei-div[type="subsection"] > tei-head {
 
 /* NIVEL 3: Actos dentro del resumen del argumento */
 tei-div[type="subsection"] tei-div[type="act"] > tei-head,
-tei-div[subtype*="acto"] > tei-head {
+tei-div[subtype="ACTO"] > tei-head[type="acto"] {
     font-size: 120%;
     font-weight: 600;
     font-style: italic;
     margin-top: 1.5em;
     margin-bottom: 0.6em;
     color: #444;
+}
+
+tei-div[subtype="ACTO"] > tei-head[type="mainTitle"][subtype="repeated"] {
+    display: block;
+    font-size: 165%;
+    font-weight: 700;
+    text-align: center;
+    margin-top: 0.4em;
+    margin-bottom: 0.25em;
+    color: #2f2f2f;
+}
+
+tei-div[subtype="ACTO"] > tei-head[type="subTitle"][subtype="repeated"] {
+    display: block;
+    font-size: 110%;
+    font-weight: normal;
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 1em;
+    color: #555;
 }
 
 /* Encabezado de dramatis personae:

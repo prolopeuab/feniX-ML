@@ -37,7 +37,9 @@ Texto...
 Estas líneas se interpretan como encabezados de subsección en el bloque `<front>`.
 
 ### Citas y versos en el prólogo
-Además de párrafos de texto, el prólogo puede incluir elementos especiales como citas textuales de otros textos o de la propia obra editada. En el primer caso, usa el estilo cita (`quote`), en el segundo, puedes usar los estilos para personajes, versos y acotaciones con normalidad, como harías en el texto crítico (descrito más abajo).
+Además de párrafos de texto, el prólogo puede incluir elementos especiales como citas textuales de otros textos o de la propia obra editada. En el primer caso, usa el estilo cita (`quote`), en el segundo, puedes usar los estilos para personajes, versos, versos partidos y acotaciones con normalidad, como harías en el texto crítico (descrito más abajo).
+
+En el prólogo, tanto `Verso` como `Partido_inicial` / `Partido_medio` / `Partido_final` se convierten en `<l>`, pero sin numeración `@n`. La numeración de versos partidos con sufijos (`123a`, `123b`, `123c`) se mantiene solo en el cuerpo de la obra.
 
 ### Notas del prólogo
 
@@ -59,9 +61,9 @@ Desde el primer `Titulo_comedia`, la app procesa el cuerpo principal (`<body>`).
 
 | Estilo en Word | Uso | Salida TEI principal |
 |---|---|---|
-| `Titulo_comedia` | Título (y posible subtítulo si hay segunda línea consecutiva) | `<head type="mainTitle">` y opcional `<head type="subTitle">` |
+| `Titulo_comedia` | Título (y posible subtítulo si hay segunda línea consecutiva) | `<head type="mainTitle">` y opcional `<head type="subTitle">`; si se repite pegado a un `Acto`, se interpreta como título repetido de ese acto |
 | `Epigr_Dedic` | Epígrafe de dedicatoria | `<div type="dedicatoria">` + `<head ...>` |
-| `Epigr_Dramatis` | Encabezado de dramatis personae | `<div type="castList">` + `<head type="castListTitle">` |
+| `Epigr_Dramatis` | Encabezado de dramatis personae | `<div type="castList">` + `<head type="castListTitle">`; si aparece dentro de un acto abierto, se asocia a ese acto |
 | `Dramatis_lista` | Entrada de personaje en lista | `<castItem><role ...>` |
 | `Acto` | Encabezado de acto | `<div type="subsection" subtype="ACTO">` |
 | `Personaje` | Inicio de intervención | `<sp>` + `<speaker>` |
@@ -75,6 +77,48 @@ Desde el primer `Titulo_comedia`, la app procesa el cuerpo principal (`<body>`).
 | `Epigr_final` | Cierre/epígrafe final | `<trailer>` |
 
 ![Aplicación de estilos en Word]({{ '/assets/images/capturas/preparar-docx/estilos-docx.png' | relative_url }}){: .img-50 }
+
+Si una obra repite el título de la comedia al comienzo de cada acto, puedes reutilizar `Titulo_comedia` sin crear estilos nuevos. La app lo interpretará como título repetido del acto cuando aparezca inmediatamente antes o después de `Acto`. Si además el dramatis del acto va entre ese título repetido y el `Acto`, también se asociará al mismo acto.
+
+Del mismo modo, puedes reutilizar `Epigr_Dramatis` y `Dramatis_lista` dentro de un acto para codificar un dramatis personae específico de ese acto. También pueden aparecer inmediatamente antes de `Acto`, después de un `Titulo_comedia` repetido, y se asociarán al acto siguiente. Fuera de esos contextos, esos mismos estilos siguen funcionando como dramatis global de la obra.
+
+### Estructuras válidas del cuerpo
+
+El caso más habitual es este:
+
+```text
+Titulo_comedia
+Epigr_Dramatis
+Dramatis_lista
+Acto
+...
+Acto
+...
+```
+
+Pero también es válido este otro, sin dramatis general y con bloque propio en cada acto:
+
+```text
+Titulo_comedia
+
+Titulo_comedia
+Epigr_Dramatis
+Dramatis_lista
+Acto
+...
+
+Titulo_comedia
+Epigr_Dramatis
+Dramatis_lista
+Acto
+...
+```
+
+En ese segundo patrón, la app interpreta cada secuencia `Titulo_comedia` + `Epigr_Dramatis` + `Dramatis_lista` + `Acto` como el arranque de un acto. En TEI:
+
+- el `Titulo_comedia` repetido se convierte en `<head type="mainTitle" subtype="repeated">` y, si hay una segunda línea consecutiva, en `<head type="subTitle" subtype="repeated">`
+- el dramatis de ese bloque se anida dentro del acto como `castList`
+- los personajes definidos ahí tienen prioridad dentro de ese acto frente a un dramatis global, si también existe
 
 ## Marcadores que debes usar en este archivo
 
@@ -117,6 +161,8 @@ $endecasílabos sueltos
 
 Para versos partidos, usa la secuencia de estilos `Partido_inicial` -> `Partido_medio` -> `Partido_final`.
 
+En el cuerpo de la obra, estos estilos se convierten en `<l part="I|M|F" n="...">`. En el prólogo se usan los mismos estilos, pero la salida conserva `part="I|M|F"` sin añadir `@n`.
+
 ![Ejemplo de versos partidos]({{ '/assets/images/capturas/preparar-docx/partidos-docx.png' | relative_url }}){: .img-70 }
 
 
@@ -124,7 +170,7 @@ Para versos partidos, usa la secuencia de estilos `Partido_inicial` -> `Partido_
 
 ### Dedicatoria
 
-En dedicatoria usa `Epigr_Dedic` para encabezado y aplica estilo `Prosa` o `Verso` según corresponda en el contenido. No dejar texto `Normal` (sin estilo).
+En dedicatoria usa `Epigr_Dedic` para encabezado y aplica estilo `Prosa`, `Verso` o `Partido_*` según corresponda en el contenido. No dejar texto `Normal` (sin estilo).
 
 ### Verso interrumpido por acotación
 
