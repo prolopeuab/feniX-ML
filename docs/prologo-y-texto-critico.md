@@ -41,6 +41,8 @@ Además de párrafos de texto, el prólogo puede incluir elementos especiales co
 
 En el prólogo, tanto `Verso` como `Partido_inicial` / `Partido_medio` / `Partido_final` se convierten en `<l>`, pero sin numeración `@n`. La numeración de versos partidos con sufijos (`123a`, `123b`, `123c`) se mantiene solo en el cuerpo de la obra.
 
+El estilo `Acot` también puede usarse en el prólogo. Se convierte en `<stage>` y, si hay un `Personaje` abierto, queda dentro del mismo `<sp>`; si no, se emite como acotación independiente.
+
 ### Notas del prólogo
 
 Las notas del prólogo se insertan como notas al pie de Word. La app las transforma en notas TEI de tipo introductorio (`<note type="intro"`).

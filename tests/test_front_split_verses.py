@@ -31,6 +31,7 @@ class FrontSplitVersesTest(unittest.TestCase):
             "Acto",
             "Personaje",
             "Verso",
+            "Acot",
             "Partido_inicial",
             "Partido_medio",
             "Partido_final",
@@ -51,8 +52,14 @@ class FrontSplitVersesTest(unittest.TestCase):
         para = doc.add_paragraph("tercera parte del prólogo")
         para.style = "Partido_final"
 
+        para = doc.add_paragraph("Sale alguien")
+        para.style = "Acot"
+
         para = doc.add_paragraph("ALGUIEN")
         para.style = "Personaje"
+
+        para = doc.add_paragraph("Aparte")
+        para.style = "Acot"
 
         para = doc.add_paragraph("habla en")
         para.style = "Partido_inicial"
@@ -101,6 +108,7 @@ class FrontSplitVersesTest(unittest.TestCase):
         self.assertIn('<l part="I">primera parte del prólogo</l>', front_xml)
         self.assertIn('<l part="M">segunda parte del prólogo</l>', front_xml)
         self.assertIn('<l part="F">tercera parte del prólogo</l>', front_xml)
+        self.assertIn('<stage>Sale alguien</stage>', front_xml)
         self.assertNotIn('<l part="I" n="', front_xml)
         self.assertNotIn('<l part="M" n="', front_xml)
         self.assertNotIn('<l part="F" n="', front_xml)
@@ -109,8 +117,12 @@ class FrontSplitVersesTest(unittest.TestCase):
         sp_end = front_xml.index('          </sp>', sp_start)
         sp_xml = front_xml[sp_start:sp_end]
         self.assertIn('<speaker>ALGUIEN</speaker>', sp_xml)
+        self.assertIn('<stage>Aparte</stage>', sp_xml)
         self.assertIn('<l part="I">habla en</l>', sp_xml)
         self.assertIn('<l part="F">dos tiempos</l>', sp_xml)
+        self.assertLess(sp_xml.index('<speaker>ALGUIEN</speaker>'), sp_xml.index('<stage>Aparte</stage>'))
+        self.assertLess(sp_xml.index('<stage>Aparte</stage>'), sp_xml.index('<l part="I">habla en</l>'))
+        self.assertEqual(front_xml.count('<sp>'), 1)
 
         body_start = xml.index('<body xml:id="body">')
         body_xml = xml[body_start:]

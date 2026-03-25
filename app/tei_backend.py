@@ -988,7 +988,7 @@ def process_front_paragraphs_with_tables(front_blocks, footnotes_intro):
 
     Maneja diálogos (<sp>), citas (<cit>), versos (<l>), párrafos (<p>) y tablas en cualquier
     sección del prólogo. Usa marcas de estilo (# prefijo, "Quote", "Personaje", "Verso",
-    "Partido_inicial", "Partido_medio" y "Partido_final").
+    "Partido_inicial", "Partido_medio", "Partido_final" y "Acot").
 
     Args:
         front_blocks: Lista de bloques del front-matter (párrafos y tablas) en orden real.
@@ -1042,6 +1042,13 @@ def process_front_paragraphs_with_tables(front_blocks, footnotes_intro):
                         tei_front.append(f'            <l{part_attr}>{text.strip()}</l>')
                     else:
                         tei_front.append(f'          <l{part_attr}>{text.strip()}</l>')
+
+            elif style == "Acot":
+                if text.strip():
+                    if in_sp_front:
+                        tei_front.append(f'            <stage>{text.strip()}</stage>')
+                    else:
+                        tei_front.append(f'          <stage>{text.strip()}</stage>')
 
             elif text.strip():
                 if in_sp_front:
