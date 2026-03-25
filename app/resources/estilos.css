@@ -596,7 +596,8 @@ tei-milestone[unit="stanza"].show-line::after {
 /* === TABLAS TEI === */
 tei-table {
     display: table;
-    width: 100%;
+    width: auto;
+    max-width: 100%;
     border-collapse: collapse;
     margin: 1em 0;
 }
@@ -605,21 +606,30 @@ tei-row {
 }
 tei-cell {
     display: table-cell;
-    border: 1px solid #ccc;
-    padding: 0.5em;
+    border: none;
+    padding: 0.35em 0.85em 0.35em 0;
     vertical-align: top;
     font-size: 1em;
 }
 /* Cabecera de tabla */
 tei-row:first-of-type > tei-cell {
-    font-weight: bold;
+    font-weight: 700;
+    padding-bottom: 0.6em;
+}
+/* Tabla de sinopsis de versificación */
+tei-table[type="sinopsisversificacion"] {
+    width: 100%;
+}
+tei-table[type="sinopsisversificacion"] tei-cell {
+    border: 1px solid #ccc;
+    padding: 0.5em;
+}
+tei-table[type="sinopsisversificacion"] tei-row:first-of-type > tei-cell {
     background-color: #ddd;
     border-bottom: 2px solid #999;
     text-align: center;
 }
-/* Encabezados de acto y filas de resumen */
-tei-cell[cols="3"],
-tei-row:has(> tei-cell[data-empty]) + tei-row > tei-cell {
+tei-table[type="sinopsisversificacion"] tei-row > tei-cell[cols] {
     font-weight: bold;
     font-style: italic;
     background-color: #f0ece2;
@@ -629,24 +639,22 @@ tei-row:has(> tei-cell[data-empty]) + tei-row > tei-cell {
     text-transform: uppercase;
 }
 /* Primera columna (números de verso) */
-tei-row:not(:first-of-type) > tei-cell:first-child {
+tei-table[type="sinopsisversificacion"] tei-row:not(:first-of-type) > tei-cell:first-child {
     font-style: italic;
     color: #555;
     text-align: right;
 }
-/* Filas “Total” */
-tei-row:has(> tei-cell[data-empty]) > tei-cell {
+/* Filas de total y resumen */
+tei-table[type="sinopsisversificacion"] tei-row[rend="summary"] > tei-cell {
     font-weight: bold;
     background-color: #ececec;
     border-bottom: 2px solid #999;
     text-transform: uppercase;
+    text-align: center;
 }
-/* Última fila “Total” (global, 100 %) */
-tei-row:last-of-type > tei-cell {
-    font-weight: bold;
-    background-color: #ececec;
-    border-bottom: 2px solid #999;
-    text-transform: uppercase;
+tei-table[type="sinopsisversificacion"] tei-row[rend="summary"] > tei-cell:first-child {
+    color: inherit;
+    text-align: left;
 }
 
 

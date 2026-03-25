@@ -13,7 +13,12 @@ import unicodedata
 import zipfile
 from lxml import etree
 from docx import Document
+from docx.document import Document as DocxDocument
+from docx.oxml.table import CT_Tbl
+from docx.oxml.text.paragraph import CT_P
 from docx.oxml.ns import qn
+from docx.table import Table
+from docx.text.paragraph import Paragraph
 from difflib import get_close_matches
 from typing import Optional
 
@@ -197,6 +202,108 @@ def normalize_milestone_type(raw: str) -> str:
     # Colapsar guiones repetidos y recortar extremos
     normalized = re.sub(r"-{2,}", "-", normalized).strip("-")
     return normalized
+
+
+def normalize_text_for_matching(text: str) -> str:
+    """
+    Normaliza texto para comparaciones flexibles:
+    - sin tildes
+    - en minúsculas
+    - sin puntuación
+    - con espacios colapsados
+    """
+    normalized = unicodedata.normalize("NFKD", text)
+    normalized = normalized.encode("ascii", "ignore").decode("utf-8")
+    normalized = normalized.lower()
+    normalized = re.sub(r"[^a-z0-9\s]+", " ", normalized)
+    normalized = re.sub(r"\s+", " ", normalized).strip()
+    return normalized
+
+
+def iter_document_blocks(doc: DocxDocument):
+    """
+    Itera por los bloques de primer nivel del documento en su orden real:
+    párrafos y tablas.
+    """
+    for child in doc.element.body.iterchildren():
+        if isinstance(child, CT_P):
+            yield Paragraph(child, doc)
+        elif isinstance(child, CT_Tbl):
+            yield Table(child, doc)
+
+
+def get_front_blocks(doc: DocxDocument, title_paragraph: Paragraph):
+    """
+    Devuelve los bloques del front-matter (párrafos y tablas) hasta el
+    primer párrafo con estilo Titulo_comedia.
+    """
+    front_blocks = []
+    title_element = title_paragraph._element
+
+    for block in iter_document_blocks(doc):
+        if block._element is title_element:
+            break
+        front_blocks.append(block)
+
+    return front_blocks
+
+
+def extract_table_cell_contents(cell, footnotes_intro):
+    """
+    Extrae el contenido no vacío de todos los párrafos de una celda.
+    """
+    contents = []
+    for para in cell.paragraphs:
+        raw = extract_text_with_intro_notes(para, footnotes_intro).strip()
+        if raw:
+            contents.append(raw)
+    return contents
+
+
+def append_tei_cell(tei_lines, cell_contents, indent, attrs=""):
+    """
+    Añade una celda TEI con su contenido ya procesado.
+    """
+    if not cell_contents:
+        tei_lines.append(f"{indent}<cell{attrs}></cell>")
+        return
+
+    tei_lines.append(f"{indent}<cell{attrs}>")
+    if len(cell_contents) == 1:
+        tei_lines.append(f"{indent}  {cell_contents[0]}")
+    else:
+        for content in cell_contents:
+            tei_lines.append(f"{indent}  <p>{content}</p>")
+    tei_lines.append(f"{indent}</cell>")
+
+
+def is_versification_section(current_section: Optional[str]) -> bool:
+    """
+    Detecta si la subsección actual corresponde a la sinopsis de versificación.
+    """
+    return current_section == "sinopsis de la versificacion"
+
+
+def is_versification_act_heading(texts) -> bool:
+    """
+    Detecta filas-título del tipo "Acto X" o "X acto".
+    """
+    if not texts or not texts[0].strip() or any(text.strip() for text in texts[1:]):
+        return False
+
+    first = normalize_text_for_matching(texts[0])
+    return bool(re.match(r"^acto\s+\w+", first) or re.match(r"^\w+(?:\s+\w+)?\s+acto$", first))
+
+
+def is_versification_summary_row(texts) -> bool:
+    """
+    Detecta filas especiales de resumen en la sinopsis de versificación.
+    """
+    if not texts or not texts[0].strip():
+        return False
+
+    first = normalize_text_for_matching(texts[0])
+    return first in {"total", "resumen"}
 
 def uppercase_preserve_tags(text):
     """
@@ -654,16 +761,15 @@ def parse_metadata_docx(path, header_mode="prolope"):
 
     return "\n".join(tei)
 
-def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro):
+def process_front_paragraphs_with_tables(front_blocks, footnotes_intro):
     """
-    Procesa párrafos del front-matter generando secciones TEI <front> con soporte para tablas.
+    Procesa bloques del front-matter generando secciones TEI <front> con soporte para tablas.
 
     Maneja diálogos (<sp>), citas (<cit>), versos (<l>), párrafos (<p>) y tablas en cualquier
     sección del prólogo. Usa marcas de estilo (# prefijo, "Quote", "Personaje", "Verso").
 
     Args:
-        doc: Documento python-docx completo (para acceder a tablas).
-        front_paragraphs: Lista de párrafos del front-matter.
+        front_blocks: Lista de bloques del front-matter (párrafos y tablas) en orden real.
         footnotes_intro: Dict de notas al pie del prólogo {id: contenido_html}.
 
     Returns:
@@ -675,8 +781,6 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
     current_section = None
     paragraph_buffer = []
     head_inserted = False
-    processed_tables = set()
-    tables_processed_in_current_section = False
     in_sp_front = False  # Estado para controlar <sp> en el front
 
     def flush_paragraph_buffer():
@@ -722,22 +826,13 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
             in_sp_front = False
 
 
-    def process_tables_for_current_section():
-        """
-        Procesa todas las tablas que aparezcan en el prólogo,
-        independientemente de la sección.
-        """
-        nonlocal tables_processed_in_current_section
+    for block in front_blocks:
+        if isinstance(block, Table):
+            flush_paragraph_buffer()
+            tei_front.append(process_table_to_tei(block, footnotes_intro, current_section=current_section))
+            continue
 
-        if current_section and not tables_processed_in_current_section:
-            for table_idx, table in enumerate(doc.tables):
-                if table_idx not in processed_tables:
-                    tei_front.append(process_table_to_tei(table, footnotes_intro))
-                    processed_tables.add(table_idx)
-
-            tables_processed_in_current_section = True
-
-    for i, para in enumerate(front_paragraphs):
+        para = block
         raw = extract_text_with_intro_notes(para, footnotes_intro)
         text = para.text.strip() if para.text else ""
         if not text:
@@ -761,6 +856,7 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
             flush_paragraph_buffer()
             # Usar 'raw' que ya tiene las notas procesadas, y quitar el # del texto procesado
             title = raw.lstrip("#").strip()
+            plain_title = text.lstrip("#").strip()
             if title.lower() == "prólogo":
                 continue
             if subsection_open:
@@ -768,105 +864,69 @@ def process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro)
             tei_front.append(f'        <div type="subsection" n="{subsection_n}">')
             tei_front.append(f'          <head type="divTitle" subtype="MenuLevel_2">{title}</head>')
             subsection_open = True
-            current_section = title.lower()
+            current_section = normalize_text_for_matching(plain_title)
             subsection_n += 1
-            tables_processed_in_current_section = False
             continue
 
         # Añade al buffer
         paragraph_buffer.append(para)
 
-        # Si tenemos párrafos en el buffer y estamos en sinopsis, procesar en orden correcto
-        if (current_section and "sinopsis" in current_section and 
-            len(paragraph_buffer) > 0 and not tables_processed_in_current_section):
-            flush_paragraph_buffer()
-            process_tables_for_current_section()
-
     # Procesar cualquier contenido restante
     flush_paragraph_buffer()
-    
-    # Procesar tablas que no se hayan procesado aún
-    if current_section and "sinopsis" in current_section and not tables_processed_in_current_section:
-        process_tables_for_current_section()
 
     if subsection_open:
         tei_front.append('        </div>')
 
     return "\n".join(tei_front)
 
-def process_table_to_tei(table, footnotes_intro=None):
+def process_table_to_tei(table, footnotes_intro=None, current_section=None):
     """
     Convierte una tabla DOCX en una tabla TEI, incluyendo notas al pie.
     """
     if footnotes_intro is None:
         footnotes_intro = {}
-        
+
     ncols = len(table.columns)
-    tei = ['<table rend="rules">']
+    versification_table = is_versification_section(current_section)
+    table_attrs = ' type="sinopsisversificacion"' if versification_table else ""
+    tei = [f'          <table{table_attrs}>']
 
-    # 1) Filas título
-    hdr = table.rows[0]
-    tei.append('  <row>')
-    for cell in hdr.cells:
-        raw = extract_text_with_intro_notes(cell.paragraphs[0], footnotes_intro)
-        tei.append(
-            '    <cell rend="both">\n'
-            f'      <hi rend="italic" style="padding-left:3em; font-size:13pt; font-weight:bold">{raw}</hi>\n'
-            '    </cell>'
-        )
-    tei.append('  </row>')
+    for row_idx, row in enumerate(table.rows):
+        texts = [cell.text.strip() for cell in row.cells]
+        non_empty = [text for text in texts if text]
+        row_attrs = ' rend="summary"' if versification_table and is_versification_summary_row(texts) else ""
 
-    # 2) Filas vacías
-    tei.append('  <row>')
-    for _ in range(ncols):
-        tei.append('    <cell rend="both"> </cell>')
-    tei.append('  </row>')
+        tei.append(f'            <row{row_attrs}>')
 
-    # 3) Filas datos
-    for row in table.rows[1:]:
-        texts = [c.text.strip() for c in row.cells]
-        non_empty = [t for t in texts if t]
-
-        
-        if len(non_empty) == 1 and texts[0] and all(not t for t in texts[1:]):
-            raw = extract_text_with_intro_notes(row.cells[0].paragraphs[0], footnotes_intro)
-            tei.extend([
-                '  <row>',
-                f'    <cell rend="both" cols="{ncols}">',
-                f'      <hi rend="italic" style="font-size:13pt; font-weight:bold;">{raw}</hi>',
-                '    </cell>',
-                '  </row>',
-            ])
+        if row_idx == 0:
+            for cell in row.cells:
+                append_tei_cell(
+                    tei,
+                    extract_table_cell_contents(cell, footnotes_intro),
+                    '              '
+                )
+            tei.append('            </row>')
             continue
 
-        # Filas resumen
-        key = texts[0].lower()
-        is_summary = key in ("total", "resumen") and all(texts)
-        
-        tei.append('  <row>')
-        for idx, cell in enumerate(row.cells):
-            txt = cell.text.strip()
-            if not txt:
-                tei.append('    <cell rend="both"> </cell>')
-                continue
-            raw = extract_text_with_intro_notes(cell.paragraphs[0], footnotes_intro)
-            if is_summary:
-                style = "padding-left:3em; font-size:11pt; font-weight:bold"
-                if key == "total":
-                    rend = ' rend="italic"' if idx == 0 else ""
-                else:
-                    rend = ' rend="italic"'
-            else:
-                style = "padding-left:3em; font-size:11pt"
-                rend = ""
-            tei.append(
-                f'    <cell rend="both">\n'
-                f'      <hi{rend} style="{style}">{raw}</hi>\n'
-                '    </cell>'
+        if versification_table and is_versification_act_heading(texts) and len(non_empty) == 1:
+            append_tei_cell(
+                tei,
+                extract_table_cell_contents(row.cells[0], footnotes_intro),
+                '              ',
+                attrs=f' cols="{ncols}"'
             )
-        tei.append('  </row>')
+            tei.append('            </row>')
+            continue
 
-    tei.append('</table>')
+        for cell in row.cells:
+            append_tei_cell(
+                tei,
+                extract_table_cell_contents(cell, footnotes_intro),
+                '              '
+            )
+        tei.append('            </row>')
+
+    tei.append('          </table>')
     return "\n".join(tei)
 
 # --- Extracción de notas de notas y aparato
@@ -1268,11 +1328,12 @@ def convert_docx_to_tei(
     title_idx = title_paragraphs[0]
     subtitle_idx = title_paragraphs[1] if len(title_paragraphs) > 1 else None
 
-    # 2) Divide la lista de párrafos en front y body.
+    # 2) Divide el documento en front y body.
+    # El front mantiene el orden real de párrafos y tablas.
     # El body comienza después del último título válido (título o subtítulo).
     last_title_idx = title_paragraphs[-1]
     body_start_idx = last_title_idx + 1
-    front_paragraphs = list(doc.paragraphs[:title_idx])
+    front_blocks = get_front_blocks(doc, doc.paragraphs[title_idx])
     body_paragraphs  = list(doc.paragraphs[body_start_idx:])
 
     # --- Extracción del título ---
@@ -1358,7 +1419,7 @@ def convert_docx_to_tei(
     ]
 
     # Inserta el contenido de <front>, incluyendo notas introductorias y tablas
-    tei.append(process_front_paragraphs_with_tables(doc, front_paragraphs, footnotes_intro))
+    tei.append(process_front_paragraphs_with_tables(front_blocks, footnotes_intro))
 
     # Cerramos el front y abrimos el body con el título principal (y subtítulo si existe)
     tei.extend([
