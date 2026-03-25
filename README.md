@@ -58,6 +58,31 @@ pyinstaller --onefile --windowed `
 
 El ejecutable se generará en `dist\feniXML.exe` en el directorio raíz del proyecto.
 
+## Criterio de versionado
+
+feniX-ML sigue un criterio simple inspirado en SemVer: `vX.Y.Z`.
+
+- `Z` (parche): correcciones de errores, ajustes visuales o internos, mejoras de documentación y recompilados del ejecutable sin capacidades nuevas relevantes para la persona usuaria.
+- `Y` (minor): nuevas funcionalidades compatibles, como soporte para nuevos estilos de Word, nuevas estructuras TEI, validaciones adicionales o mejoras visibles de uso sin romper flujos anteriores.
+- `X` (major): cambios incompatibles en el flujo de trabajo, en las convenciones de marcado en Word o en la estructura de salida TEI que obliguen a adaptar documentos o procesos existentes.
+
+Regla práctica para decidir:
+
+- Si solo hemos corregido o afinado algo ya existente, subimos parche.
+- Si hemos añadido capacidades nuevas compatibles, subimos minor.
+- Si rompemos compatibilidad con documentos o salidas previas, subimos major.
+
+Pre-releases:
+
+- Usa sufijos como `-rc1` o `-beta1` cuando quieras probar una versión antes de marcarla como estable.
+
+Checklist mínima para un release:
+
+1. Actualizar la versión interna de la aplicación.
+2. Dejar `main` estable, con commit final y push.
+3. Crear el tag desde `main` con formato `vX.Y.Z` o `vX.Y.Z-rcN`.
+4. Subir el tag y dejar que GitHub Actions compile y publique la release oficial.
+
 ## Créditos
 Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde.
 Grupo de investigación PROLOPE · Universitat Autònoma de Barcelona · 2025

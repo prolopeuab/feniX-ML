@@ -23,6 +23,8 @@ from docx.text.run import Run
 from difflib import get_close_matches
 from typing import Any, Optional, TypedDict, cast
 
+APP_VERSION = "1.1.0"
+
 
 # --- Funciones de escape XML
 def escape_xml(text):
@@ -994,12 +996,12 @@ def parse_metadata_docx(path, header_mode="prolope"):
     # Solo en modo PROLOPE: añadir editorialDecl
     if header_mode == "prolope":
         tei.append('    <editorialDecl>')
-        tei.append('      <p>El texto se transformó desde archivos DOCX mediante un flujo semiautomático con feniX-ML (versión 1.0.0).</p>')
+        tei.append(f'      <p>El texto se transformó desde archivos DOCX mediante un flujo semiautomático con feniX-ML (versión {APP_VERSION}).</p>')
         tei.append('    </editorialDecl>')
     
     # Siempre incluir appInfo (en ambos modos)
     tei.append('    <appInfo>')
-    tei.append('      <application ident="feniX-ML" version="1.0.0">')
+    tei.append(f'      <application ident="feniX-ML" version="{APP_VERSION}">')
     tei.append('        <label>feniX-ML</label>')
     if header_mode == "prolope":
         tei.append('        <desc>Conversor de ediciones críticas de teatro del Siglo de Oro de DOCX a XML-TEI, desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde (PROLOPE).</desc>')

@@ -41,6 +41,12 @@ Versionado semántico:
 - `v1.1.0` (nueva funcionalidad compatible)
 - `v1.1.0-beta.1` (pre-release)
 
+Criterio práctico para decidir la versión:
+
+- subir `patch` (`Z`) cuando solo haya correcciones, ajustes internos, mejoras visuales menores, documentación o recompilado sin capacidades nuevas relevantes;
+- subir `minor` (`Y`) cuando se añadan funcionalidades compatibles para la persona usuaria, nuevos estilos admitidos, nuevas estructuras TEI o mejoras de uso sin romper flujos previos;
+- subir `major` (`X`) cuando haya cambios incompatibles en el marcado en Word, en el flujo de trabajo o en la estructura de salida que obliguen a adaptar documentos o procesos existentes.
+
 ```powershell
 git tag -a v1.0.0 -m "feniX-ML v1.0.0"
 git push origin v1.0.0
