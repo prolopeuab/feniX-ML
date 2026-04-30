@@ -11,7 +11,7 @@ import os
 import re
 import unicodedata
 import zipfile
-from lxml import etree
+import lxml.etree as etree
 from docx import Document
 from docx.oxml.table import CT_Tbl
 from docx.oxml.text.paragraph import CT_P
@@ -2199,7 +2199,7 @@ def count_verses_in_document(main_docx, include_dedication=False):
     verse_counter = 1
     
     for para_idx, para in enumerate(doc.paragraphs):
-        style: str = para.style.name if para.style else ""
+        style: str = (para.style.name or "") if para.style else ""
         text = para.text.strip() if para.text else ""
         
         # Determinar punto de inicio según parámetro
@@ -2353,7 +2353,7 @@ def analyze_main_text(main_docx) -> list[str]:
     last_act_name = None
 
     for para_idx, para in enumerate(doc.paragraphs):
-        style = para.style.name if para.style else ""
+        style = (para.style.name or "") if para.style else ""
         text = para.text.strip() if para.text else ""
 
         # 1) Buscamos el inicio del body (incluyendo dramatis personae)
@@ -2645,7 +2645,7 @@ def validate_Laguna(main_docx) -> list[str]:
     found_body = False
     
     for para_idx, para in enumerate(doc.paragraphs):
-        style: str = para.style.name if para.style else ""
+        style: str = (para.style.name or "") if para.style else ""
         text = para.text.strip() if para.text else ""
         
         # Esperar hasta el inicio del cuerpo principal
@@ -2690,7 +2690,7 @@ def validate_verso_con_corchetes(main_docx) -> list[str]:
     corchetes_pattern = re.compile(r'^\s*\[[\.…]{1,}\]\s*$|^\s*\[\s*[\.…\s]+\s*\]\s*$')
     
     for para_idx, para in enumerate(doc.paragraphs):
-        style = para.style.name if para.style else ""
+        style = (para.style.name or "") if para.style else ""
         text = para.text.strip() if para.text else ""
         
         # Esperar hasta el inicio del cuerpo principal
@@ -2792,7 +2792,7 @@ def validate_documents(main_docx, aparato_docx=None, notas_docx=None) -> list[st
     found_body = False
 
     for para in doc.paragraphs:
-        style = para.style.name if para.style else ""
+        style = (para.style.name or "") if para.style else ""
         text = para.text.strip() if para.text else ""
 
         # 2.1) Esperar hasta el inicio de cuerpo
