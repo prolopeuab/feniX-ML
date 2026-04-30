@@ -1,9 +1,9 @@
-﻿# ==========================================
-# feniX-ML: Interfaz grÃ¡fica para la conversiÃ³n automÃ¡tica de DOCX a TEI/XML
+# ==========================================
+# feniX-ML: Interfaz gráfica para la conversión automática de DOCX a TEI/XML
 # Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde
-# Grupo de investigaciÃ³n PROLOPE, Universitat AutÃ²noma de Barcelona
-# DescripciÃ³n: Interfaz grÃ¡fica (GUI) para seleccionar archivos, validar, convertir y previsualizar
-#              ediciones crÃ­ticas teatrales en formato DOCX a XML-TEI.
+# Grupo de investigación PROLOPE, Universitat Autònoma de Barcelona
+# Descripción: Interfaz gráfica (GUI) para seleccionar archivos, validar, convertir y previsualizar
+#              ediciones críticas teatrales en formato DOCX a XML-TEI.
 # Este script debe utilizarse junto a tei_backend.py, visualizacion.py y main.py.
 # ==========================================
 
@@ -22,15 +22,15 @@ from tkinter import filedialog, messagebox
 # Usar CustomTkinter para esquinas redondeadas verdaderas
 import customtkinter as ctk
 
-from tei_backend import convert_docx_to_tei, validate_documents, generate_filename
+from tei_backend import APP_VERSION, convert_docx_to_tei, validate_documents, generate_filename
 from visualizacion import vista_previa_xml, vista_previa_html
 from utils_icon import set_windows_icon, resource_path
 
-# Archivo de configuraciÃ³n para guardar preferencias
+# Archivo de configuración para guardar preferencias
 CONFIG_FILE = os.path.join(os.path.expanduser("~"), ".fenixml_config.json")
 
 def load_config():
-    """Carga la configuraciÃ³n guardada."""
+    """Carga la configuración guardada."""
     if os.path.exists(CONFIG_FILE):
         try:
             with open(CONFIG_FILE, 'r') as f:
@@ -40,7 +40,7 @@ def load_config():
     return {}
 
 def save_config(config):
-    """Guarda la configuraciÃ³n."""
+    """Guarda la configuración."""
     try:
         with open(CONFIG_FILE, 'w') as f:
             json.dump(config, f)
@@ -49,38 +49,38 @@ def save_config(config):
 
 # --- Funciones de utilidad para mensajes y ayuda
 def show_info(message):
-    """Muestra un mensaje de ayuda en un cuadro de diÃ¡logo."""
-    messagebox.showinfo("InformaciÃ³n", message)
+    """Muestra un mensaje de ayuda en un cuadro de diálogo."""
+    messagebox.showinfo("Información", message)
 
-# --- FunciÃ³n principal de la interfaz
+# --- Función principal de la interfaz
 def main_gui():
     """
-    Inicializa y ejecuta la interfaz grÃ¡fica principal de feniX-ML.
+    Inicializa y ejecuta la interfaz gráfica principal de feniX-ML.
     Permite seleccionar archivos, validar, convertir y previsualizar resultados.
     """
 
-    # ConfiguraciÃ³n principal de la ventana
+    # Configuración principal de la ventana
     ctk.set_appearance_mode("light")  
     ctk.set_default_color_theme("blue")
     
     root = ctk.CTk()
     root.title("feniX-ML")
     
-    # Obtener dimensiones de pantalla y calcular tamaÃ±o de ventana dinÃ¡mico
+    # Obtener dimensiones de pantalla y calcular tamaño de ventana dinámico
     try:
         user32 = ctypes.windll.user32
         screen_width = user32.GetSystemMetrics(0)
         screen_height = user32.GetSystemMetrics(1)
     except:
-        # Valores por defecto si falla la detecciÃ³n
+        # Valores por defecto si falla la detección
         screen_width = 1920
         screen_height = 1080
     
-    # Cargar configuraciÃ³n guardada
+    # Cargar configuración guardada
     config = load_config()
     saved_scale_mode = config.get("scale_mode", "auto")
     
-    # Selector de modo de escala (compacto/amplio) integrado en el menÃº superior
+    # Selector de modo de escala (compacto/amplio) integrado en el menú superior
     scale_mode_var = tk.StringVar(value=saved_scale_mode)
     def get_scale_mode():
         if scale_mode_var.get() == "auto":
@@ -111,7 +111,7 @@ def main_gui():
             button_font = 15
             large_button_font = 16
         
-        # Asegurar que la ventana no exceda el tamaÃ±o de pantalla disponible
+        # Asegurar que la ventana no exceda el tamaño de pantalla disponible
         max_width = int(screen_width * 0.95)
         max_height = int(screen_height * 0.90)
         window_width = min(window_width, max_width)
@@ -133,30 +133,30 @@ def main_gui():
         config["scale_mode"] = new_mode
         save_config(config)
         
-        # Reiniciar la aplicaciÃ³n con la nueva escala
+        # Reiniciar la aplicación con la nueva escala
         messagebox.showinfo(
             "Cambio de escala",
-            "La aplicaciÃ³n se reiniciarÃ¡ para aplicar la nueva escala."
+            "La aplicación se reiniciará para aplicar la nueva escala."
         )
         root.destroy()
         main_gui()
 
     scale_mode_var.trace_add("write", on_scale_change)
 
-    # MenÃº de escala integrado en el menÃº superior
+    # Menú de escala integrado en el menú superior
     escala_menu = tk.Menu(root, tearoff=0, font=("Segoe UI", 10))
-    escala_menu.add_radiobutton(label="AutomÃ¡tico", variable=scale_mode_var, value="auto")
+    escala_menu.add_radiobutton(label="Automático", variable=scale_mode_var, value="auto")
     escala_menu.add_radiobutton(label="Compacto", variable=scale_mode_var, value="compacto")
     escala_menu.add_radiobutton(label="Amplio", variable=scale_mode_var, value="amplio")
     
-    # Logos con escala dinÃ¡mica
+    # Logos con escala dinámica
     image_refs: list[tk.PhotoImage] = []
     logo_scale = max(4, int(window_height / 150))
     logo_prolope_img = tk.PhotoImage(file=resource_path("resources/logo_prolope.png")).subsample(logo_scale)
     logo_fenix_img = tk.PhotoImage(file=resource_path("resources/logo.png")).subsample(logo_scale)
     image_refs.extend([logo_prolope_img, logo_fenix_img])
 
-    # Encabezado con logo y descripciÃ³n
+    # Encabezado con logo y descripción
     try:
         bg_color = root._apply_appearance_mode(ctk.ThemeManager.theme["CTk"]["fg_color"])
     except:
@@ -173,28 +173,29 @@ def main_gui():
     logo = tk.Label(logo_text_frame, image=logo_fenix_img, bg=bg_color, borderwidth=0, highlightthickness=0)
     logo.pack(anchor="w", pady=(0, 5))
 
-    # DescripciÃ³n bajo el logo
+    # Descripción bajo el logo
     desc = tk.Label(
         logo_text_frame,
-        text="Conversor de ediciones crÃ­ticas de teatro del Siglo de oro de DOCX a XML-TEI",
+        text="Conversor de ediciones críticas de teatro del Siglo de oro de DOCX a XML-TEI",
         font=("Segoe UI", base_font), fg="gray", wraplength=int(window_width * 1), bg=bg_color, justify="left"
     )
     desc.pack(anchor="w")
 
 
-    # MenÃºs de ayuda y acerca de
+    # Menús de ayuda y acerca de
     def mostrar_creditos():
         messagebox.showinfo(
-            "CrÃ©ditos",
-            "feniX-ML\nConversor de ediciones crÃ­ticas en DOCX a XML-TEI\n\n"
+            "Créditos",
+            "feniX-ML\nConversor de ediciones críticas en DOCX a XML-TEI\n\n"
+            f"Versión {APP_VERSION}\n\n"
             "Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde.\n"
-            "Grupo de investigaciÃ³n PROLOPE Â· Universitat AutÃ²noma de Barcelona Â· 2025"
+            "Grupo de investigación PROLOPE · Universitat Autònoma de Barcelona · 2025"
         )
 
     def mostrar_licencia():
         messagebox.showinfo(
             "Licencia",
-            "Esta herramienta estÃ¡ distribuida bajo una licencia Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)."
+            "Esta herramienta está distribuida bajo una licencia Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International (CC BY-NC-SA 4.0)."
         )
 
     def abrir_sitio_web():
@@ -206,27 +207,27 @@ def main_gui():
             "Para consultas o sugerencias, puedes escribirnos a:\nprolope@uab.cat"
         )
     
-    # ConfiguraciÃ³n del menÃº principal
+    # Configuración del menú principal
     menubar = tk.Menu(root, font=("Segoe UI", menu_font))
     acerca_menu = tk.Menu(menubar, tearoff=0, font=("Segoe UI", menu_font))
-    acerca_menu.add_command(label="CrÃ©ditos", command=mostrar_creditos)
+    acerca_menu.add_command(label="Créditos", command=mostrar_creditos)
     acerca_menu.add_command(label="Licencia", command=mostrar_licencia)
     acerca_menu.add_command(label="Sitio web del proyecto", command=abrir_sitio_web)
     acerca_menu.add_command(label="Contacto", command=mostrar_contacto)
     menubar.add_cascade(label="Acerca de", menu=acerca_menu)
 
-    # MenÃº de escala
+    # Menú de escala
     menubar.add_cascade(label="Escala", menu=escala_menu)
 
-    # MenÃº de ayuda
+    # Menú de ayuda
     def mostrar_ayuda_uso():
         messagebox.showinfo(
-            "CÃ³mo usar feniX-ML",
+            "Cómo usar feniX-ML",
             "1. Seleccione el archivo DOCX principal (texto de la comedia).\n"
             "2. Opcionalmente, seleccione los archivos de notas, aparato y metadatos.\n"
             "3. Pulse 'Generar archivo XML-TEI' para crear el archivo de salida.\n"
             "4. Use 'Vista previa XML' o 'Vista previa HTML' para comprobar el resultado.\n\n"
-            "Nota: El DOCX debe seguir los estilos predefinidos para su correcta conversiÃ³n."
+            "Nota: El DOCX debe seguir los estilos predefinidos para su correcta conversión."
         )
     def abrir_instrucciones():
         webbrowser.open("https://prolopeuab.github.io/feniX-ML/") 
@@ -235,8 +236,8 @@ def main_gui():
         webbrowser.open("https://github.com/prolopeuab/feniX-ML/tree/main/ejemplos") 
 
     ayuda_menu = tk.Menu(menubar, tearoff=0, font=("Segoe UI", menu_font))
-    ayuda_menu.add_command(label="CÃ³mo usar feniX-ML", command=mostrar_ayuda_uso)
-    ayuda_menu.add_command(label="DocumentaciÃ³n tÃ©cnica completa", command=abrir_instrucciones)
+    ayuda_menu.add_command(label="Cómo usar feniX-ML", command=mostrar_ayuda_uso)
+    ayuda_menu.add_command(label="Documentación técnica completa", command=abrir_instrucciones)
     ayuda_menu.add_command(label="Descargar plantillas DOCX", command=abrir_plantillas)
     menubar.add_cascade(label="Ayuda", menu=ayuda_menu)
     root.config(menu=menubar)
@@ -258,19 +259,19 @@ def main_gui():
         # Sin scroll, usar root directamente
         main_parent = root
 
-    # --- SecciÃ³n 1: SelecciÃ³n de archivos DOCX
+    # --- Sección 1: Selección de archivos DOCX
     main_frame = ctk.CTkFrame(main_parent, fg_color="transparent")
     main_frame.pack(fill="both", expand=True, padx=0, pady=(5, 5))
     
     frame_seleccion = ctk.CTkFrame(main_frame, corner_radius=10)
     frame_seleccion.grid(row=0, column=0, columnspan=2, sticky="ew", padx=10, pady=(5,8))
     
-    # TÃ­tulo secciÃ³n selecciÃ³n
-    ctk.CTkLabel(frame_seleccion, text="SelecciÃ³n de archivos", 
+    # Título sección selección
+    ctk.CTkLabel(frame_seleccion, text="Selección de archivos", 
                  font=("Segoe UI", title_font, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=15, pady=(12,8))
 
-    # SelecciÃ³n de archivo principal
-    label_main = ctk.CTkLabel(frame_seleccion, text="PrÃ³logo y comedia:", font=("Segoe UI", label_font))
+    # Selección de archivo principal
+    label_main = ctk.CTkLabel(frame_seleccion, text="Prólogo y comedia:", font=("Segoe UI", label_font))
     label_main.grid(row=1, column=0, sticky="e", padx=(15,5), pady=5)
     entry_main = ctk.CTkEntry(frame_seleccion, width=int(window_width * 0.5))
     entry_main.grid(row=1, column=1, padx=5, sticky="ew")
@@ -287,7 +288,7 @@ def main_gui():
                             corner_radius=10, width=100, height=30, font=("Segoe UI", button_font))
     btn_main.grid(row=1, column=2, padx=(5,15), pady=5)
 
-    # SelecciÃ³n de archivo de notas
+    # Selección de archivo de notas
     label_com = ctk.CTkLabel(frame_seleccion, text="Notas:", font=("Segoe UI", label_font))
     label_com.grid(row=2, column=0, sticky="e", padx=(15,5), pady=5)
     entry_com = ctk.CTkEntry(frame_seleccion, width=int(window_width * 0.5))
@@ -305,14 +306,14 @@ def main_gui():
                            corner_radius=10, width=100, height=30, font=("Segoe UI", button_font))
     btn_com.grid(row=2, column=2, padx=(5,15), pady=5)
 
-    # SelecciÃ³n de archivo de aparato crÃ­tico
-    label_apa = ctk.CTkLabel(frame_seleccion, text="Aparato crÃ­tico:", font=("Segoe UI", label_font))
+    # Selección de archivo de aparato crítico
+    label_apa = ctk.CTkLabel(frame_seleccion, text="Aparato crítico:", font=("Segoe UI", label_font))
     label_apa.grid(row=3, column=0, sticky="e", padx=(15,5), pady=5)
     entry_apa = ctk.CTkEntry(frame_seleccion, width=int(window_width * 0.5))
     entry_apa.grid(row=3, column=1, padx=5, sticky="ew")
     def select_apa():
         path = filedialog.askopenfilename(
-            title="Seleccione archivo con el aparato crÃ­tico",
+            title="Seleccione archivo con el aparato crítico",
             filetypes=[("Archivo DOCX", "*.docx"), ("Todos los archivos", "*.*")]
         )
         if path:
@@ -323,7 +324,7 @@ def main_gui():
                            corner_radius=10, width=100, height=30, font=("Segoe UI", button_font))
     btn_apa.grid(row=3, column=2, padx=(5,15), pady=5)
 
-    # SelecciÃ³n de archivo de metadatos
+    # Selección de archivo de metadatos
     ctk.CTkLabel(frame_seleccion, text="Tabla de metadatos:", font=("Segoe UI", label_font)).grid(row=4, column=0, sticky="e", padx=(15,5), pady=5)
     entry_meta = ctk.CTkEntry(frame_seleccion, width=int(window_width * 0.5))
     entry_meta.grid(row=4, column=1, padx=5, sticky="ew")
@@ -343,11 +344,11 @@ def main_gui():
     # Columna central expandible
     frame_seleccion.columnconfigure(1, weight=1)
 
-    # SecciÃ³n 1.5: Opciones de header TEI
+    # Sección 1.5: Opciones de header TEI
     frame_header_opciones = ctk.CTkFrame(main_frame, corner_radius=10)
     frame_header_opciones.grid(row=1, column=0, columnspan=2, sticky="ew", padx=10, pady=(0,8))
     
-    # Variable para selecciÃ³n de header
+    # Variable para selección de header
     header_mode_var = tk.StringVar(value="prolope")
     
     # Etiqueta y radio buttons
@@ -368,12 +369,12 @@ def main_gui():
                                        font=("Segoe UI", label_font))
     radio_minimo.grid(row=0, column=2, sticky="w", padx=10, pady=8)
 
-    # --- SecciÃ³n 2: ValidaciÃ³n y vista previa (columna izquierda)
+    # --- Sección 2: Validación y vista previa (columna izquierda)
     frame_output = ctk.CTkFrame(main_frame, corner_radius=10)
     frame_output.grid(row=2, column=0, sticky="nsew", padx=(10,5), pady=(0,8))
     
-    # TÃ­tulo secciÃ³n validaciÃ³n
-    ctk.CTkLabel(frame_output, text="ValidaciÃ³n y vista previa",
+    # Título sección validación
+    ctk.CTkLabel(frame_output, text="Validación y vista previa",
                  font=("Segoe UI", title_font, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=15, pady=(12,8))
 
     def show_validation_modal(title, message, has_warnings=False):
@@ -453,7 +454,7 @@ def main_gui():
 
         run_with_progress(do_validation, "Validando documentos...", on_success, on_error)
 
-    # Botones de validaciÃ³n y vista previa
+    # Botones de validación y vista previa
     validation_button_height = max(32, int(window_height * 0.04))  
 
     btn_validar = ctk.CTkButton(frame_output,
@@ -467,7 +468,7 @@ def main_gui():
     )
     btn_validar.grid(row=1, column=0, columnspan=2, padx=15, pady=(5,5), sticky="ew")
 
-    # FunciÃ³n para vista previa XML con barra de progreso
+    # Función para vista previa XML con barra de progreso
     def on_vista_previa_xml():
         if not entry_main.get():
             messagebox.showwarning("Vista previa", "Debe seleccionar un archivo principal.")
@@ -479,7 +480,7 @@ def main_gui():
         
         run_with_progress(do_preview, "Generando vista previa XML...")
     
-    # BotÃ³n para previsualizar el XML
+    # Botón para previsualizar el XML
     btn_vista_previa_xml = ctk.CTkButton(frame_output,
         text="Vista previa (XML)",
         command=on_vista_previa_xml,
@@ -491,7 +492,7 @@ def main_gui():
     )
     btn_vista_previa_xml.grid(row=2, column=0, columnspan=2, padx=15, pady=(5,5), sticky="ew")
 
-    # FunciÃ³n para vista previa HTML con barra de progreso
+    # Función para vista previa HTML con barra de progreso
     def on_vista_previa_html():
         if not entry_main.get():
             messagebox.showwarning("Vista previa", "Debe seleccionar un archivo principal.")
@@ -503,7 +504,7 @@ def main_gui():
         
         run_with_progress(do_preview, "Generando vista previa HTML...")
     
-    # BotÃ³n para previsualizar HTML
+    # Botón para previsualizar HTML
     btn_vista_previa_html = ctk.CTkButton(frame_output,
         text="Vista previa (HTML)",
         command=on_vista_previa_html,
@@ -519,16 +520,16 @@ def main_gui():
     frame_output.columnconfigure(0, weight=1) 
     frame_output.columnconfigure(1, weight=1)
 
-    # --- SecciÃ³n 3: ConfiguraciÃ³n del output y guardado (columna derecha)
+    # --- Sección 3: Configuración del output y guardado (columna derecha)
     frame_conversion = ctk.CTkFrame(main_frame, corner_radius=10)
     frame_conversion.grid(row=2, column=1, sticky="nsew", padx=(5,10), pady=(0,8))
 
-    # TÃ­tulo secciÃ³n guardar
+    # Título sección guardar
     ctk.CTkLabel(frame_conversion, text="Guardar como",
                  font=("Segoe UI", title_font, "bold")).grid(row=0, column=0, columnspan=3, sticky="w", padx=15, pady=(12,5))
     
-    # LÃ­nea informativa
-    lbl_output_info = ctk.CTkLabel(frame_conversion, text="UbicaciÃ³n y nombre del archivo XML de salida", 
+    # Línea informativa
+    lbl_output_info = ctk.CTkLabel(frame_conversion, text="Ubicación y nombre del archivo XML de salida", 
                                    text_color="gray", font=("Segoe UI", label_font))
     lbl_output_info.grid(row=1, column=0, columnspan=3, sticky="w", padx=15, pady=(0, 8))
 
@@ -538,7 +539,7 @@ def main_gui():
     entry_out = ctk.CTkEntry(frame_conversion, width=int(window_width * 0.5))
     entry_out.grid(row=2, column=1, padx=5, sticky="ew")
 
-    # BotÃ³n seleccionar archivo de salida
+    # Botón seleccionar archivo de salida
     def select_out():
         result = filedialog.asksaveasfilename(
             title="Guardar archivo TEI",
@@ -556,10 +557,10 @@ def main_gui():
                            corner_radius=10, width=100, height=30, font=("Segoe UI", button_font))
     btn_out.grid(row=2, column=2, padx=(5,15), pady=5)
 
-    # BotÃ³n para convertir y guardar XML-TEI con barra de progreso
+    # Botón para convertir y guardar XML-TEI con barra de progreso
     def generate_and_save():
         if not entry_main.get():
-            messagebox.showwarning("ConversiÃ³n", "Debe seleccionar un archivo principal.")
+            messagebox.showwarning("Conversión", "Debe seleccionar un archivo principal.")
             return
         
         # 1. Tomamos lo que haya escrito el usuario
@@ -587,16 +588,16 @@ def main_gui():
                 return os.path.abspath(generate_filename(entry_main.get()) + ".xml")
         
         def on_success(guardado):
-            messagebox.showinfo("ConversiÃ³n a XML-TEI completada", f"Archivo TEI generado en:\n{guardado}")
+            messagebox.showinfo("Conversión a XML-TEI completada", f"Archivo TEI generado en:\n{guardado}")
         
         def on_error(e):
             error_details = traceback.format_exc()
-            print(f"Error en conversiÃ³n:\n{error_details}")
-            messagebox.showerror("Error en la conversiÃ³n", f"OcurriÃ³ un error durante la conversiÃ³n:\n{str(e)}\n\nDetalles tÃ©cnicos guardados en consola.")
+            print(f"Error en conversión:\n{error_details}")
+            messagebox.showerror("Error en la conversión", f"Ocurrió un error durante la conversión:\n{str(e)}\n\nDetalles técnicos guardados en consola.")
         
         run_with_progress(do_conversion, "Generando archivo XML-TEI...", on_success, on_error)
 
-    # Altura adaptable botÃ³n de conversiÃ³n
+    # Altura adaptable botón de conversión
     conversion_button_height = max(36, int(window_height * 0.045))
     
     btn_convertir = ctk.CTkButton(frame_conversion,
@@ -638,24 +639,24 @@ def main_gui():
         """
         Ejecuta una tarea en thread secundario mostrando barra de progreso indeterminada.
         
-        Mantiene la GUI responsiva durante operaciones largas (conversiÃ³n, validaciÃ³n).
+        Mantiene la GUI responsiva durante operaciones largas (conversión, validación).
         Usa root.after() para actualizar UI de forma thread-safe desde el worker.
         
         Args:
-            task_func: FunciÃ³n sin argumentos que ejecuta la tarea, retorna un resultado.
-            message: Texto a mostrar en la barra de progreso durante ejecuciÃ³n.
+            task_func: Función sin argumentos que ejecuta la tarea, retorna un resultado.
+            message: Texto a mostrar en la barra de progreso durante ejecución.
             on_success: Callback(result) opcional, ejecutado en thread principal si la tarea completa.
             on_error: Callback(exception) opcional, ejecutado en thread principal si hay error.
         """
         def show_progress():
-            # Mostrar barra de progreso en modo indeterminado (sin valor especÃ­fico)
+            # Mostrar barra de progreso en modo indeterminado (sin valor específico)
             progress_frame.pack(fill="x", padx=10, pady=(0, 5), before=footer_frame)
             progress_label.configure(text=message)
             progress_bar.configure(mode="indeterminate")
             progress_bar.start()
         
         def hide_progress():
-            # Detener animaciÃ³n y ocultar barra de progreso
+            # Detener animación y ocultar barra de progreso
             progress_bar.stop()
             progress_bar.configure(mode="determinate")
             progress_bar.set(0)
@@ -667,7 +668,7 @@ def main_gui():
                 # Mostrar barra de progreso en thread principal usando root.after()
                 root.after(0, show_progress)
                 result = task_func()
-                # Ocultar barra y ejecutar callback de Ã©xito en thread principal
+                # Ocultar barra y ejecutar callback de éxito en thread principal
                 root.after(0, hide_progress)
                 if on_success is not None:
                     success_cb = on_success
@@ -682,10 +683,10 @@ def main_gui():
                     # Mostrar cuadro de error por defecto si no hay callback personalizado
                     root.after(0, lambda err=e: messagebox.showerror("Error", str(err)))
         
-        # Iniciar thread daemon (no bloquea cierre de aplicaciÃ³n)
+        # Iniciar thread daemon (no bloquea cierre de aplicación)
         threading.Thread(target=worker, daemon=True).start()
 
-    # --- Pie de pÃ¡gina
+    # --- Pie de página
     try:
         root_bg = root.cget("background")
     except:
@@ -701,11 +702,11 @@ def main_gui():
     logo_label = tk.Label(footer_frame, image=small_logo_img, bg=root_bg)
     logo_label.pack(side="left", padx=10)
 
-    # Texto del footer (dos lÃ­neas)
+    # Texto del footer (dos líneas)
     footer_text_frame = tk.Frame(footer_frame, bg=root_bg)
     footer_text_frame.pack(side="left", anchor="w")
     
-    # Primera lÃ­nea footer
+    # Primera línea footer
     footer_font_size = max(9, min(11, int(window_height / 75)))
     footer_text1 = tk.Label(
         footer_text_frame,
@@ -717,10 +718,10 @@ def main_gui():
     )
     footer_text1.pack(anchor="w")
     
-    # Segunda lÃ­nea footer
+    # Segunda línea footer
     footer_text2 = tk.Label(
         footer_text_frame,
-        text="PROLOPE Â· Universitat AutÃ²noma de Barcelona Â· 2025",
+        text=f"PROLOPE · Universitat Autònoma de Barcelona · 2025 · v{APP_VERSION}",
         font=("Segoe UI", footer_font_size, "bold"),
         fg="gray",
         bg=root_bg,

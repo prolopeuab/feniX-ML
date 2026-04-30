@@ -10,6 +10,7 @@
 # --- Importaciones
 import os
 import sys
+import json
 import tempfile
 import webbrowser
 import traceback
@@ -139,6 +140,8 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode=
             save=False,
             header_mode=header_mode
         )
+        # Escapar de forma segura para JavaScript (evita interpretar secuencias como \f).
+        tei_content_js = json.dumps(tei_content)
 
         html_template = f"""<!DOCTYPE html>
 <html lang="es">
@@ -172,7 +175,7 @@ def vista_previa_html(entry_main, entry_com, entry_apa, entry_meta, header_mode=
     <script>
     document.addEventListener("DOMContentLoaded", function() {{
         const ceteiInstance = new CETEI();
-        const htmlNode = ceteiInstance.makeHTML5(`{tei_content}`);
+        const htmlNode = ceteiInstance.makeHTML5({tei_content_js});
         document.getElementById("tei").appendChild(htmlNode);
         
         // Generar menú de navegación después de renderizar el TEI

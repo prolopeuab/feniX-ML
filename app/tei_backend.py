@@ -23,7 +23,7 @@ from docx.text.run import Run
 from difflib import get_close_matches
 from typing import Any, Optional, TypedDict, cast
 
-APP_VERSION = "1.1.0"
+APP_VERSION = "1.2.0"
 
 
 # --- Funciones de escape XML
@@ -186,34 +186,47 @@ def extract_text_with_italics(para):
     Extrae el texto de un párrafo, preservando las cursivas.
     Mueve los espacios que están dentro de runs cursivos hacia fuera para preservar el formato.
     """
-    # Recorre los runs del párrafo y envuelve en <hi rend="italic"> si es cursiva
-    text = ""
-    for run in para.runs:
+    def render_run(run: Run) -> str:
         if run.italic:
             # Extrae espacios del principio y final del texto cursivo
             content = run.text
             leading_spaces = ""
             trailing_spaces = ""
-            
+
             # Extrae espacios del principio
             while content.startswith(" ") or content.startswith("\t"):
                 leading_spaces += content[0]
                 content = content[1:]
-            
+
             # Extrae espacios del final
             while content.endswith(" ") or content.endswith("\t"):
                 trailing_spaces = content[-1] + trailing_spaces
                 content = content[:-1]
-            
+
             # Solo envuelve en cursiva el contenido sin espacios, escapando caracteres XML
             if content:  # solo si queda contenido después de quitar espacios
-                text += leading_spaces + f'<hi rend="italic">{escape_xml(content)}</hi>' + trailing_spaces
-            else:  # si solo había espacios, los añade sin cursiva
-                text += run.text
+                return leading_spaces + f'<hi rend="italic">{escape_xml(content)}</hi>' + trailing_spaces
+            # si solo había espacios, los añade sin cursiva
+            return run.text
+
+        # Escapar caracteres XML en texto normal
+        return escape_xml(run.text)
+
+    def render_hyperlink(hyperlink: Hyperlink) -> str:
+        content = "".join(render_run(run) for run in hyperlink.runs)
+        target = hyperlink.url or hyperlink.address
+        if target:
+            return f'<ref target="{escape_xml(target)}">{content}</ref>'
+        return content
+
+    text_parts: list[str] = []
+    for item in para.iter_inner_content():
+        if isinstance(item, Hyperlink):
+            text_parts.append(render_hyperlink(item))
         else:
-            # Escapar caracteres XML en texto normal
-            text += escape_xml(run.text)
-    return text.strip()
+            text_parts.append(render_run(item))
+
+    return "".join(text_parts).strip()
 
 def normalize_id(text):
     """
@@ -1356,44 +1369,71 @@ def extract_notes_with_italics(docx_path: str) -> dict:
         normalized = normalized.encode('ASCII', 'ignore').decode('utf-8').lower().strip()
         return normalized
 
+    def table_to_tei(table: Table) -> str:
+        """Convierte una tabla DOCX a XML TEI básico para incluirla dentro de una nota."""
+        rows_xml: list[str] = []
+        for row in table.rows:
+            cells_xml: list[str] = []
+            for cell in row.cells:
+                cell_parts: list[str] = []
+                for para in cell.paragraphs:
+                    cell_text = extract_text_with_italics(para).strip()
+                    if cell_text:
+                        cell_parts.append(cell_text)
+                cell_content = "<lb/>".join(cell_parts)
+                cells_xml.append(f"<cell>{cell_content}</cell>")
+            rows_xml.append(f"<row>{''.join(cells_xml)}</row>")
+        return f"<table>{''.join(rows_xml)}</table>"
+
     doc = Document(docx_path)
-    for para in doc.paragraphs:
-        text = extract_text_with_italics(para).strip()
+    last_key: Any = None
 
-        # Notas tipo verso: "1: contenido" o "329a: contenido" (con sufijo alfabético)
-        # El sufijo alfabético se usa para versos partidos: 329a, 329b, 329c, etc.
-        match_verse = re.match(r'^(\d+[a-z]?):\s*(.*)', text)
-        # Notas tipo @palabra o %palabra: "@palabra: contenido" o "%palabra: contenido"
-        match_single = re.match(r'^[@%]([^@%]+?):\s*(.*)', text)
+    for block in iter_document_blocks(doc):
+        if isinstance(block, Paragraph):
+            text = extract_text_with_italics(block).strip()
 
-        if match_verse:
-            verse_key = match_verse.group(1)  # Puede ser "329" o "329a"
-            content = match_verse.group(2).strip()
-            
-            # Si tiene sufijo alfabético, usar como string; si no, convertir a int
-            if re.match(r'^\d+[a-z]$', verse_key):
-                # Tiene sufijo: usar string como clave (ej: "329a")
-                key = verse_key
-            else:
-                # Sin sufijo: convertir a int para retrocompatibilidad
-                key = int(verse_key)
-            
-            # Siempre usar listas para facilitar el acceso secuencial
-            if key not in notes:
-                notes[key] = []
-            notes[key].append(content)
-                
-        elif match_single:
-            key_original = match_single.group(1).strip()
-            content = match_single.group(2).strip()
-            
-            # Normalizar la clave para insensibilidad a mayúsculas/acentos
-            key = normalize_key(key_original)
-            
-            # Siempre usar listas para facilitar el acceso secuencial
-            if key not in notes:
-                notes[key] = []
-            notes[key].append(content)
+            # Notas tipo verso: "1: contenido" o "329a: contenido" (con sufijo alfabético)
+            # El sufijo alfabético se usa para versos partidos: 329a, 329b, 329c, etc.
+            match_verse = re.match(r'^(\d+[a-z]?):\s*(.*)', text)
+            # Notas tipo @palabra o %palabra: "@palabra: contenido" o "%palabra: contenido"
+            match_single = re.match(r'^[@%]([^@%]+?):\s*(.*)', text)
+
+            if match_verse:
+                verse_key = match_verse.group(1)  # Puede ser "329" o "329a"
+                content = match_verse.group(2).strip()
+
+                # Si tiene sufijo alfabético, usar como string; si no, convertir a int
+                if re.match(r'^\d+[a-z]$', verse_key):
+                    # Tiene sufijo: usar string como clave (ej: "329a")
+                    key = verse_key
+                else:
+                    # Sin sufijo: convertir a int para retrocompatibilidad
+                    key = int(verse_key)
+
+                # Siempre usar listas para facilitar el acceso secuencial
+                if key not in notes:
+                    notes[key] = []
+                notes[key].append(content)
+                last_key = key
+
+            elif match_single:
+                key_original = match_single.group(1).strip()
+                content = match_single.group(2).strip()
+
+                # Normalizar la clave para insensibilidad a mayúsculas/acentos
+                key = normalize_key(key_original)
+
+                # Siempre usar listas para facilitar el acceso secuencial
+                if key not in notes:
+                    notes[key] = []
+                notes[key].append(content)
+                last_key = key
+
+        elif isinstance(block, Table):
+            # Si una tabla aparece tras una nota válida, se considera contenido de esa nota.
+            if last_key is None or last_key not in notes or not notes[last_key]:
+                continue
+            notes[last_key][-1] += table_to_tei(block)
 
     return notes
 
