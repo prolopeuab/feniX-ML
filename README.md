@@ -12,7 +12,7 @@
 ```
 feniX-ML/
 │
-├── app/ ← Código fuente en Python (.py) y ejecutable
+├── app/ ← Código fuente en Python (.py) y recursos de la aplicación
 │ ├── main.py ← Lanzador de la aplicación
 │ ├── gui.py ← Interfaz gráfica (Tkinter)
 │ ├── tei_backend.py ← Lógica de conversión DOCX → TEI
@@ -39,6 +39,8 @@ Limpia las carpetas de compilaciones anteriores (opcional pero recomendado):
 ```
 Remove-Item -Recurse -Force build, dist, *.spec -ErrorAction SilentlyContinue
 ```
+
+Este paso sirve para probar localmente la generación del ejecutable. En una release oficial, GitHub Actions repetirá este proceso automáticamente al subir el tag.
 
 Ejecuta el siguiente comando para generar el ejecutable .exe:
 
@@ -76,12 +78,145 @@ Pre-releases:
 
 - Usa sufijos como `-rc1` o `-beta1` cuando quieras probar una versión antes de marcarla como estable.
 
-Checklist mínima para un release:
+## Cómo publicar una nueva release
 
-1. Actualizar la versión interna de la aplicación.
-2. Dejar `main` estable, con commit final y push.
-3. Crear el tag desde `main` con formato `vX.Y.Z` o `vX.Y.Z-rcN`.
-4. Subir el tag y dejar que GitHub Actions compile y publique la release oficial.
+Las releases oficiales de feniX-ML se publican a partir de tags de Git.  
+El flujo previsto es:
+
+```text
+main estable → tag vX.Y.Z → GitHub Actions → release oficial
+```
+
+GitHub Actions se encarga de compilar el ejecutable y adjuntarlo a la release. Por tanto, no es necesario subir manualmente `dist\feniXML.exe` al repositorio.
+
+### 1. Decidir el número de versión
+
+Antes de publicar una release, decide si el cambio corresponde a una versión de parche, minor o major siguiendo el criterio de versionado anterior.
+
+Ejemplos:
+
+```text
+v1.0.1     # parche
+v1.1.0     # minor
+v2.0.0     # major
+v1.1.0-rc1 # release candidata
+```
+
+### 2. Actualizar la versión interna de la aplicación
+
+Actualiza la versión declarada dentro del código de la aplicación para que coincida con el tag que se va a publicar.
+
+Por ejemplo, si la nueva release será:
+
+```text
+v1.1.0
+```
+
+la versión interna de la aplicación debe quedar como:
+
+```text
+1.1.0
+```
+
+### 3. Comprobar que `main` está estable
+
+Antes de crear el tag, revisa que la rama `main` contiene todos los cambios necesarios y que no quedan archivos pendientes.
+
+```bash
+git checkout main
+git pull origin main
+git status
+```
+
+Si hay cambios pendientes, añádelos y crea el commit final:
+
+```bash
+git add .
+git commit -m "Prepare release vX.Y.Z"
+git push origin main
+```
+
+Sustituye `vX.Y.Z` por el número real de la versión.
+
+Ejemplo:
+
+```bash
+git commit -m "Prepare release v1.1.0"
+```
+
+### 4. Crear el tag desde `main`
+
+Crea el tag con el formato correspondiente:
+
+```bash
+git tag vX.Y.Z
+```
+
+Ejemplo:
+
+```bash
+git tag v1.1.0
+```
+
+Para una release candidata:
+
+```bash
+git tag v1.1.0-rc1
+```
+
+### 5. Subir el tag a GitHub
+
+Sube el tag al repositorio remoto:
+
+```bash
+git push origin vX.Y.Z
+```
+
+Ejemplo:
+
+```bash
+git push origin v1.1.0
+```
+
+Al subir el tag, GitHub Actions iniciará automáticamente el proceso de compilación y publicación de la release.
+
+### 6. Revisar la release en GitHub
+
+Una vez finalizada la acción automática, comprueba en GitHub que:
+
+* la acción terminó correctamente;
+* se creó una nueva release con el tag correspondiente;
+* la release incluye el ejecutable `feniXML.exe`;
+* la versión interna de la aplicación coincide con el número de la release.
+
+### Secuencia rápida
+
+Para publicar una release estable:
+
+```bash
+git checkout main
+git pull origin main
+git status
+git add .
+git commit -m "Prepare release vX.Y.Z"
+git push origin main
+git tag vX.Y.Z
+git push origin vX.Y.Z
+```
+
+Para publicar una release candidata:
+
+```bash
+git checkout main
+git pull origin main
+git status
+git add .
+git commit -m "Prepare release vX.Y.Z-rc1"
+git push origin main
+git tag vX.Y.Z-rc1
+git push origin vX.Y.Z-rc1
+```
+
 
 ## Créditos
 Desarrollado por Anna Abate, Emanuele Leboffe y David Merino Recalde.
