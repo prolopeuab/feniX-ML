@@ -23,7 +23,7 @@ from docx.text.run import Run
 from difflib import get_close_matches
 from typing import Any, Optional, TypedDict, cast
 
-APP_VERSION = "1.2.0"
+APP_VERSION = "1.3.0"
 TABLE_HEADER_MARKER = "^"
 
 
