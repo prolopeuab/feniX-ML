@@ -43,6 +43,39 @@ def escape_xml(text):
     return text
 
 
+def render_tei_italic(content):
+    """
+    Envuelve contenido ya escapado en una etiqueta TEI de cursiva.
+    """
+    return f'<hi rend="italic">{content}</hi>'
+
+
+def render_tei_ref(target, content):
+    """
+    Renderiza un enlace TEI si hay destino; si no, conserva solo el contenido.
+    """
+    if target:
+        return f'<ref target="{escape_xml(target)}">{content}</ref>'
+    return content
+
+
+def render_text_chunk(text, italic=False):
+    """
+    Escapa texto plano y aplica cursiva TEI si corresponde.
+    """
+    escaped_text = escape_xml(text)
+    if italic:
+        return render_tei_italic(escaped_text)
+    return escaped_text
+
+
+def render_hyperlink_content(target, rendered_runs):
+    """
+    Renderiza contenido de hipervínculo ya procesado como <ref>.
+    """
+    return render_tei_ref(target, "".join(rendered_runs))
+
+
 # --- Extracción y procesamiento de notas en el prólogo
 # Funciones para extraer y procesar notas a pie de página del prólogo o introducción.
 
@@ -51,10 +84,15 @@ def extract_intro_footnotes(docx_path):
     Extrae todas las notas a pie de página de un archivo DOCX, preservando cursivas.
     Devuelve un diccionario {id: note_text} con formato TEI (incluyendo <hi rend="italic">).
     """
-    ns = {"w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main"}
+    ns = {
+        "w": "http://schemas.openxmlformats.org/wordprocessingml/2006/main",
+        "r": "http://schemas.openxmlformats.org/officeDocument/2006/relationships",
+        "rel": "http://schemas.openxmlformats.org/package/2006/relationships",
+    }
     footnote_dict = {}
 
     with zipfile.ZipFile(docx_path) as docx_zip:
+        footnote_relationships = extract_footnote_relationships(docx_zip, ns)
         with docx_zip.open("word/footnotes.xml") as footnote_file:
             root = etree.parse(footnote_file).getroot()
 
@@ -64,11 +102,11 @@ def extract_intro_footnotes(docx_path):
                 parts = []
                 for child in note.iterchildren():
                     if child.tag == qn("w:p"):
-                        paragraph_text = render_intro_footnote_paragraph(child, ns)
+                        paragraph_text = render_intro_footnote_paragraph(child, ns, footnote_relationships)
                         if paragraph_text:
                             parts.append(paragraph_text)
                     elif child.tag == qn("w:tbl"):
-                        table_text = render_simple_wml_table(child, ns)
+                        table_text = render_simple_wml_table(child, ns, footnote_relationships)
                         if table_text:
                             parts.append(table_text)
                 
@@ -79,85 +117,148 @@ def extract_intro_footnotes(docx_path):
     return footnote_dict
 
 
-def render_intro_footnote_paragraph(paragraph, ns):
+def extract_footnote_relationships(docx_zip, ns):
+    """
+    Lee word/_rels/footnotes.xml.rels para resolver hipervÃ­nculos de footnotes.xml.
+    """
+    relationships = {}
+    try:
+        with docx_zip.open("word/_rels/footnotes.xml.rels") as rels_file:
+            root = etree.parse(rels_file).getroot()
+    except KeyError:
+        return relationships
+
+    for rel in root.xpath("//rel:Relationship", namespaces=ns):
+        rel_id = rel.get("Id")
+        target = rel.get("Target")
+        if rel_id and target:
+            relationships[rel_id] = target
+    return relationships
+
+
+def render_wml_run(run, ns):
+    """
+    Renderiza un run WML de una nota al pie del prólogo.
+    """
+    is_italic = run.xpath(".//w:i", namespaces=ns) or run.xpath(".//w:iCs", namespaces=ns)
+    run_parts = []
+
+    for child in run.iterchildren():
+        if child.tag == qn("w:t") and child.text:
+            run_parts.append(child.text)
+        elif child.tag == qn("w:tab"):
+            run_parts.append("\t")
+        elif child.tag in (qn("w:br"), qn("w:cr")):
+            run_parts.append("\n")
+
+    run_text = "".join(run_parts)
+    if not run_text:
+        return ""
+
+    return render_text_chunk(run_text, italic=bool(is_italic))
+
+
+def render_wml_hyperlink(hyperlink, ns, relationships):
+    """
+    Renderiza un w:hyperlink de footnotes.xml como <ref>.
+    """
+    rendered_runs = [
+        render_wml_run(run, ns)
+        for run in hyperlink.xpath("./w:r", namespaces=ns)
+    ]
+    rel_id = hyperlink.get(qn("r:id"))
+    target = relationships.get(rel_id, "") if rel_id else ""
+    return render_hyperlink_content(target, rendered_runs)
+
+
+def render_intro_footnote_paragraph(paragraph, ns, relationships=None):
     """
     Renderiza un pÃ¡rrafo WML de una nota al pie del prÃ³logo.
     """
+    relationships = relationships or {}
     parts = []
-    for run in paragraph.xpath(".//w:r", namespaces=ns):
-        is_italic = run.xpath(".//w:i", namespaces=ns) or run.xpath(".//w:iCs", namespaces=ns)
-        run_parts = []
-
-        for child in run.iterchildren():
-            if child.tag == qn("w:t") and child.text:
-                run_parts.append(child.text)
-            elif child.tag == qn("w:tab"):
-                run_parts.append("\t")
-            elif child.tag in (qn("w:br"), qn("w:cr")):
-                run_parts.append("\n")
-
-        run_text = "".join(run_parts)
-        if not run_text:
-            continue
-
-        escaped_text = escape_xml(run_text)
-        if is_italic:
-            parts.append(f'<hi rend="italic">{escaped_text}</hi>')
-        else:
-            parts.append(escaped_text)
+    for child in paragraph.iterchildren():
+        if child.tag == qn("w:r"):
+            parts.append(render_wml_run(child, ns))
+        elif child.tag == qn("w:hyperlink"):
+            parts.append(render_wml_hyperlink(child, ns, relationships))
 
     return "".join(parts).strip()
+
+
+def render_docx_run(run: Run, footnotes_intro=None, preserve_italic_boundaries=False) -> str:
+    """
+    Renderiza un run de python-docx, opcionalmente insertando notas introductorias.
+    """
+    if preserve_italic_boundaries:
+        if run.italic:
+            content = run.text
+            leading_spaces = ""
+            trailing_spaces = ""
+
+            while content.startswith(" ") or content.startswith("\t"):
+                leading_spaces += content[0]
+                content = content[1:]
+
+            while content.endswith(" ") or content.endswith("\t"):
+                trailing_spaces = content[-1] + trailing_spaces
+                content = content[:-1]
+
+            if content:
+                return leading_spaces + render_text_chunk(content, italic=True) + trailing_spaces
+            return run.text
+
+        return render_text_chunk(run.text)
+
+    parts: list[str] = []
+    text_buffer: list[str] = []
+
+    def flush_buffer() -> None:
+        if not text_buffer:
+            return
+        parts.append(render_text_chunk("".join(text_buffer), italic=bool(run.italic)))
+        text_buffer.clear()
+
+    for child in run._element.iterchildren():
+        if child.tag == qn("w:t"):
+            if child.text:
+                text_buffer.append(child.text)
+        elif child.tag == qn("w:tab"):
+            text_buffer.append("\t")
+        elif child.tag in (qn("w:br"), qn("w:cr")):
+            text_buffer.append("\n")
+        elif child.tag == qn("w:footnoteReference") and footnotes_intro is not None:
+            flush_buffer()
+            note_id = child.get(qn("w:id"))
+            if note_id:
+                note_text = footnotes_intro.get(note_id, "")
+                parts.append(f'<note type="intro" n="{note_id}">{note_text}</note>')
+
+    flush_buffer()
+    return "".join(parts)
+
+
+def render_docx_hyperlink(hyperlink: Hyperlink, run_renderer) -> str:
+    """
+    Renderiza un hipervínculo python-docx como <ref>.
+    """
+    target = hyperlink.url or hyperlink.address
+    return render_hyperlink_content(target, [run_renderer(run) for run in hyperlink.runs])
+
 
 def extract_text_with_intro_notes(para, footnotes_intro):
     """
     Extrae el texto de un párrafo, insertando las notas en el lugar correspondiente.
     """
-    def flush_intro_text_buffer(parts: list[str], buffer: list[str], italic: bool) -> None:
-        if not buffer:
-            return
-
-        text_chunk = escape_xml("".join(buffer))
-        if italic:
-            parts.append(f'<hi rend="italic">{text_chunk}</hi>')
-        else:
-            parts.append(text_chunk)
-        buffer.clear()
-
-    def extract_intro_run(run: Run) -> str:
-        parts: list[str] = []
-        text_buffer: list[str] = []
-
-        for child in run._element.iterchildren():
-            if child.tag == qn("w:t"):
-                if child.text:
-                    text_buffer.append(child.text)
-            elif child.tag == qn("w:tab"):
-                text_buffer.append("\t")
-            elif child.tag in (qn("w:br"), qn("w:cr")):
-                text_buffer.append("\n")
-            elif child.tag == qn("w:footnoteReference"):
-                flush_intro_text_buffer(parts, text_buffer, bool(run.italic))
-                note_id = child.get(qn("w:id"))
-                if note_id:
-                    note_text = footnotes_intro.get(note_id, "")
-                    parts.append(f'<note type="intro" n="{note_id}">{note_text}</note>')
-
-        flush_intro_text_buffer(parts, text_buffer, bool(run.italic))
-        return "".join(parts)
-
-    def extract_intro_hyperlink(hyperlink: Hyperlink) -> str:
-        content = "".join(extract_intro_run(run) for run in hyperlink.runs)
-        target = hyperlink.url or hyperlink.address
-        if target:
-            return f'<ref target="{escape_xml(target)}">{content}</ref>'
-        return content
+    def render_run(run: Run) -> str:
+        return render_docx_run(run, footnotes_intro=footnotes_intro)
 
     parts: list[str] = []
     for item in para.iter_inner_content():
         if isinstance(item, Hyperlink):
-            parts.append(extract_intro_hyperlink(item))
+            parts.append(render_docx_hyperlink(item, render_run))
         else:
-            parts.append(extract_intro_run(item))
+            parts.append(render_run(item))
 
     return "".join(parts).strip()
 
@@ -212,42 +313,12 @@ def extract_text_with_italics(para):
     Mueve los espacios que están dentro de runs cursivos hacia fuera para preservar el formato.
     """
     def render_run(run: Run) -> str:
-        if run.italic:
-            # Extrae espacios del principio y final del texto cursivo
-            content = run.text
-            leading_spaces = ""
-            trailing_spaces = ""
-
-            # Extrae espacios del principio
-            while content.startswith(" ") or content.startswith("\t"):
-                leading_spaces += content[0]
-                content = content[1:]
-
-            # Extrae espacios del final
-            while content.endswith(" ") or content.endswith("\t"):
-                trailing_spaces = content[-1] + trailing_spaces
-                content = content[:-1]
-
-            # Solo envuelve en cursiva el contenido sin espacios, escapando caracteres XML
-            if content:  # solo si queda contenido después de quitar espacios
-                return leading_spaces + f'<hi rend="italic">{escape_xml(content)}</hi>' + trailing_spaces
-            # si solo había espacios, los añade sin cursiva
-            return run.text
-
-        # Escapar caracteres XML en texto normal
-        return escape_xml(run.text)
-
-    def render_hyperlink(hyperlink: Hyperlink) -> str:
-        content = "".join(render_run(run) for run in hyperlink.runs)
-        target = hyperlink.url or hyperlink.address
-        if target:
-            return f'<ref target="{escape_xml(target)}">{content}</ref>'
-        return content
+        return render_docx_run(run, preserve_italic_boundaries=True)
 
     text_parts: list[str] = []
     for item in para.iter_inner_content():
         if isinstance(item, Hyperlink):
-            text_parts.append(render_hyperlink(item))
+            text_parts.append(render_docx_hyperlink(item, render_run))
         else:
             text_parts.append(render_run(item))
 
@@ -427,7 +498,7 @@ def extract_docx_table_rows(table: Table, paragraph_renderer) -> list[list[list[
     return table_rows
 
 
-def extract_wml_table_rows(table, ns) -> list[list[list[str]]]:
+def extract_wml_table_rows(table, ns, relationships=None) -> list[list[list[str]]]:
     """
     Extrae una tabla WML de footnotes.xml al formato comÃºn.
     """
@@ -437,7 +508,7 @@ def extract_wml_table_rows(table, ns) -> list[list[list[str]]]:
         for cell in row.xpath("./w:tc", namespaces=ns):
             cell_contents: list[str] = []
             for para in cell.xpath("./w:p", namespaces=ns):
-                cell_text = render_intro_footnote_paragraph(para, ns).strip()
+                cell_text = render_intro_footnote_paragraph(para, ns, relationships).strip()
                 if cell_text:
                     cell_contents.append(cell_text)
             row_cell_contents.append(cell_contents)
@@ -515,11 +586,11 @@ def render_simple_table_to_tei(table_rows, table_indent="          ", compact=Fa
     return "\n".join(tei)
 
 
-def render_simple_wml_table(table, ns):
+def render_simple_wml_table(table, ns, relationships=None):
     """
     Convierte una tabla WML dentro de footnotes.xml al modelo TEI sencillo.
     """
-    return render_simple_table_to_tei(extract_wml_table_rows(table, ns), compact=True)
+    return render_simple_table_to_tei(extract_wml_table_rows(table, ns, relationships), compact=True)
 
 
 def is_versification_section(current_section: Optional[str]) -> bool:
@@ -1567,10 +1638,11 @@ def extract_notes_with_italics(docx_path: str) -> dict:
 
     doc = Document(docx_path)
     last_key: Any = None
-
     for block in iter_document_blocks(doc):
         if isinstance(block, Paragraph):
             text = extract_text_with_italics(block).strip()
+            if not text:
+                continue
 
             # Notas tipo verso: "1: contenido" o "329a: contenido" (con sufijo alfabético)
             # El sufijo alfabético se usa para versos partidos: 329a, 329b, 329c, etc.
@@ -2975,13 +3047,15 @@ def validate_note_format(docx_path: str, note_type: str) -> list[str]:
         is_verse_format = pattern_verse.match(text)
         is_nota_format = pattern_nota.match(text)
         is_aparato_format = pattern_aparato.match(text)
-        
+
         if not is_verse_format and not is_nota_format and not is_aparato_format:
             # El párrafo no cumple ninguno de los formatos válidos
             snippet = text[:80] + "..." if len(text) > 80 else text
             warnings.append(
                 f"❌ Formato incorrecto en archivo '{filename}' ({note_type}, párrafo {i}): "
-                f"Debe comenzar con 'NÚMERO:', '@PALABRA:' o '%PALABRA:' → Texto: {snippet}"
+                f"Debe comenzar con 'NÚMERO:', '@PALABRA:' o '%PALABRA:'. "
+                f"Si es continuación de la nota anterior, une este párrafo al anterior en Word. "
+                f"→ Texto: {snippet}"
             )
     
     return warnings

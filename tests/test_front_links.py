@@ -107,6 +107,57 @@ class FrontLinksTest(unittest.TestCase):
         with zipfile.ZipFile(output_path, "a") as docx_zip:
             docx_zip.writestr("word/footnotes.xml", empty_footnotes)
 
+    def _build_footnote_link_docx(self, output_path: Path) -> None:
+        doc = Document()
+
+        for style_name in ["Titulo_comedia", "Acto", "Personaje", "Verso"]:
+            self._ensure_paragraph_style(doc, style_name)
+
+        doc.add_paragraph("Prólogo")
+
+        para = doc.add_paragraph()
+        para.add_run("Nota con enlace")
+        footnote_reference = OxmlElement("w:footnoteReference")
+        footnote_reference.set(qn("w:id"), "1")
+        para.add_run()._r.append(footnote_reference)
+
+        para = doc.add_paragraph("TÍTULO DE LA COMEDIA")
+        para.style = "Titulo_comedia"
+        para = doc.add_paragraph("ACTO PRIMERO")
+        para.style = "Acto"
+        para = doc.add_paragraph("PERSONAJE")
+        para.style = "Personaje"
+        para = doc.add_paragraph("verso del cuerpo")
+        para.style = "Verso"
+
+        doc.save(output_path)
+
+        footnotes_xml = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<w:footnotes xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+             xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <w:footnote w:type="separator" w:id="-1"/>
+  <w:footnote w:id="1">
+    <w:p>
+      <w:r><w:t>Consulta </w:t></w:r>
+      <w:hyperlink r:id="rIdFootnoteLink">
+        <w:r><w:t>este enlace</w:t></w:r>
+        <w:r><w:rPr><w:i/></w:rPr><w:t> útil</w:t></w:r>
+      </w:hyperlink>
+      <w:r><w:t>.</w:t></w:r>
+    </w:p>
+  </w:footnote>
+</w:footnotes>"""
+        footnotes_rels = """<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rIdFootnoteLink"
+                Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/hyperlink"
+                Target="https://nota.example"
+                TargetMode="External"/>
+</Relationships>"""
+        with zipfile.ZipFile(output_path, "a") as docx_zip:
+            docx_zip.writestr("word/footnotes.xml", footnotes_xml)
+            docx_zip.writestr("word/_rels/footnotes.xml.rels", footnotes_rels)
+
     def test_front_hyperlinks_become_tei_refs(self):
         with TemporaryDirectory() as tmp_dir:
             docx_path = Path(tmp_dir) / "test_front_links.docx"
@@ -137,6 +188,17 @@ class FrontLinksTest(unittest.TestCase):
         body_start = xml.index('<body xml:id="body">')
         body_xml = xml[body_start:]
         self.assertIn('<l n="1">verso del cuerpo</l>', body_xml)
+
+    def test_intro_footnote_hyperlinks_become_tei_refs(self):
+        with TemporaryDirectory() as tmp_dir:
+            docx_path = Path(tmp_dir) / "test_footnote_links.docx"
+            self._build_footnote_link_docx(docx_path)
+            xml = convert_docx_to_tei(main_docx=str(docx_path), save=False)
+
+        self.assertIn(
+            '<note type="intro" n="1">Consulta <ref target="https://nota.example">este enlace<hi rend="italic"> útil</hi></ref>.</note>',
+            xml,
+        )
 
 
 if __name__ == "__main__":
