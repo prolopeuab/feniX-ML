@@ -7,7 +7,7 @@ nav_order: 2
 
 # 2. Aparato crítico
 
-Usa este archivo para registrar **solo variantes del aparato crítico**. Es independiente del texto principal y cada párrafo del DOCX corresponde a una entrada.
+Usa este archivo para registrar **solo variantes del aparato crítico**. Es independiente del texto principal y cada párrafo real del DOCX corresponde a una entrada.
 
 ## Formato de entrada
 
@@ -42,7 +42,7 @@ En el archivo de aparato:
 %dedicatoria: dedicatoria A : dedicación Men
 ```
 
-> Puedes usar cursiva en el contenido del aparato (por ejemplo, siglas o testimonios). No uses etiquetas HTML (`<i>`) ni Markdown (`*...*`) en el DOCX: aplica cursiva de Word, que se transformará en `<hi rend="italic">`.
+> Puedes usar cursiva e hipervínculos de Word en el contenido del aparato (por ejemplo, siglas, testimonios o referencias). No uses etiquetas HTML (`<i>`) ni Markdown (`*...*`) en el DOCX: aplica cursiva de Word, que se transformará en `<hi rend="italic">`.
 {: .tip }
 
 En el texto principal, marca el mismo término con `%`:
@@ -70,10 +70,25 @@ Si un mismo término necesita aparato y nota explicativa:
 
 ![Ejemplo de archivo DOCX de aparato]({{ '/assets/images/capturas/preparar-docx/aparato-docx.png' | relative_url }}){: .img-100 }
 
+## Tablas en aparato
+
+Puedes insertar una tabla simple después de una entrada válida. La tabla quedará asociada a esa entrada.
+
+Si necesitas encabezado, marca la fila escribiendo `^` al principio de cada celda no vacía:
+
+```text
+^Testimonio | ^Lectura
+A           | quiero
+B           | quiera
+```
+
+La primera fila no es encabezado por defecto. La marca `^` se elimina del XML final.
+
 ## Antes de pasar al siguiente archivo
 
 > - Usa `%palabra` (no `@palabra`) para entradas por término no numerado.
-> - Mantén una entrada por párrafo y no mezcles notas y aparato en el mismo DOCX.
+> - Mantén una entrada por párrafo real de Word y no mezcles notas y aparato en el mismo DOCX.
+> - Si la validación identifica como párrafo nuevo una línea que continúa la misma nota, hay un un salto de párrafo oculto que no se ve. Borra los espacios sobrantes o reescribe esa línea hasta que deje de saltar el aviso.
 > - Si la entrada afecta a un segmento amplio, marca el último término del segmento en el texto principal.
-> - Revisa que cada clave `%palabra` tenga su marca correspondiente y conserva cursivas cuando correspondan.
+> - Revisa que cada clave `%palabra` tenga su marca correspondiente y conserva cursivas e hipervínculos cuando correspondan.
 {: .tip }

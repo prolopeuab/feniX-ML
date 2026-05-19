@@ -43,15 +43,29 @@ En el prólogo, tanto `Verso` como `Partido_inicial` / `Partido_medio` / `Partid
 
 El estilo `Acot` también puede usarse en el prólogo. Se convierte en `<stage>` y, si hay un `Personaje` abierto, queda dentro del mismo `<sp>`; si no, se emite como acotación independiente.
 
-Los enlaces del prólogo deben crearse como hipervínculos normales de Word, seleccionando la palabra o frase enlazada y añadiendo el vínculo. La app los convierte en XML-TEI como `<ref target="URL">texto visible</ref>`. Este soporte se aplica al prólogo, incluidas sus citas, acotaciones y tablas.
+Los enlaces del prólogo deben crearse como hipervínculos normales de Word, seleccionando la palabra o frase enlazada y añadiendo el vínculo. La app los convierte en XML-TEI como `<ref target="URL">texto visible</ref>`. Este soporte se aplica al prólogo, incluidas sus citas, acotaciones, tablas y notas al pie.
 
 ### Notas del prólogo
 
-Las notas del prólogo se insertan como notas al pie de Word. La app las transforma en notas TEI de tipo introductorio (`<note type="intro"`).
+Las notas del prólogo se insertan como notas al pie de Word. La app las transforma en notas TEI de tipo introductorio (`<note type="intro">`).
+
+Dentro de estas notas puedes usar texto normal, cursiva, hipervínculos de Word y tablas simples. Si una celda de tabla contiene varios párrafos, se conservarán separados en TEI mediante saltos de línea (`<lb/>`).
+
+### Tablas simples
+
+Las tablas simples del prólogo y de sus notas al pie se convierten en tablas TEI. La primera fila no se interpreta como encabezado automáticamente: si quieres marcar una fila como encabezado, escribe `^` al principio de cada celda no vacía de esa fila.
+
+```text
+^Testimonio | ^Lectura
+A           | amor
+B           | honor
+```
+
+La marca `^` desaparece en el XML final. Si una fila no está marcada así, se tratará como fila de datos.
 
 ### Tabla de sinopsis
 
-La sección de sinopsis puede incluir tabla. La app procesa tablas en el front (especialmente en la sección de sinopsis).
+La sección de sinopsis puede incluir tabla. La tabla de sinopsis de versificación tiene un tratamiento especial para conservar su semántica interna, como actos, resumen y total. Para encabezados generales sigue usando la marca `^`; la app no asume que la primera fila sea encabezado por estar en primera posición, salvo los casos espaciales de la sinopsis de versificación.
 
 ![El prólogo en el documento Word]({{ '/assets/images/capturas/preparar-docx/prologo-docx.png' | relative_url }}){: .img-100 }
 

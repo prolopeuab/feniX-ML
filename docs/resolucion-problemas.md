@@ -92,12 +92,28 @@ has_children: false
 **Causa habitual**
 - Párrafos que no empiezan por formato válido.
 - Símbolo incorrecto para clave léxica (`@` en aparato o `%` en notas).
+- Continuaciones de una nota o entrada que parecen líneas nuevas, pero Word las guarda como párrafos independientes.
 
 **Solución rápida**
 - Usa una entrada por párrafo con prefijo válido: `NÚMERO:`, `NÚMERO+LETRA:`, `@palabra:` o `%palabra:`.
+- Si el párrafo señalado es continuación de la entrada anterior, vuelve al DOCX y únelo manualmente al párrafo anterior. No basta con que visualmente parezca una línea seguida: debe pertenecer al mismo párrafo de Word.
 - En texto principal, respeta correspondencias: `@palabra` (nota), `%palabra` (aparato), `@%palabra` (ambas).
 
-## 8) "Error en la conversión" (entrada inválida o incompleta)
+## 8) Una tabla no muestra encabezado en la vista HTML
+
+**Síntoma**
+- La tabla aparece correctamente, pero la primera fila se ve como una fila normal.
+
+**Causa habitual**
+- La app no interpreta la primera fila como encabezado automáticamente.
+- Falta la marca `^` en una o varias celdas no vacías de la fila de encabezado.
+
+**Solución rápida**
+- Escribe `^` al principio de cada celda no vacía de la fila que deba ser encabezado.
+- Revisa que la marca esté en texto normal al inicio de la celda, antes del contenido.
+- Vuelve a generar la vista HTML: la marca no aparecerá en el XML final, pero la fila se verá como encabezado.
+
+## 9) "Error en la conversión" (entrada inválida o incompleta)
 
 **Síntoma**
 - La conversión se detiene con mensaje de error en GUI.

@@ -7,7 +7,7 @@ nav_order: 3
 
 # 3. Notas explicativas
 
-Usa este archivo para registrar **solo notas explicativas**. Es independiente del texto principal y cada párrafo del DOCX corresponde a una nota.
+Usa este archivo para registrar **solo notas explicativas**. Es independiente del texto principal y cada párrafo real del DOCX corresponde a una nota.
 
 ## Formato de entrada
 
@@ -41,7 +41,7 @@ En el archivo de notas:
 @piramo: Píramo: explicación filológica del término.
 @dedicatoria: dedicatoria: comentario sobre el bloque de dedicatoria.
 ```
-> Puedes usar cursiva en el contenido de las notas. No uses etiquetas HTML (`<i>`) ni Markdown (`*...*`) en el DOCX: aplica cursiva de Word, que se transformá en `<hi rend="italic">`.
+> Puedes usar cursiva e hipervínculos de Word en el contenido de las notas. No uses etiquetas HTML (`<i>`) ni Markdown (`*...*`) en el DOCX: aplica cursiva de Word, que se transformará en `<hi rend="italic">`.
 {: .tip }
 
 En el texto principal, marca el mismo término con `@`:
@@ -68,10 +68,24 @@ Si un mismo término necesita nota y aparato crítico:
 
 ![Archivo de notas]({{ '/assets/images/capturas/preparar-docx/notas-docx.png' | relative_url }})
 
+## Tablas en notas
+
+Puedes insertar una tabla simple después de una nota válida. La tabla quedará asociada a esa nota.
+
+Si necesitas encabezado, marca la fila escribiendo `^` al principio de cada celda no vacía:
+
+```text
+^Columna 1 | ^Columna 2
+Dato 1     | Dato 2
+```
+
+La primera fila no es encabezado por defecto. La marca `^` se elimina del XML final.
+
 ## Antes de pasar al siguiente archivo
 
 > - Usa `@palabra` (no `%palabra`) para notas por término no numerado.
-> - Mantén una nota por párrafo y no mezcles notas y aparato en el mismo DOCX.
+> - Mantén una nota por párrafo real de Word y no mezcles notas y aparato en el mismo DOCX.
+> - Si la validación identifica como párrafo nuevo una línea que continúa la misma nota, hay un un salto de párrafo oculto que no se ve. Borra los espacios sobrantes o reescribe esa línea hasta que deje de saltar el aviso.
 > - Si la nota afecta a un segmento amplio, marca el último término del segmento en el texto principal.
-> - Revisa que cada clave `@palabra` tenga su marca correspondiente y conserva cursivas cuando correspondan.
+> - Revisa que cada clave `@palabra` tenga su marca correspondiente y conserva cursivas e hipervínculos cuando correspondan.
 {: .tip }
