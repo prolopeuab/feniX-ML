@@ -16,6 +16,7 @@ import ctypes
 import json
 import threading
 import traceback
+from datetime import datetime
 from typing import Callable, Optional, Any, cast
 from tkinter import filedialog, messagebox
 
@@ -377,10 +378,39 @@ def main_gui():
     ctk.CTkLabel(frame_output, text="Validación y vista previa",
                  font=("Segoe UI", title_font, "bold")).grid(row=0, column=0, columnspan=2, sticky="w", padx=15, pady=(12,8))
 
-    def show_validation_modal(title, message, has_warnings=False):
+    def get_validation_warning_category(warning: str) -> str:
         """
-        Muestra un modal con scroll para mensajes largos de validacion.
+        Clasifica un aviso de validación para poder filtrarlo en el modal.
         """
+        normalized = warning.upper()
+        if "MÚLTIPLES" in normalized and "PARA VERSO" in normalized:
+            return "Notas múltiples por verso"
+        if "MÚLTIPLES" in normalized:
+            return "Notas múltiples por palabra"
+        if "LÍNEAS SIN ESTILO" in normalized or "ESTILO NO VÁLIDO" in normalized:
+            return "Estilos"
+        if "FORMATO INCORRECTO" in normalized:
+            return "Formato de notas"
+        if "VACÍA" in normalized or "VACIA" in normalized:
+            return "Notas vacías"
+        if "VERSO" in normalized and ("PARTIDO" in normalized or "NUMERACIÓN" in normalized):
+            return "Versos partidos y numeración"
+        if "LAGUNA DETECTADA" in normalized:
+            return "Lagunas"
+        if "VERSO CON CORCHETES" in normalized:
+            return "Versos con corchetes"
+        if "NO EXISTE" in normalized or "ARCHIVO" in normalized:
+            return "Archivos"
+        return "Otros"
+
+    def show_validation_modal(title, message=None, has_warnings=False, warnings=None):
+        """
+        Muestra un modal con scroll para mensajes largos de validación.
+        """
+        warnings = warnings or []
+        if message is None:
+            message = "\n\n".join(warnings) if warnings else ""
+
         modal = ctk.CTkToplevel(root)
         modal.title(title)
         set_windows_icon(cast(tk.Tk, modal))
@@ -395,9 +425,9 @@ def main_gui():
         modal.minsize(520, 300)
 
         modal.grid_columnconfigure(0, weight=1)
-        modal.grid_rowconfigure(1, weight=1)
+        modal.grid_rowconfigure(2, weight=1)
 
-        status_text = "Se han encontrado incidencias" if has_warnings else "Validacion completada sin incidencias"
+        status_text = "Se han encontrado incidencias" if has_warnings else "Validación completada sin incidencias"
         ctk.CTkLabel(
             modal,
             text=status_text,
@@ -405,15 +435,65 @@ def main_gui():
             anchor="w"
         ).grid(row=0, column=0, sticky="ew", padx=16, pady=(14, 8))
 
+        filter_vars: dict[str, tk.BooleanVar] = {}
+        filter_frame = ctk.CTkFrame(modal, fg_color="transparent")
+        if has_warnings and warnings:
+            categories = sorted({get_validation_warning_category(warning) for warning in warnings})
+            filter_frame.grid(row=1, column=0, sticky="ew", padx=16, pady=(0, 6))
+            filter_frame.grid_columnconfigure(0, weight=1)
+
+            ctk.CTkLabel(
+                filter_frame,
+                text="Mostrar avisos:",
+                font=("Segoe UI", max(10, base_font)),
+                anchor="w"
+            ).grid(row=0, column=0, sticky="w", pady=(0, 4))
+
+            checks_frame = ctk.CTkFrame(filter_frame, fg_color="transparent")
+            checks_frame.grid(row=1, column=0, sticky="ew")
+
+            for idx, category in enumerate(categories):
+                var = tk.BooleanVar(value=validation_filter_state.get(category, True))
+                filter_vars[category] = var
+                checkbox = ctk.CTkCheckBox(
+                    checks_frame,
+                    text=category,
+                    variable=var,
+                    command=lambda: refresh_validation_text(),
+                    font=("Segoe UI", max(10, base_font - 1))
+                )
+                checkbox.grid(row=idx // 2, column=idx % 2, sticky="w", padx=(0, 18), pady=2)
+
         textbox = ctk.CTkTextbox(
             modal,
             wrap="word",
             font=("Segoe UI", base_font + 1),
             activate_scrollbars=True
         )
-        textbox.grid(row=1, column=0, sticky="nsew", padx=16, pady=6)
-        textbox.insert("1.0", message)
-        textbox.configure(state="disabled")
+        textbox.grid(row=2, column=0, sticky="nsew", padx=16, pady=6)
+
+        def refresh_validation_text():
+            if warnings and filter_vars:
+                for category, var in filter_vars.items():
+                    validation_filter_state[category] = var.get()
+
+                visible_warnings = [
+                    warning
+                    for warning in warnings
+                    if filter_vars[get_validation_warning_category(warning)].get()
+                ]
+                display_message = "\n\n".join(visible_warnings)
+                if not display_message:
+                    display_message = "No hay avisos visibles con los filtros seleccionados."
+            else:
+                display_message = message
+
+            textbox.configure(state="normal")
+            textbox.delete("1.0", tk.END)
+            textbox.insert("1.0", display_message)
+            textbox.configure(state="disabled")
+
+        refresh_validation_text()
 
         ctk.CTkButton(
             modal,
@@ -422,17 +502,28 @@ def main_gui():
             width=110,
             corner_radius=12,
             font=("Segoe UI", button_font)
-        ).grid(row=2, column=0, sticky="e", padx=16, pady=(6, 14))
+        ).grid(row=3, column=0, sticky="e", padx=16, pady=(6, 14))
 
         modal.bind("<Escape>", lambda _event: modal.destroy())
         modal.focus_force()
 
+    last_validation_result: dict[str, Any] = {}
+    validation_filter_state: dict[str, bool] = {}
+
+    def show_last_validation_button():
+        """
+        Muestra el acceso a la última validación y compacta los botones en una fila.
+        """
+        btn_validar.configure(text="↻ Revalidar")
+        btn_validar.grid_configure(column=0, columnspan=1, padx=(15, 5))
+        btn_ver_ultima_validacion.grid(row=1, column=1, padx=(5, 15), pady=(5,5), sticky="ew")
+
     def on_validar():
         """
-        Ejecuta la validacion de los archivos seleccionados y muestra los avisos encontrados.
+        Ejecuta la validación de los archivos seleccionados y muestra los avisos encontrados.
         """
         if not entry_main.get():
-            messagebox.showwarning("Validacion", "Debe seleccionar un archivo principal.")
+            messagebox.showwarning("Validación", "Debe seleccionar un archivo principal.")
             return
 
         def do_validation():
@@ -445,14 +536,53 @@ def main_gui():
         def on_success(avisos):
             if avisos:
                 mensaje = "\n\n".join(avisos)
-                show_validation_modal("Validacion", mensaje, has_warnings=True)
+                last_validation_result.clear()
+                last_validation_result.update({
+                    "message": mensaje,
+                    "warnings": avisos,
+                    "has_warnings": True,
+                    "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                })
+                show_last_validation_button()
+                show_validation_modal("Validación", has_warnings=True, warnings=avisos)
             else:
-                show_validation_modal("Validacion", "No se han detectado incidencias.", has_warnings=False)
+                mensaje = "No se han detectado incidencias."
+                last_validation_result.clear()
+                last_validation_result.update({
+                    "message": mensaje,
+                    "warnings": [],
+                    "has_warnings": False,
+                    "timestamp": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                })
+                show_last_validation_button()
+                show_validation_modal("Validación", mensaje, has_warnings=False)
 
         def on_error(e):
-            messagebox.showerror("Error", f"Error durante la validacion:\n{str(e)}")
+            messagebox.showerror("Error", f"Error durante la validación:\n{str(e)}")
 
         run_with_progress(do_validation, "Validando documentos...", on_success, on_error)
+
+    def on_ver_ultima_validacion():
+        """
+        Reabre la última validación calculada sin ejecutar de nuevo el proceso.
+        """
+        if not last_validation_result:
+            messagebox.showinfo("Validación", "Todavía no hay una validación guardada en esta sesión.")
+            return
+
+        timestamp = last_validation_result.get("timestamp")
+        message = last_validation_result.get("message", "")
+        warnings = last_validation_result.get("warnings", [])
+        if timestamp:
+            message = f"Validación guardada: {timestamp}\n\n{message}"
+            if warnings:
+                warnings = [f"Validación guardada: {timestamp}\n\n{warnings[0]}"] + list(warnings[1:])
+        show_validation_modal(
+            "Última validación",
+            message,
+            has_warnings=bool(last_validation_result.get("has_warnings")),
+            warnings=warnings
+        )
 
     # Botones de validación y vista previa
     validation_button_height = max(32, int(window_height * 0.04))  
@@ -467,6 +597,16 @@ def main_gui():
         font=("Segoe UI", button_font, "bold")
     )
     btn_validar.grid(row=1, column=0, columnspan=2, padx=15, pady=(5,5), sticky="ew")
+
+    btn_ver_ultima_validacion = ctk.CTkButton(frame_output,
+        text="Ver última",
+        command=on_ver_ultima_validacion,
+        fg_color="#6c757d",
+        hover_color="#5a6268",
+        corner_radius=15,
+        height=validation_button_height,
+        font=("Segoe UI", button_font)
+    )
 
     # Función para vista previa XML con barra de progreso
     def on_vista_previa_xml():

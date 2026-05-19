@@ -24,6 +24,7 @@ from difflib import get_close_matches
 from typing import Any, Optional, TypedDict, cast
 
 APP_VERSION = "1.2.0"
+TABLE_HEADER_MARKER = "^"
 
 
 # --- Funciones de escape XML
@@ -60,28 +61,52 @@ def extract_intro_footnotes(docx_path):
             for note in root.xpath("//w:footnote[not(@w:type='separator')]", namespaces=ns):
                 note_id = note.get(qn("w:id"))
                 
-                # Procesar todos los runs dentro de la nota para detectar cursivas
-                full_text = ""
-                for run in note.xpath(".//w:r", namespaces=ns):
-                    # Verificar si el run tiene formato cursiva
-                    is_italic = run.xpath(".//w:i", namespaces=ns) or run.xpath(".//w:iCs", namespaces=ns)
-                    
-                    # Extraer el texto del run
-                    text_elements = run.xpath(".//w:t", namespaces=ns)
-                    run_text = "".join(t.text for t in text_elements if t.text is not None)
-                    
-                    if run_text:
-                        if is_italic:
-                            # Envolver en cursiva y escapar el contenido
-                            full_text += f'<hi rend="italic">{escape_xml(run_text)}</hi>'
-                        else:
-                            # Escapar el texto normal
-                            full_text += escape_xml(run_text)
+                parts = []
+                for child in note.iterchildren():
+                    if child.tag == qn("w:p"):
+                        paragraph_text = render_intro_footnote_paragraph(child, ns)
+                        if paragraph_text:
+                            parts.append(paragraph_text)
+                    elif child.tag == qn("w:tbl"):
+                        table_text = render_simple_wml_table(child, ns)
+                        if table_text:
+                            parts.append(table_text)
                 
+                full_text = "".join(parts)
                 if full_text.strip():
                     footnote_dict[note_id] = full_text.strip()
 
     return footnote_dict
+
+
+def render_intro_footnote_paragraph(paragraph, ns):
+    """
+    Renderiza un pÃ¡rrafo WML de una nota al pie del prÃ³logo.
+    """
+    parts = []
+    for run in paragraph.xpath(".//w:r", namespaces=ns):
+        is_italic = run.xpath(".//w:i", namespaces=ns) or run.xpath(".//w:iCs", namespaces=ns)
+        run_parts = []
+
+        for child in run.iterchildren():
+            if child.tag == qn("w:t") and child.text:
+                run_parts.append(child.text)
+            elif child.tag == qn("w:tab"):
+                run_parts.append("\t")
+            elif child.tag in (qn("w:br"), qn("w:cr")):
+                run_parts.append("\n")
+
+        run_text = "".join(run_parts)
+        if not run_text:
+            continue
+
+        escaped_text = escape_xml(run_text)
+        if is_italic:
+            parts.append(f'<hi rend="italic">{escaped_text}</hi>')
+        else:
+            parts.append(escaped_text)
+
+    return "".join(parts).strip()
 
 def extract_text_with_intro_notes(para, footnotes_intro):
     """
@@ -337,6 +362,89 @@ def extract_table_cell_contents(cell, footnotes_intro):
     return contents
 
 
+def has_table_header_marker(cell_contents):
+    """
+    Indica si el primer pÃ¡rrafo no vacÃ­o de una celda empieza por el marcador de cabecera.
+    """
+    return bool(cell_contents and cell_contents[0].startswith(TABLE_HEADER_MARKER))
+
+
+def is_marked_table_header_row(row_cell_contents):
+    """
+    Una fila es cabecera si todas sus celdas no vacÃ­as empiezan por el marcador.
+    """
+    non_empty_cells = [
+        cell_contents
+        for cell_contents in row_cell_contents
+        if any(content.strip() for content in cell_contents)
+    ]
+    return bool(non_empty_cells) and all(has_table_header_marker(contents) for contents in non_empty_cells)
+
+
+def strip_table_header_marker_from_contents(cell_contents):
+    """
+    Quita el marcador de cabecera del primer pÃ¡rrafo de una celda ya renderizada.
+    """
+    if not cell_contents:
+        return cell_contents
+
+    cleaned = list(cell_contents)
+    cleaned[0] = re.sub(r'^\^\s?', '', cleaned[0], count=1)
+    return cleaned
+
+
+def strip_table_header_marker_from_text(text):
+    """
+    Quita el marcador de cabecera de texto plano usado para detecciÃ³n de filas especiales.
+    """
+    return re.sub(r'^\^\s?', '', text.strip(), count=1)
+
+
+def clean_marked_header_row_contents(row_cell_contents):
+    """
+    Elimina el marcador de cabecera de todas las celdas de una fila marcada.
+    """
+    if not is_marked_table_header_row(row_cell_contents):
+        return row_cell_contents
+    return [strip_table_header_marker_from_contents(contents) for contents in row_cell_contents]
+
+
+def extract_docx_table_rows(table: Table, paragraph_renderer) -> list[list[list[str]]]:
+    """
+    Extrae una tabla python-docx al formato comÃºn: filas -> celdas -> pÃ¡rrafos.
+    """
+    table_rows: list[list[list[str]]] = []
+    for row in table.rows:
+        row_cell_contents: list[list[str]] = []
+        for cell in row.cells:
+            cell_contents: list[str] = []
+            for para in cell.paragraphs:
+                cell_text = paragraph_renderer(para).strip()
+                if cell_text:
+                    cell_contents.append(cell_text)
+            row_cell_contents.append(cell_contents)
+        table_rows.append(row_cell_contents)
+    return table_rows
+
+
+def extract_wml_table_rows(table, ns) -> list[list[list[str]]]:
+    """
+    Extrae una tabla WML de footnotes.xml al formato comÃºn.
+    """
+    table_rows: list[list[list[str]]] = []
+    for row in table.xpath("./w:tr", namespaces=ns):
+        row_cell_contents: list[list[str]] = []
+        for cell in row.xpath("./w:tc", namespaces=ns):
+            cell_contents: list[str] = []
+            for para in cell.xpath("./w:p", namespaces=ns):
+                cell_text = render_intro_footnote_paragraph(para, ns).strip()
+                if cell_text:
+                    cell_contents.append(cell_text)
+            row_cell_contents.append(cell_contents)
+        table_rows.append(row_cell_contents)
+    return table_rows
+
+
 def append_tei_cell(tei_lines, cell_contents, indent, attrs=""):
     """
     Añade una celda TEI con su contenido ya procesado.
@@ -352,6 +460,66 @@ def append_tei_cell(tei_lines, cell_contents, indent, attrs=""):
         for content in cell_contents:
             tei_lines.append(f"{indent}  <p>{content}</p>")
     tei_lines.append(f"{indent}</cell>")
+
+
+def render_compact_table_cell(cell_contents, attrs=""):
+    """
+    Renderiza una celda en una sola lÃ­nea para tablas dentro de notas.
+    """
+    return f"<cell{attrs}>{'<lb/>'.join(cell_contents)}</cell>"
+
+
+def append_simple_table_cell(tei_lines, cell_contents, indent, attrs=""):
+    """
+    AÃ±ade una celda de tabla simple usando el formato multilÃ­nea del prÃ³logo.
+    """
+    append_tei_cell(tei_lines, cell_contents, indent, attrs=attrs)
+
+
+def render_simple_table_to_tei(table_rows, table_indent="          ", compact=False):
+    """
+    Renderiza una tabla TEI sencilla, compartida por prÃ³logo, footnotes y notas/aparato.
+    """
+    if compact:
+        rows_xml = []
+        for row_cell_contents in table_rows:
+            marked_header = is_marked_table_header_row(row_cell_contents)
+            display_contents = clean_marked_header_row_contents(row_cell_contents)
+            row_attrs = ' role="label"' if marked_header else ""
+            cell_attrs = ' role="label"' if marked_header else ""
+            cells_xml = [
+                render_compact_table_cell(cell_contents, attrs=cell_attrs)
+                for cell_contents in display_contents
+            ]
+            rows_xml.append(f"<row{row_attrs}>{''.join(cells_xml)}</row>")
+        return f"<table>{''.join(rows_xml)}</table>"
+
+    row_indent = f"{table_indent}  "
+    cell_indent = f"{row_indent}  "
+    tei = [f"{table_indent}<table>"]
+    for row_cell_contents in table_rows:
+        marked_header = is_marked_table_header_row(row_cell_contents)
+        display_contents = clean_marked_header_row_contents(row_cell_contents)
+        row_attrs = ' role="label"' if marked_header else ""
+        cell_attrs = ' role="label"' if marked_header else ""
+        if not marked_header:
+            row_attrs = ' role="data"'
+            cell_attrs = ' role="data"'
+
+        tei.append(f"{row_indent}<row{row_attrs}>")
+        for cell_contents in display_contents:
+            append_simple_table_cell(tei, cell_contents, cell_indent, attrs=cell_attrs)
+        tei.append(f"{row_indent}</row>")
+
+    tei.append(f"{table_indent}</table>")
+    return "\n".join(tei)
+
+
+def render_simple_wml_table(table, ns):
+    """
+    Convierte una tabla WML dentro de footnotes.xml al modelo TEI sencillo.
+    """
+    return render_simple_table_to_tei(extract_wml_table_rows(table, ns), compact=True)
 
 
 def is_versification_section(current_section: Optional[str]) -> bool:
@@ -1163,71 +1331,66 @@ def process_front_paragraphs_with_tables(front_blocks, footnotes_intro):
 
     return "\n".join(tei_front)
 
-def process_table_to_tei(table, footnotes_intro=None, current_section=None):
+def render_versification_table_to_tei(table_rows, plain_text_rows, ncols):
     """
-    Convierte una tabla DOCX en una tabla TEI, incluyendo notas al pie.
+    Renderiza la tabla especial de sinopsis de versificaciÃ³n.
     """
-    if footnotes_intro is None:
-        footnotes_intro = {}
+    tei = ['          <table type="sinopsisversificacion">']
 
-    ncols = len(table.columns)
-    versification_table = is_versification_section(current_section)
-    table_attrs = ' type="sinopsisversificacion"' if versification_table else ""
-    tei = [f'          <table{table_attrs}>']
-
-    for row_idx, row in enumerate(table.rows):
-        texts = [cell.text.strip() for cell in row.cells]
+    for row_cell_contents, texts in zip(table_rows, plain_text_rows):
+        marked_header = is_marked_table_header_row(row_cell_contents)
+        display_contents = clean_marked_header_row_contents(row_cell_contents)
         non_empty = [text for text in texts if text]
 
-        if row_idx == 0:
-            tei.append('            <row role="label">')
-            for cell in row.cells:
-                append_tei_cell(
-                    tei,
-                    extract_table_cell_contents(cell, footnotes_intro),
-                    '              ',
-                    attrs=' role="label"'
-                )
-            tei.append('            </row>')
-            continue
-
-        if versification_table and is_versification_act_heading(texts) and len(non_empty) == 1:
+        if is_versification_act_heading(texts) and len(non_empty) == 1:
             tei.append('            <row role="label">')
             append_tei_cell(
                 tei,
-                extract_table_cell_contents(row.cells[0], footnotes_intro),
+                display_contents[0],
                 '              ',
                 attrs=f' role="label" cols="{ncols}"'
             )
             tei.append('            </row>')
             continue
 
-        if versification_table and is_versification_summary_header_row(texts):
+        if is_versification_summary_header_row(texts):
             tei.append('            <row role="label">')
-            for cell in row.cells:
+            for cell_contents in display_contents:
                 append_tei_cell(
                     tei,
-                    extract_table_cell_contents(cell, footnotes_intro),
+                    cell_contents,
                     '              ',
                     attrs=' role="label"'
                 )
             tei.append('            </row>')
             continue
 
-        total_row = versification_table and is_versification_total_row(texts)
+        total_row = is_versification_total_row(texts)
+        if marked_header and not total_row:
+            tei.append('            <row role="label">')
+            for cell_contents in display_contents:
+                append_tei_cell(
+                    tei,
+                    cell_contents,
+                    '              ',
+                    attrs=' role="label"'
+                )
+            tei.append('            </row>')
+            continue
+
         row_attrs = ' role="data"'
         if total_row:
             row_attrs += ' rend="summary"'
 
         tei.append(f'            <row{row_attrs}>')
 
-        for cell_idx, cell in enumerate(row.cells):
+        for cell_idx, cell_contents in enumerate(display_contents):
             cell_attrs = ' role="data"'
             if total_row and cell_idx == 0:
                 cell_attrs = ' role="label"'
             append_tei_cell(
                 tei,
-                extract_table_cell_contents(cell, footnotes_intro),
+                cell_contents,
                 '              ',
                 attrs=cell_attrs
             )
@@ -1237,6 +1400,32 @@ def process_table_to_tei(table, footnotes_intro=None, current_section=None):
     return "\n".join(tei)
 
 # --- Extracción de notas de notas y aparato
+
+# --- Procesamiento de tablas DOCX
+
+def process_table_to_tei(table, footnotes_intro=None, current_section=None):
+    """
+    Convierte una tabla DOCX en TEI; solo versificaciÃ³n usa semÃ¡ntica especial.
+    """
+    if footnotes_intro is None:
+        footnotes_intro = {}
+
+    table_rows = extract_docx_table_rows(
+        table,
+        lambda para: extract_text_with_intro_notes(para, footnotes_intro),
+    )
+    plain_text_rows = [
+        [strip_table_header_marker_from_text(cell.text) for cell in row.cells]
+        for row in table.rows
+    ]
+
+    if is_versification_section(current_section):
+        return render_versification_table_to_tei(table_rows, plain_text_rows, len(table.columns))
+
+    return render_simple_table_to_tei(table_rows)
+
+
+# --- ExtracciÃ³n de notas de notas y aparato
 
 def process_annotations_raw(raw_text, nota_notes, aparato_notes, annotation_counter, section):
     """
@@ -1371,19 +1560,10 @@ def extract_notes_with_italics(docx_path: str) -> dict:
 
     def table_to_tei(table: Table) -> str:
         """Convierte una tabla DOCX a XML TEI básico para incluirla dentro de una nota."""
-        rows_xml: list[str] = []
-        for row in table.rows:
-            cells_xml: list[str] = []
-            for cell in row.cells:
-                cell_parts: list[str] = []
-                for para in cell.paragraphs:
-                    cell_text = extract_text_with_italics(para).strip()
-                    if cell_text:
-                        cell_parts.append(cell_text)
-                cell_content = "<lb/>".join(cell_parts)
-                cells_xml.append(f"<cell>{cell_content}</cell>")
-            rows_xml.append(f"<row>{''.join(cells_xml)}</row>")
-        return f"<table>{''.join(rows_xml)}</table>"
+        return render_simple_table_to_tei(
+            extract_docx_table_rows(table, extract_text_with_italics),
+            compact=True,
+        )
 
     doc = Document(docx_path)
     last_key: Any = None

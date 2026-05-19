@@ -631,8 +631,8 @@ tei-cell {
     vertical-align: top;
     font-size: 1em;
 }
-/* Cabecera de tabla */
-tei-row:first-of-type > tei-cell {
+/* Cabecera de tabla marcada explícitamente con role="label" */
+tei-table:not([type="sinopsisversificacion"]) tei-row[role="label"] > tei-cell[role="label"] {
     font-weight: 700;
     padding-bottom: 0.6em;
 }
