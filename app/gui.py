@@ -94,7 +94,7 @@ def main_gui():
         if mode == "compacto":
             # Modo compacto
             window_width = 750
-            window_height = 620
+            window_height = 660
             base_font = 10
             menu_font = 11
             title_font = 15
@@ -104,7 +104,7 @@ def main_gui():
         else:
             # Modo amplio
             window_width = 1050
-            window_height = 620
+            window_height = 660
             base_font = 11
             menu_font = 12
             title_font = 18
@@ -119,7 +119,7 @@ def main_gui():
         window_height = min(window_height, max_height)
         
         root.geometry(f"{window_width}x{window_height}")
-        root.minsize(700, 620)
+        root.minsize(700, 660)
         return base_font, menu_font, title_font, label_font, button_font, large_button_font, window_width, window_height
 
     # Aplicar escala inicial
