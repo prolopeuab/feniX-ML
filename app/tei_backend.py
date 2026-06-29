@@ -23,7 +23,7 @@ from docx.text.run import Run
 from difflib import get_close_matches
 from typing import Any, Optional, TypedDict, cast
 
-APP_VERSION = "1.3.0"
+APP_VERSION = "1.3.1"
 TABLE_HEADER_MARKER = "^"
 
 
@@ -669,7 +669,40 @@ def uppercase_preserve_tags_and_note_content(text):
 
     return uppercased
 
-def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, section):
+def strip_tei_tags_for_matching(text):
+    """
+    Devuelve texto plano para comparaciones internas, sin etiquetas TEI.
+    """
+    if not text:
+        return ""
+    plain = re.sub(r'<[^>]+>', '', text)
+    plain = plain.replace("\xa0", " ")
+    return re.sub(r'\s+', ' ', plain).strip()
+
+
+def extract_initial_acot_reference(text):
+    """
+    Detecta referencias iniciales del tipo 165Acot en el contenido de una nota.
+    """
+    plain = strip_tei_tags_for_matching(text)
+    match = re.match(r'^(\d+[a-z]?)\s*Acot\b', plain, flags=re.IGNORECASE)
+    if not match:
+        return None
+    return f"{match.group(1).lower()}acot"
+
+
+def normalize_acot_context(annotation_context):
+    """
+    Normaliza el contexto de acotación usado para filtrar notas de aparato.
+    """
+    if not annotation_context:
+        return None
+    if isinstance(annotation_context, dict):
+        annotation_context = annotation_context.get("acot_ref")
+    return extract_initial_acot_reference(str(annotation_context))
+
+
+def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, section, annotation_context=None):
     """
     Extrae texto de un párrafo preservando cursivas y procesando anotaciones (@palabra, %palabra, @%palabra).
     
@@ -682,6 +715,7 @@ def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, a
         aparato_notes: Dict con notas de aparato crítico {palabra_normalizada: contenido}.
         annotation_counter: Dict para mantener sincronización de índices de notas.
         section: Identificador de sección para generar xml:ids únicos.
+        annotation_context: contexto opcional para ubicar notas de aparato en acotaciones.
     
     Returns:
         str: Texto con etiquetas XML de cursiva (<hi rend="italic">) y notas (<note>) integradas.
@@ -703,6 +737,7 @@ def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, a
     # Mantener contadores separados de notas filológicas y aparato crítico para sincronización secuencial
     nota_counters = annotation_counter.setdefault("_occurrences_nota", {})
     aparato_counters = annotation_counter.setdefault("_occurrences_aparato", {})
+    acot_context_ref = normalize_acot_context(annotation_context) if section == "stage" else None
     
     # PASO 1: Construir texto con placeholders de cursiva antes de procesar anotaciones
     marked_text = ""
@@ -772,12 +807,33 @@ def extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, a
             if aparato_index is None:
                 aparato_index = 0
             aparato_list = aparato_notes[key] if isinstance(aparato_notes[key], list) else [aparato_notes[key]]
-            if aparato_index < len(aparato_list):
-                content = aparato_list[aparato_index]
-                xml_id = f"a_{key}_{section}_{aparato_index + 1}"
-                xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id).lower()
-                notes.append(f'<<<NOTE>>><note subtype="aparato" xml:id="{xml_id}">{content}</note><<<ENDNOTE>>>')
-            aparato_counters[key] = aparato_index + 1
+            if acot_context_ref and aparato_index < len(aparato_list):
+                first_ref = extract_initial_acot_reference(aparato_list[aparato_index])
+                if first_ref is None:
+                    content = aparato_list[aparato_index]
+                    xml_id = f"a_{key}_{section}_{aparato_index + 1}"
+                    xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id).lower()
+                    notes.append(f'<<<NOTE>>><note subtype="aparato" xml:id="{xml_id}">{content}</note><<<ENDNOTE>>>')
+                    aparato_counters[key] = aparato_index + 1
+                elif first_ref == acot_context_ref:
+                    next_index = aparato_index
+                    while next_index < len(aparato_list):
+                        content = aparato_list[next_index]
+                        content_ref = extract_initial_acot_reference(content)
+                        if content_ref != acot_context_ref:
+                            break
+                        xml_id = f"a_{key}_{section}_{next_index + 1}"
+                        xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id).lower()
+                        notes.append(f'<<<NOTE>>><note subtype="aparato" xml:id="{xml_id}">{content}</note><<<ENDNOTE>>>')
+                        next_index += 1
+                    aparato_counters[key] = next_index
+            else:
+                if aparato_index < len(aparato_list):
+                    content = aparato_list[aparato_index]
+                    xml_id = f"a_{key}_{section}_{aparato_index + 1}"
+                    xml_id = re.sub(r'[^a-zA-Z0-9_]', '', xml_id).lower()
+                    notes.append(f'<<<NOTE>>><note subtype="aparato" xml:id="{xml_id}">{content}</note><<<ENDNOTE>>>')
+                aparato_counters[key] = aparato_index + 1
         
         # Devolver: placeholders + palabra + notas
         return placeholders_before + word + ''.join(notes)
@@ -2377,7 +2433,15 @@ def convert_docx_to_tei(
             tei.append(f'            <l part="F" n="{verse_key_with_suffix}">{verse_text}</l>')
 
         elif style == "Acot":
-            processed_text = extract_text_with_italics_and_annotations(para, nota_notes, aparato_notes, annotation_counter, "stage")
+            acot_ref = f"{verse_counter - 1}Acot" if verse_counter > 1 else None
+            processed_text = extract_text_with_italics_and_annotations(
+                para,
+                nota_notes,
+                aparato_notes,
+                annotation_counter,
+                "stage",
+                annotation_context={"acot_ref": acot_ref},
+            )
             if state["in_sp"]:
                 # Si estamos dentro de un <sp>, insertar el <stage> dentro con la misma indentación que <l>
                 tei.append(f'            <stage>{processed_text}</stage>')
